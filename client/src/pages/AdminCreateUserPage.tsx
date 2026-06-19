@@ -1,0 +1,108 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../api/api';
+
+import Card from 'react-bootstrap/Card';
+import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
+
+export default function AdminCreateUserPage() {
+  const navigate = useNavigate();
+  document.title="Create User"
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<'staff' | 'admin'>('staff');
+  const [licenseNumber, setLicenseNumber] = useState(''); // Added state for license
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const createUser = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await api.post('/auth/register', {
+        email,
+        password,
+        name,
+        role,
+        license_number: licenseNumber // Sending alphanumeric license string to the backend
+      });
+
+      navigate('/admin/users');
+
+    } catch (err: any) {
+      console.error(err);
+      setError(
+        err?.response?.data?.message || 'Failed to create user'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 600, margin: '0 auto' }}>
+      <Card>
+        <Card.Body>
+
+          <h4 className="mb-3">Create Staff User (Admin Only)</h4>
+
+          <Form.Group className="mb-2">
+            <Form.Label>Name</Form.Label>
+            <Form.Control value={name} onChange={e => setName(e.target.value)} />
+          </Form.Group>
+
+          <Form.Group className="mb-2">
+            <Form.Label>Email</Form.Label>
+            <Form.Control value={email} onChange={e => setEmail(e.target.value)} />
+          </Form.Group>
+
+          <Form.Group className="mb-2">
+            <Form.Label>Password</Form.Label>
+            <Form.Control
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+            />
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Role</Form.Label>
+            <Form.Select
+              value={role}
+              onChange={e => setRole(e.target.value as any)}
+            >
+              <option value="staff">Staff</option>
+              <option value="admin">Admin</option>
+            </Form.Select>
+          </Form.Group>
+
+          {/* LICENSE NUMBER FIELD */}
+          <Form.Group className="mb-3">
+            <Form.Label>License Number</Form.Label>
+            <Form.Control 
+              type="text"
+              value={licenseNumber} 
+              onChange={e => setLicenseNumber(e.target.value)} 
+            />
+          </Form.Group>
+
+          <Button onClick={createUser} disabled={loading}>
+            {loading ? 'Creating...' : 'Create User'}
+          </Button>
+
+          {error && (
+            <p className="mt-3 mb-0 text-danger">
+              {error}
+            </p>
+          )}
+
+        </Card.Body>
+      </Card>
+    </div>
+  );
+}
