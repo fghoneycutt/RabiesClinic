@@ -46,7 +46,7 @@ const Req = ({ children }: { children: React.ReactNode }) => (
 );
 
 export default function AnimalForm(props: Props) {
-  const { animal, updateAnimal, showClinicFields = false } = props;
+  const { animal, updateAnimal} = props;
 
   const breedOptions =
     animal.species === 'dog'
