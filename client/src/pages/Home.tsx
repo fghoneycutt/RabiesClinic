@@ -21,9 +21,22 @@ type Clinic = {
   end_time: string;
 };
 
+// ------------------------------------
+// Prevent timezone shifts when parsing
+// YYYY-MM-DD values from PostgreSQL
+// ------------------------------------
+const parseClinicDate = (dateString: string) => {
+  const [year, month, day] = dateString
+    .split('-')
+    .map(Number);
+
+  return new Date(year, month - 1, day);
+};
+
 export default function Home() {
   const navigate = useNavigate();
-  document.title="Home"
+
+  document.title = 'Home';
 
   const [upcoming, setUpcoming] = useState<Clinic[]>([]);
   const [past, setPast] = useState<Clinic[]>([]);
@@ -35,19 +48,24 @@ export default function Home() {
 
         const now = new Date();
 
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+
         const upcomingClinics = res.data.filter((c: Clinic) => {
-          const clinicDate = new Date(c.clinic_date);
-          return clinicDate >= new Date(now.toDateString());
+          const clinicDate = parseClinicDate(c.clinic_date);
+          return clinicDate >= today;
         });
 
         const pastClinics = res.data.filter((c: Clinic) => {
-          const clinicDate = new Date(c.clinic_date);
-          return clinicDate < new Date(now.toDateString());
+          const clinicDate = parseClinicDate(c.clinic_date);
+          return clinicDate < today;
         });
 
         setUpcoming(upcomingClinics);
         setPast(pastClinics);
-
       } catch (err) {
         console.error(err);
       }
@@ -56,31 +74,50 @@ export default function Home() {
     fetchClinics();
   }, []);
 
-  const formatDateTime = (date: string, start: string, end: string) => {
-    const d = new Date(date);
+  const formatDateTime = (
+    date: string,
+    start: string,
+    end: string
+  ) => {
+    const d = parseClinicDate(date);
 
-    const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
-    const month = d.toLocaleDateString('en-US', { month: 'long' });
+    const weekday = d.toLocaleDateString('en-US', {
+      weekday: 'long'
+    });
+
+    const month = d.toLocaleDateString('en-US', {
+      month: 'long'
+    });
+
     const day = d.getDate();
 
     const getOrdinal = (n: number) => {
       if (n > 3 && n < 21) return 'th';
+
       switch (n % 10) {
-        case 1: return 'st';
-        case 2: return 'nd';
-        case 3: return 'rd';
-        default: return 'th';
+        case 1:
+          return 'st';
+        case 2:
+          return 'nd';
+        case 3:
+          return 'rd';
+        default:
+          return 'th';
       }
     };
 
     const formatTime = (time: string) => {
-      // expects "HH:MM"
       const [hourStr, minute] = time.split(':');
+
       let hour = parseInt(hourStr, 10);
 
       const ampm = hour >= 12 ? 'pm' : 'am';
+
       hour = hour % 12;
-      if (hour === 0) hour = 12;
+
+      if (hour === 0) {
+        hour = 12;
+      }
 
       return `${hour}:${minute}${ampm}`;
     };
@@ -100,7 +137,6 @@ export default function Home() {
     return (
       <Card className="mb-3">
         <Card.Body>
-
           <h5
             style={{ cursor: 'pointer', color: '#0d6efd' }}
             onClick={() => navigate(`/clinics/${clinic.id}`)}
@@ -113,7 +149,8 @@ export default function Home() {
           </p>
 
           <p className="mb-1">
-            {clinic.address}, {clinic.city}, {clinic.state} {clinic.zip_code}
+            {clinic.address}, {clinic.city}, {clinic.state}{' '}
+            {clinic.zip_code}
           </p>
 
           <p className="mb-3">
@@ -127,26 +164,36 @@ export default function Home() {
           {isPast ? (
             <Button
               variant="success"
-              onClick={() => exportClinic(clinic.id, clinic.name)}
+              onClick={() =>
+                exportClinic(clinic.id, clinic.name)
+              }
             >
               Export Data
             </Button>
           ) : null}
-
         </Card.Body>
       </Card>
     );
   };
 
-  const exportClinic = async (clinicId: string, clinicName: string) => {
+  const exportClinic = async (
+    clinicId: string,
+    clinicName: string
+  ) => {
     try {
-      const res = await api.get(`/clinics/${clinicId}/export`, {
-        responseType: 'blob'
-      });
+      const res = await api.get(
+        `/clinics/${clinicId}/export`,
+        {
+          responseType: 'blob'
+        }
+      );
 
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const url = window.URL.createObjectURL(
+        new Blob([res.data])
+      );
 
       const link = document.createElement('a');
+
       link.href = url;
 
       link.setAttribute(
@@ -155,11 +202,12 @@ export default function Home() {
       );
 
       document.body.appendChild(link);
+
       link.click();
 
       link.remove();
-      window.URL.revokeObjectURL(url);
 
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Export failed:', err);
       alert('Failed to export clinic data');
@@ -168,9 +216,7 @@ export default function Home() {
 
   return (
     <div>
-
       <div className="d-flex justify-content-between align-items-center mb-4">
-
         <h2 className="mb-0">Clinics</h2>
 
         <Button
@@ -179,12 +225,16 @@ export default function Home() {
         >
           + Create Clinic
         </Button>
-
       </div>
 
-      <Tabs defaultActiveKey="upcoming" className="mb-3">
-
-        <Tab eventKey="upcoming" title="Upcoming Clinics">
+      <Tabs
+        defaultActiveKey="upcoming"
+        className="mb-3"
+      >
+        <Tab
+          eventKey="upcoming"
+          title="Upcoming Clinics"
+        >
           {upcoming.length === 0 ? (
             <p>No upcoming clinics.</p>
           ) : (
@@ -198,7 +248,10 @@ export default function Home() {
           )}
         </Tab>
 
-        <Tab eventKey="past" title="Past Clinics">
+        <Tab
+          eventKey="past"
+          title="Past Clinics"
+        >
           {past.length === 0 ? (
             <p>No past clinics.</p>
           ) : (
@@ -211,9 +264,7 @@ export default function Home() {
             ))
           )}
         </Tab>
-
       </Tabs>
-
     </div>
   );
 }

@@ -1,11 +1,10 @@
 const db = require('../db');
 const { hashPassword, comparePassword } = require('../auth/password');
 const { signToken, verifyToken } = require('../auth/jwt');
-//
+
 // -----------------------------
 // LOGIN
 // -----------------------------
-//
 async function login(req, res) {
   const { email, password } = req.body;
 
@@ -44,11 +43,9 @@ async function login(req, res) {
   }
 }
 
-//
 // -----------------------------
 // REGISTER
 // -----------------------------
-//
 async function register(req, res) {
 
   const { email, password, role = 'staff', name = null } = req.body;

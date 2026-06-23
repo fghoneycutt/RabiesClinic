@@ -20,9 +20,7 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // ------------------------------------
@@ -33,12 +31,18 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
+    const token = localStorage.getItem('token');
+    const requestUrl = error?.config?.url ?? '';
 
-    // If token is invalid/expired → force logout
-    if (status === 401) {
+    const isLoginRequest =
+      requestUrl.includes('/auth/login');
+
+    if (
+      status === 401 &&
+      token &&
+      !isLoginRequest
+    ) {
       localStorage.removeItem('token');
-
-      // Optional: hard redirect to login
       window.location.href = '/login';
     }
 
