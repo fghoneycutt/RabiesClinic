@@ -5,7 +5,7 @@ import Col from 'react-bootstrap/Col';
 import Select from 'react-select';
 import Button from 'react-bootstrap/Button';
 
-import type { Animal, AnimalDraft } from '../types/intake';
+import type { AnimalDraft } from '../types/intake';
 
 import {
   DOG_BREEDS,
@@ -70,9 +70,6 @@ export default function AnimalForm(props: Props) {
       : [];
 
   const showMultiHeader = 'mode' in props && props.mode === 'multi';
-
-  const hasAge =
-    animal.age_years != null || animal.age_months != null;
 
   return (
     <Card className="mb-3">

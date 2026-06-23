@@ -19,7 +19,6 @@ type Props = {
 export default function DeleteClinicModal({
   show,
   onHide,
-  clinicId,
   clinicName,
   onDelete
 }: Props) {
