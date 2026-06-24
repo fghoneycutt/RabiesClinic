@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import { api } from '../api/api';
@@ -103,8 +103,9 @@ export default function ClinicPage() {
   document.title = `${clinic?.name ?? 'Clinic'}`;
 
   // -----------------------------------
-  // STATE
+  // STATE & REFS
   // -----------------------------------
+  const searchSectionRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -209,6 +210,13 @@ export default function ClinicPage() {
     setSearching(true);
     setHasSearched(true);
 
+    if (searchSectionRef.current) {
+      searchSectionRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+
     try {
       const res = await api.get(
         `clinics/${id}/search?query=${encodeURIComponent(trimmed)}`
@@ -251,7 +259,7 @@ export default function ClinicPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+    <div className="px-2" style={{ maxWidth: 1000, margin: '0 auto' }}>
       <ClinicHeader
         clinic={clinic}
         rightSlot={
@@ -260,21 +268,19 @@ export default function ClinicPage() {
               display: 'grid',
               gridTemplateColumns: 'repeat(2, auto)',
               gap: '0.5rem',
-              justifyContent: 'end'
+              justifyContent: 'start' // Explicitly left-align grid items on all screens
             }}
           >
-
-          <Button
-            variant="outline-primary"
-            onClick={goToEditClinic}
-          >
-            <FontAwesomeIcon
-              icon={faPenToSquare}
-              className="me-2"
-            />
-
-            Edit Clinic
-          </Button>
+            <Button
+              variant="outline-primary"
+              onClick={goToEditClinic}
+            >
+              <FontAwesomeIcon
+                icon={faPenToSquare}
+                className="me-2"
+              />
+              Edit Clinic
+            </Button>
 
             <Button
               variant="success"
@@ -284,11 +290,11 @@ export default function ClinicPage() {
                 icon={faPlus}
                 className="me-2"
               />
-
               New Intake
             </Button>
 
             <Button
+              className="d-none d-lg-inline-block"
               variant="outline-success"
               onClick={exportClinic}
             >
@@ -296,7 +302,6 @@ export default function ClinicPage() {
                 icon={faFileExport}
                 className="me-2"
               />
-
               Export Data
             </Button>
 
@@ -308,11 +313,8 @@ export default function ClinicPage() {
                 icon={linkCopied ? faCheck : faCopy}
                 className="me-2"
               />
-
               Registration Link
             </Button>
-
-
           </div>
         }
       />
@@ -345,240 +347,244 @@ export default function ClinicPage() {
       </Card>
 
       {/* SEARCH */}
-      <Card className="mt-3 shadow-sm">
-        <Card.Body>
-          <div className="mb-3">
-            <h5 className="mb-1">Search Records</h5>
-          </div>
+      <div ref={searchSectionRef} className="mt-3 scroll-margin-top">
+        <Card className="shadow-sm">
+          <Card.Body>
+            <div className="mb-3">
+              <h5 className="mb-1">Search Records</h5>
+            </div>
 
-          <InputGroup className="mb-3">
-            <Form.Control
-              placeholder="Search by owner or pet name"
-              value={searchTerm}
-              onChange={(e) => {
-                const value = e.target.value;
+            <InputGroup className="mb-3">
+              <Form.Control
+                placeholder="Search by owner or pet name"
+                value={searchTerm}
+                onChange={(e) => {
+                  const value = e.target.value;
 
-                setSearchTerm(value);
-                debouncedSearch(value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  runSearch(searchTerm);
-                }
-              }}
-            />
-
-            <Button
-              variant="outline-secondary"
-              onClick={() => {
-                setSearchTerm('');
-                setResults([]);
-                setHasSearched(false);
-                setSearching(false);
-              }}
-            >
-              Clear
-            </Button>
-          </InputGroup>
-
-          {/* SEARCHING */}
-          {searching && (
-            <div className="d-flex align-items-center gap-2">
-              <Spinner
-                animation="border"
-                size="sm"
+                  setSearchTerm(value);
+                  debouncedSearch(value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    runSearch(searchTerm);
+                  }
+                }}
               />
-              <span>Searching...</span>
-            </div>
-          )}
 
-          {/* INITIAL STATE */}
-          {!hasSearched && !searching && (
-            <div className="text-center py-5 text-muted">
-              <div className="mb-2 fs-5">
-                Start typing to search records
-              </div>
-            </div>
-          )}
+              <Button
+                variant="outline-secondary"
+                onClick={() => {
+                  setSearchTerm('');
+                  setResults([]);
+                  setHasSearched(false);
+                  setSearching(false);
+                }}
+              >
+                Clear
+              </Button>
+            </InputGroup>
 
-          {/* RESULT COUNT */}
-          {!searching &&
-            hasSearched &&
-            results.length > 0 && (
-              <div className="small text-muted mb-3">
-                {results.length} owner
-                {results.length !== 1 ? 's' : ''} found
+            {/* SEARCHING */}
+            {searching && (
+              <div className="d-flex align-items-center gap-2">
+                <Spinner
+                  animation="border"
+                  size="sm"
+                />
+                <span>Searching...</span>
               </div>
             )}
 
-          {/* RESULTS */}
-          {!searching &&
-            results.length > 0 && (
-              <div className="d-flex flex-column gap-3">
-                {results.map((owner) => (
-                  <Card
-                    key={owner.owner_id}
-                    className="border shadow-sm"
-                  >
-                    <Card.Body
-                      style={{ cursor: 'pointer' }}
-                      onClick={() =>
-                        goToOwnerProfile(owner.owner_id)
-                      }
+            {/* INITIAL STATE */}
+            {!hasSearched && !searching && (
+              <div className="text-center py-5 text-muted">
+                <div className="mb-2 fs-5">
+                  Start typing to search records
+                </div>
+              </div>
+            )}
+
+            {/* RESULT COUNT */}
+            {!searching &&
+              hasSearched &&
+              results.length > 0 && (
+                <div className="small text-muted mb-3">
+                  {results.length} owner
+                  {results.length !== 1 ? 's' : ''} found
+                </div>
+              )}
+
+            {/* RESULTS */}
+            {!searching &&
+              results.length > 0 && (
+                <div className="d-flex flex-column gap-3">
+                  {results.map((owner) => (
+                    <Card
+                      key={owner.owner_id}
+                      className="border shadow-sm"
                     >
-                      <div className="d-flex justify-content-between flex-wrap gap-3">
-                        <div>
-                          <div className="fw-bold fs-5 text-primary">
-                            {owner.owner_name}
-                          </div>
-
-                          <div className="text-muted small">
-                            {owner.address}
-                          </div>
-
-                          {owner.phone && (
-                            <div className="small">
-                              {owner.phone}
+                      <Card.Body
+                        style={{ cursor: 'pointer' }}
+                        onClick={() =>
+                          goToOwnerProfile(owner.owner_id)
+                        }
+                      >
+                        <div className="d-flex justify-content-between flex-wrap gap-3">
+                          <div>
+                            <div className="fw-bold fs-5 text-primary">
+                              {owner.owner_name}
                             </div>
-                          )}
 
-                          {owner.email && (
-                            <div className="small">
-                              {owner.email}
+                            <div className="text-muted small">
+                              {owner.address}
                             </div>
-                          )}
-                        </div>
 
-                        <Badge
-                          bg="secondary"
-                          className="align-self-start"
-                        >
-                          {(owner.animals?.length ?? 0)} pet
-                          {(owner.animals?.length ?? 0) !== 1
-                            ? 's'
-                            : ''}
-                        </Badge>
-                      </div>
+                            {owner.phone && (
+                              <div className="small">
+                                {owner.phone}
+                              </div>
+                            )}
 
-                      {owner.animals?.length ? (
-                        <div className="mt-3">
-                          <div className="small fw-bold text-muted mb-2">
-                            Animals
-                          </div>
-
-                          <div
-                            className="d-grid small fw-bold text-muted border-bottom pb-2 mb-2"
-                            style={{
-                              gridTemplateColumns:
-                                '1.2fr 0.9fr 1fr 0.9fr 0.9fr 0.9fr 1fr 1fr 1.2fr 1.2fr',
-                              gap: '8px'
-                            }}
-                          >
-                            <div>Name</div>
-                            <div>Species</div>
-                            <div>Breed</div>
-                            <div>Sex</div>
-                            <div>Altered</div>
-                            <div>Age</div>
-                            <div>Color</div>
-                            <div>Pattern</div>
-                            <div>Rabies</div>
-                            <div>Microchip</div>
-                          </div>
-
-                          <div className="d-flex flex-column gap-1">
-                            {owner.animals.map(
-                              (animal) => (
-                                <div
-                                  key={animal.id}
-                                  className="d-grid small py-2 border-bottom align-items-center"
-                                  style={{
-                                    gridTemplateColumns:
-                                      '1.2fr 0.9fr 1fr 0.9fr 0.9fr 0.9fr 1fr 1fr 1.2fr 1.2fr',
-                                    gap: '8px'
-                                  }}
-                                >
-                                  <div className="fw-bold">
-                                    {animal.name}
-                                  </div>
-
-                                  <div>
-                                    {capitalize(
-                                      animal.species
-                                    )}
-                                  </div>
-
-                                  <div>
-                                    {animal.breed || '—'}
-                                  </div>
-
-                                  <div>
-                                    {capitalize(
-                                      animal.sex
-                                    )}
-                                  </div>
-
-                                  <div>
-                                    {animal.altered
-                                      ? 'Yes'
-                                      : 'Unknown'}
-                                  </div>
-
-                                  <div>
-                                    {formatAge(
-                                      animal.age
-                                    )}
-                                  </div>
-
-                                  <div>
-                                    {animal.color || '—'}
-                                  </div>
-
-                                  <div>
-                                    {animal.pattern || '—'}
-                                  </div>
-
-                                  <div>
-                                    {animal.rabies_tag_number
-                                      ? `${
-                                          animal.vaccine_type ===
-                                          'rabies_3_year'
-                                            ? '3 Yr'
-                                            : '1 Yr'
-                                        } • ${
-                                          animal.rabies_tag_number
-                                        }`
-                                      : 'None'}
-                                  </div>
-
-                                  <div>
-                                    {animal.microchip_number ||
-                                      '—'}
-                                  </div>
-                                </div>
-                              )
+                            {owner.email && (
+                              <div className="small">
+                                {owner.email}
+                              </div>
                             )}
                           </div>
-                        </div>
-                      ) : null}
-                    </Card.Body>
-                  </Card>
-                ))}
-              </div>
-            )}
 
-          {/* EMPTY */}
-          {hasSearched &&
-            !searching &&
-            searchTerm &&
-            results.length === 0 && (
-              <div className="text-center py-4 text-muted">
-                No matches found.
-              </div>
-            )}
-        </Card.Body>
-      </Card>
+                          <Badge
+                            bg="secondary"
+                            className="align-self-start"
+                          >
+                            {(owner.animals?.length ?? 0)} pet
+                            {(owner.animals?.length ?? 0) !== 1
+                              ? 's'
+                              : ''}
+                          </Badge>
+                        </div>
+
+                        {owner.animals?.length ? (
+                          <div className="mt-3" style={{ overflowX: 'auto' }}>
+                            <div className="small fw-bold text-muted mb-2">
+                              Animals
+                            </div>
+
+                            <div
+                              className="d-grid small fw-bold text-muted border-bottom pb-2 mb-2"
+                              style={{
+                                gridTemplateColumns:
+                                  '1.2fr 0.9fr 1fr 0.9fr 0.9fr 0.9fr 1fr 1fr 1.2fr 1.2fr',
+                                gap: '8px',
+                                minWidth: '850px'
+                              }}
+                            >
+                              <div>Name</div>
+                              <div>Species</div>
+                              <div>Breed</div>
+                              <div>Sex</div>
+                              <div>Altered</div>
+                              <div>Age</div>
+                              <div>Color</div>
+                              <div>Pattern</div>
+                              <div>Rabies</div>
+                              <div>Microchip</div>
+                            </div>
+
+                            <div className="d-flex flex-column gap-1">
+                              {owner.animals.map(
+                                (animal) => (
+                                  <div
+                                    key={animal.id}
+                                    className="d-grid small py-2 border-bottom align-items-center"
+                                    style={{
+                                      gridTemplateColumns:
+                                        '1.2fr 0.9fr 1fr 0.9fr 0.9fr 0.9fr 1fr 1fr 1.2fr 1.2fr',
+                                      gap: '8px',
+                                      minWidth: '850px'
+                                    }}
+                                  >
+                                    <div className="fw-bold">
+                                      {animal.name}
+                                    </div>
+
+                                    <div>
+                                      {capitalize(
+                                        animal.species
+                                      )}
+                                    </div>
+
+                                    <div>
+                                      {animal.breed || '—'}
+                                    </div>
+
+                                    <div>
+                                      {capitalize(
+                                        animal.sex
+                                      )}
+                                    </div>
+
+                                    <div>
+                                      {animal.altered
+                                        ? 'Yes'
+                                        : 'Unknown'}
+                                    </div>
+
+                                    <div>
+                                      {formatAge(
+                                        animal.age
+                                      )}
+                                    </div>
+
+                                    <div>
+                                      {animal.color || '—'}
+                                    </div>
+
+                                    <div>
+                                      {animal.pattern || '—'}
+                                    </div>
+
+                                    <div>
+                                      {animal.rabies_tag_number
+                                        ? `${
+                                            animal.vaccine_type ===
+                                            'rabies_3_year'
+                                              ? '3 Yr'
+                                              : '1 Yr'
+                                          } • ${
+                                            animal.rabies_tag_number
+                                          }`
+                                        : 'None'}
+                                    </div>
+
+                                    <div>
+                                      {animal.microchip_number ||
+                                        '—'}
+                                    </div>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        ) : null}
+                      </Card.Body>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+            {/* EMPTY */}
+            {hasSearched &&
+              !searching &&
+              searchTerm &&
+              results.length === 0 && (
+                <div className="text-center py-4 text-muted">
+                  No matches found.
+                </div>
+              )}
+          </Card.Body>
+        </Card>
+      </div>
     </div>
   );
 }

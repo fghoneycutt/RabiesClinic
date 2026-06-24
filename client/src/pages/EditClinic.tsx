@@ -251,8 +251,16 @@ export default function EditClinic() {
           <Col>
             <Form.Label>Zip</Form.Label>
             <Form.Control
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={5}
               value={form.zip_code}
-              onChange={e => update('zip_code', e.target.value)}
+              onChange={e =>
+                update(
+                  'zip_code',
+                  e.target.value.replace(/\D/g, '').slice(0, 5)
+                )
+              }
             />
           </Col>
         </Row>
@@ -334,6 +342,8 @@ export default function EditClinic() {
                   <Form.Group>
                     <Form.Label>Lot Number</Form.Label>
                     <Form.Control
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={form.rabies_1_year_lot_number}
                       onChange={e =>
                         update('rabies_1_year_lot_number', e.target.value)
@@ -386,6 +396,8 @@ export default function EditClinic() {
                   <Form.Group>
                     <Form.Label>Lot Number</Form.Label>
                     <Form.Control
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={form.rabies_3_year_lot_number}
                       onChange={e =>
                         update('rabies_3_year_lot_number', e.target.value)

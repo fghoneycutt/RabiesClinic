@@ -64,8 +64,20 @@ export default function OwnerCard({
             </div>
             <div className="col-md-6">
               <Form.Label className="small fw-bold">Phone Number</Form.Label>
-              <Form.Control size="sm" type="tel" value={owner.phone ?? ''} onChange={e => updateOwnerField('phone', e.target.value)} />
-            </div>
+<Form.Control
+  size="sm"
+  type="tel"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  maxLength={10}
+  value={owner.phone ?? ''}
+  onChange={e =>
+    updateOwnerField(
+      'phone',
+      e.target.value.replace(/\D/g, '').slice(0, 10)
+    )
+  }
+/>            </div>
             <div className="col-12">
               <Form.Label className="small fw-bold">Street Address</Form.Label>
               <Form.Control size="sm" value={owner.address ?? ''} onChange={e => updateOwnerField('address', e.target.value)} />
@@ -86,8 +98,19 @@ export default function OwnerCard({
             </div>
             <div className="col-md-2">
               <Form.Label className="small fw-bold">Zip Code</Form.Label>
-              <Form.Control size="sm" value={owner.zip_code ?? ''} onChange={e => updateOwnerField('zip_code', e.target.value)} />
-            </div>
+              <Form.Control
+                size="sm"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={5}
+                value={owner.zip_code ?? ''}
+                onChange={e =>
+                  updateOwnerField(
+                    'zip_code',
+                    e.target.value.replace(/\D/g, '').slice(0, 5)
+                  )
+                }
+              />            </div>
           </div>
         ) : (
           /* READ-ONLY VIEW (Clean, high-density row format) */

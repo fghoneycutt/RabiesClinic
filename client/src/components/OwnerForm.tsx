@@ -82,7 +82,7 @@ export default function OwnerForm({
 
       {/* FIRST + LAST NAME */}
       <Row className="mb-3">
-        <Col>
+        <Col md={6}>
           <Form.Group>
             <Form.Label>
               First Name{' '}
@@ -103,7 +103,7 @@ export default function OwnerForm({
           </Form.Group>
         </Col>
 
-        <Col>
+        <Col md={6}>
           <Form.Group>
             <Form.Label>
               Last Name{' '}
@@ -125,49 +125,48 @@ export default function OwnerForm({
         </Col>
       </Row>
 
-      {/* NO EMAIL */}
-      <Form.Group className="mb-3">
-        <Form.Check
-          type="checkbox"
-          label="No Email"
-          checked={noEmail}
-          onChange={(e) => {
-            const checked =
-              e.target.checked;
-
-            setNoEmail(checked);
-
-            if (checked) {
-              update('email', '');
-            }
-          }}
-        />
-      </Form.Group>
-
       {/* EMAIL + PHONE */}
       <Row className="mb-3">
-        {!noEmail && (
-          <Col>
-            <Form.Group>
-              <Form.Label>
-                Email
-              </Form.Label>
+        <Col md={6}>
+          <Form.Group className="mb-2">
+            <Form.Label>
+              Email
+            </Form.Label>
 
-              <Form.Control
-                type="email"
-                value={owner.email || ''}
-                onChange={(e) =>
-                  update(
-                    'email',
-                    e.target.value
-                  )
+            <Form.Control
+              type="email"
+              disabled={noEmail}
+              value={owner.email || ''}
+              onChange={(e) =>
+                update(
+                  'email',
+                  e.target.value
+                )
+              }
+            />
+          </Form.Group>
+
+          {/* NO EMAIL CHECKBOX (Now placed below the email field) */}
+          <Form.Group>
+            <Form.Check
+              type="checkbox"
+              label="No Email"
+              checked={noEmail}
+              onChange={(e) => {
+                const checked =
+                  e.target.checked;
+
+                setNoEmail(checked);
+
+                if (checked) {
+                  update('email', '');
                 }
-              />
-            </Form.Group>
-          </Col>
-        )}
+              }}
+            />
+          </Form.Group>
+        </Col>
 
-        <Col>
+        <Col md={6} className="d-flex flex-column justify-content-start mt-3 mt-md-0">
           <Form.Group>
             <Form.Label>
               Phone Number{' '}
@@ -212,7 +211,7 @@ export default function OwnerForm({
 
       {/* CITY + COUNTY */}
       <Row className="mb-3">
-        <Col>
+        <Col md={6}>
           <Form.Group>
             <Form.Label>
               City{' '}
@@ -233,7 +232,7 @@ export default function OwnerForm({
           </Form.Group>
         </Col>
 
-        <Col>
+        <Col md={6}>
           <Form.Group>
             <Form.Label>
               County{' '}
@@ -257,7 +256,7 @@ export default function OwnerForm({
 
       {/* STATE + ZIP */}
       <Row className="mb-3">
-        <Col>
+        <Col md={6}>
           <Form.Group>
             <Form.Label>
               State / Province{' '}
@@ -288,7 +287,7 @@ export default function OwnerForm({
           </Form.Group>
         </Col>
 
-        <Col>
+        <Col md={6}>
           <Form.Group>
             <Form.Label>
               Zip Code{' '}

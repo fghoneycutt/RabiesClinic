@@ -91,27 +91,6 @@ export default function PublicRegistrationPage() {
   };
 
   // ----------------------
-  // CLONE LAST ANIMAL
-  // ----------------------
-  const cloneLastAnimal = () => {
-    setAnimals(prev => {
-      if (prev.length === 0) {
-        return [{ ...EMPTY_ANIMAL }];
-      }
-
-      const lastAnimal =
-        prev[prev.length - 1];
-
-      const cloned: AnimalDraft = {
-        ...lastAnimal,
-        name: ''
-      };
-
-      return [...prev, cloned];
-    });
-  };
-
-  // ----------------------
   // REMOVE ANIMAL
   // ----------------------
   const removeAnimal = (
@@ -155,7 +134,7 @@ export default function PublicRegistrationPage() {
     return (
       owner.first_name.trim() !== '' &&
       owner.last_name.trim() !== '' &&
-      owner.phone.trim() !== '' &&
+      owner.phone.replace(/\D/g, '').length === 10 &&
       owner.address?.trim() !== '' &&
       owner.city?.trim() !== '' &&
       owner.county?.trim() !== '' &&
@@ -437,13 +416,6 @@ export default function PublicRegistrationPage() {
           variant="secondary"
         >
           + Add Another Animal
-        </Button>
-
-        <Button
-          onClick={cloneLastAnimal}
-          variant="outline-secondary"
-        >
-          + Clone Animal
         </Button>
 
         <Button

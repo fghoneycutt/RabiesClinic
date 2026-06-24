@@ -61,8 +61,11 @@ export default function ClinicHeader({
 
   const linkTo = clinicUrl || `/clinics/${clinic.id}`;
 
-  return (
-    <div className="d-flex justify-content-between align-items-start mb-4">
+return (
+  <div className="mb-4">
+
+    {/* HEADER ROW */}
+    <div className="d-flex flex-column flex-lg-row justify-content-between align-items-start">
 
       {/* CLICKABLE LEFT SIDE */}
       <Link
@@ -81,7 +84,8 @@ export default function ClinicHeader({
           </p>
 
           <p className="text-muted mb-1 small">
-            {clinic.address}, {clinic.city}, {clinic.state} {clinic.zip_code}
+            {clinic.address}, {clinic.city}, {clinic.state}{' '}
+            {clinic.zip_code}
           </p>
 
           <p className="text-muted mb-0 small">
@@ -93,15 +97,25 @@ export default function ClinicHeader({
           </p>
 
           {title && (
-            <h3 className="mt-3 mb-0">{title}</h3>
+            <h3 className="mt-3 mb-0">
+              {title}
+            </h3>
           )}
         </div>
       </Link>
 
-      {/* RIGHT SLOT */}
-      <div className="ms-3">
+      {/* DESKTOP BUTTONS */}
+      <div className="ms-lg-3 d-none d-lg-block">
         {rightSlot}
       </div>
+
     </div>
-  );
+
+    {/* MOBILE/TABLET BUTTONS */}
+    <div className="mt-3 d-lg-none">
+      {rightSlot}
+    </div>
+
+  </div>
+);
 }
