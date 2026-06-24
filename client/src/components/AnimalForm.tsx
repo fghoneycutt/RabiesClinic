@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import Card from 'react-bootstrap/Card';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
@@ -46,7 +47,10 @@ const Req = ({ children }: { children: React.ReactNode }) => (
 );
 
 export default function AnimalForm(props: Props) {
-  const { animal, updateAnimal} = props;
+  const { animal, updateAnimal } = props;
+
+  // Local state for the calculator field (stored as 'YYYY-MM-DD')
+  const [approxBirthdate, setApproxBirthdate] = useState<string>('');
 
   const breedOptions =
     animal.species === 'dog'
@@ -70,6 +74,72 @@ export default function AnimalForm(props: Props) {
       : [];
 
   const showMultiHeader = 'mode' in props && props.mode === 'multi';
+
+  // ----------------------------------------------------------------
+  // Reciprocal Update Logic
+  // ----------------------------------------------------------------
+
+  // Automatically calculate the approximate birthdate string whenever age values change
+  useEffect(() => {
+    let years = animal.age_years || 0;
+    let months = animal.age_months || 0;
+
+    if (animal.age_years === null && animal.age_months === null) {
+      setApproxBirthdate('');
+      return;
+    }
+
+    // If months are 12 or higher, normalize them into years
+    if (months >= 12) {
+      years += Math.floor(months / 12);
+      months = months % 12;
+    }
+
+    const today = new Date();
+    today.setFullYear(today.getFullYear() - years);
+    today.setMonth(today.getMonth() - months);
+
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+
+    setApproxBirthdate(`${yyyy}-${mm}-${dd}`);
+  }, [animal.age_years, animal.age_months]);
+
+  // When user modifies the date selection directly
+  const handleBirthdateChange = (dateString: string) => {
+    setApproxBirthdate(dateString);
+
+    if (!dateString) {
+      updateAnimal('age_years', null);
+      updateAnimal('age_months', null);
+      return;
+    }
+
+    const birthDate = new Date(dateString);
+    const today = new Date();
+
+    if (birthDate > today) {
+      updateAnimal('age_years', 0);
+      updateAnimal('age_months', 0);
+      return;
+    }
+
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+
+    // Alignment corrections for exact calendar boundary days
+    if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+      years--;
+      months += 12;
+    }
+    if (today.getDate() < birthDate.getDate()) {
+      months--;
+    }
+
+    updateAnimal('age_years', years >= 0 ? years : 0);
+    updateAnimal('age_months', months >= 0 ? months : 0);
+  };
 
   return (
     <Card className="mb-3">
@@ -254,13 +324,41 @@ export default function AnimalForm(props: Props) {
                 inputMode="numeric" 
                 pattern="[0-9]*"
                 type="number"
+                min="0"
+                max="11"
                 value={animal.age_months ?? ''}
-                onChange={e =>
-                  updateAnimal(
-                    'age_months',
-                    e.target.value === '' ? null : Number(e.target.value)
-                  )
-                }
+                onChange={e => {
+                  const val = e.target.value;
+                  
+                  // If empty, let them clear the field
+                  if (val === '') {
+                    updateAnimal('age_months', null);
+                    return;
+                  }
+
+                  const num = Number(val);
+
+                  // Prevent typing anything less than 0 or greater than 11
+                  if (num < 0 || num > 11) {
+                    return; // Do nothing, reject the input
+                  }
+
+                  updateAnimal('age_months', num);
+                }}
+              />
+            </Form.Group>
+          </Col>
+        </Row>
+
+        {/* APPROXIMATE BIRTHDATE CALCULATOR */}
+        <Row className="mb-3">
+          <Col md={12}>
+            <Form.Group>
+              <Form.Label>Approximate Birthdate</Form.Label>
+              <Form.Control
+                type="date"
+                value={approxBirthdate}
+                onChange={e => handleBirthdateChange(e.target.value)}
               />
             </Form.Group>
           </Col>
