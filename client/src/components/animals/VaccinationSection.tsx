@@ -274,6 +274,8 @@ export default function VaccineSection({
                       <td>
                         {editing ? (
                           <Form.Control
+                            inputMode="numeric" 
+                            pattern="[0-9]*"
                             size="sm"
                             value={active.rabies_tag_number || ''}
                             onChange={e =>
@@ -340,6 +342,8 @@ export default function VaccineSection({
                       <td>
                         {editing ? (
                           <Form.Control
+                            inputMode="numeric" 
+                            pattern="[0-9]*"
                             size="sm"
                             value={active.lot_number || ''}
                             onChange={e =>

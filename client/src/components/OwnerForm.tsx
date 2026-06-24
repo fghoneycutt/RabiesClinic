@@ -174,7 +174,9 @@ export default function OwnerForm({
               <span className="text-danger">*</span>
             </Form.Label>
 
-            <Form.Control
+            <Form.Control  
+              inputMode="numeric" 
+              pattern="[0-9]*"
               required
               type="tel"
               value={owner.phone || ''}
@@ -294,6 +296,7 @@ export default function OwnerForm({
             </Form.Label>
 
             <Form.Control
+              pattern="[0-9]*"
               required
               type="text"
               inputMode="numeric"

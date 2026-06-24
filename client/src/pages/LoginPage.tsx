@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
@@ -10,7 +10,9 @@ import Alert from 'react-bootstrap/Alert';
 import PasswordInput from '../components/input/PasswordInput';
 
 export default function LoginPage() {
-  document.title = 'Login';
+  useEffect(() => {
+    document.title = 'Login';
+  }, []);
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -42,44 +44,52 @@ export default function LoginPage() {
     <div className="d-flex justify-content-center mt-5">
       <Card style={{ width: 400 }}>
         <Card.Body>
+          <Form
+            onSubmit={(e) => {
+              e.preventDefault();
 
-          <h3 className="mb-3">Login</h3>
-
-          {error && (
-            <Alert variant="danger">
-              {error}
-            </Alert>
-          )}
-
-          <Form.Group className="mb-3">
-            <Form.Label>Email</Form.Label>
-
-            <Form.Control
-              type="email"
-              value={email}
-              autoComplete="username"
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </Form.Group>
-
-          <Form.Group className="mb-3">
-            <PasswordInput
-              label="Password"
-              value={password}
-              required
-              autoComplete="current-password"
-              onChange={setPassword}
-            />
-          </Form.Group>
-
-          <Button
-            className="w-100"
-            onClick={handleSubmit}
-            disabled={loading}
+              if (!loading) {
+                handleSubmit();
+              }
+            }}
           >
-            {loading ? 'Logging in...' : 'Login'}
-          </Button>
+            <h3 className="mb-3">Login</h3>
 
+            {error && (
+              <Alert variant="danger">
+                {error}
+              </Alert>
+            )}
+
+            <Form.Group className="mb-3">
+              <Form.Label>Email</Form.Label>
+
+              <Form.Control
+                type="email"
+                value={email}
+                autoComplete="username"
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <PasswordInput
+                label="Password"
+                value={password}
+                required
+                autoComplete="current-password"
+                onChange={setPassword}
+              />
+            </Form.Group>
+
+            <Button
+              type="submit"
+              className="w-100"
+              disabled={loading}
+            >
+              {loading ? 'Logging in...' : 'Login'}
+            </Button>
+          </Form>
         </Card.Body>
       </Card>
     </div>

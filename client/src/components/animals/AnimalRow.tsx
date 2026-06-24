@@ -194,9 +194,18 @@ export default function AnimalRow({
                 size="sm"
                 className="ps-4"
                 maxLength={19}
-                value={formatMicrochip(animal.microchip_number || '')}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                style={{
+                  minWidth: '19ch'
+                }}
+                value={formatMicrochip(
+                  animal.microchip_number || ''
+                )}
                 onChange={(e) => {
-                  const rawValue = unformatMicrochip(e.target.value);
+                  const rawValue = unformatMicrochip(
+                    e.target.value
+                  );
 
                   updateAnimalLocal(
                     animal.id,
@@ -205,7 +214,9 @@ export default function AnimalRow({
                   );
                 }}
                 onBlur={(e) => {
-                  const rawValue = unformatMicrochip(e.target.value);
+                  const rawValue = unformatMicrochip(
+                    e.target.value
+                  );
 
                   saveAnimalField(
                     animal.id,
@@ -213,7 +224,7 @@ export default function AnimalRow({
                     rawValue
                   );
                 }}
-                 onCopy={(e) => {
+                onCopy={(e) => {
                   e.preventDefault();
 
                   navigator.clipboard.writeText(

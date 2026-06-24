@@ -233,6 +233,8 @@ export default function AnimalForm(props: Props) {
             <Form.Group>
               <Form.Label>Age (Years)</Form.Label>
               <Form.Control
+                inputMode="numeric" 
+                pattern="[0-9]*"
                 type="number"
                 value={animal.age_years ?? ''}
                 onChange={e =>
@@ -249,6 +251,8 @@ export default function AnimalForm(props: Props) {
             <Form.Group>
               <Form.Label>Age (Months)</Form.Label>
               <Form.Control
+                inputMode="numeric" 
+                pattern="[0-9]*"
                 type="number"
                 value={animal.age_months ?? ''}
                 onChange={e =>
