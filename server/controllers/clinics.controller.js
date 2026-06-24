@@ -171,13 +171,19 @@ exports.searchClinicOwners = async (req, res) => {
       `
       SELECT
         owners.id AS owner_id,
-        CONCAT(owners.first_name, ' ', owners.last_name) AS owner_name,
+        CONCAT(
+          owners.first_name,
+          ' ',
+          owners.last_name
+        ) AS owner_name,
+
         CONCAT(
           owners.address, ', ',
           owners.city, ', ',
           owners.state, ' ',
           owners.zip_code
         ) AS address,
+
         owners.email,
         owners.phone,
 
@@ -190,46 +196,83 @@ exports.searchClinicOwners = async (req, res) => {
               'breed', animals.primary_breed,
               'sex', animals.sex,
               'altered', animals.altered_status,
-              'age', CONCAT(
-                COALESCE(animals.age_years::text, ''),
-                'y ',
-                COALESCE(animals.age_months::text, ''),
-                'm'
-              ),
+
+              'age',
+                CONCAT(
+                  COALESCE(animals.age_years::text, ''),
+                  'y ',
+                  COALESCE(animals.age_months::text, ''),
+                  'm'
+                ),
+
               'color', animals.primary_color,
               'pattern', animals.pattern,
-              'rabies_tag_number', animals.rabies_tag_number,
-              'microchip_number', animals.microchip_number
+
+              'rabies_tag_number',
+                vaccinations.rabies_tag_number,
+
+              'vaccine_type',
+                vaccinations.vaccine_type,
+
+              'microchip_number',
+                animals.microchip_number
             )
-          ) FILTER (WHERE animals.id IS NOT NULL),
+          ) FILTER (
+            WHERE animals.id IS NOT NULL
+          ),
           '[]'
         ) AS animals
 
       FROM owners
+
       INNER JOIN animals
         ON animals.owner_id = owners.id
+
+      LEFT JOIN vaccinations
+        ON vaccinations.animal_id = animals.id
+        AND vaccinations.is_active = true
 
       WHERE animals.clinic_id = $1
       AND (
         LOWER(owners.first_name) LIKE LOWER($2)
         OR LOWER(owners.last_name) LIKE LOWER($2)
-        OR LOWER(CONCAT(owners.first_name, ' ', owners.last_name)) LIKE LOWER($2)
+        OR LOWER(
+          CONCAT(
+            owners.first_name,
+            ' ',
+            owners.last_name
+          )
+        ) LIKE LOWER($2)
         OR LOWER(owners.email) LIKE LOWER($2)
         OR LOWER(owners.phone) LIKE LOWER($2)
         OR LOWER(owners.address) LIKE LOWER($2)
         OR LOWER(animals.name) LIKE LOWER($2)
       )
 
-      GROUP BY owners.id
+      GROUP BY
+        owners.id,
+        owners.first_name,
+        owners.last_name,
+        owners.address,
+        owners.city,
+        owners.state,
+        owners.zip_code,
+        owners.email,
+        owners.phone
+
       ORDER BY owner_name ASC
       `,
       [id, `%${search}%`]
     );
 
     res.json(result.rows);
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Failed to search clinic owners' });
+
+    res.status(500).json({
+      message: 'Failed to search clinic owners'
+    });
   }
 };
 

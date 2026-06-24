@@ -232,13 +232,6 @@ export default function PublicRegistrationPage() {
     });
   };
 
-  // ----------------------
-  // CLOSE PAGE
-  // ----------------------
-  const closePage = () => {
-    window.close();
-  };
-
   if (loading || !clinic) {
     return <p>Loading clinic...</p>;
   }
@@ -376,13 +369,6 @@ export default function PublicRegistrationPage() {
             onClick={submitMore}
           >
             Submit More Animals
-          </Button>
-
-          <Button
-            variant="outline-secondary"
-            onClick={closePage}
-          >
-            Close Page
           </Button>
         </div>
       </div>

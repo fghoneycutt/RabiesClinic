@@ -77,7 +77,7 @@ export default function ClinicHeader({
           <h2 className="mb-1">{clinic.name}</h2>
 
           <p className="text-muted mb-1">
-            {clinic.location_name} • {clinic.city}, {clinic.state}
+            {clinic.location_name}
           </p>
 
           <p className="text-muted mb-1 small">

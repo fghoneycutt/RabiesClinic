@@ -29,7 +29,10 @@ export default function AppNavbar() {
         <Navbar.Collapse id="basic-navbar-nav">
 
           <Nav className="me-auto">
-            {/* You can later add role-based links here */}
+            <Nav.Link as={Link} to="/">
+              Home
+            </Nav.Link>
+
             {user?.role === 'admin' && (
               <Nav.Link as={Link} to="/admin/users">
                 User Management

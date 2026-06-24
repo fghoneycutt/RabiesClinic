@@ -110,7 +110,6 @@ export default function AnimalEditableCells({
                 );
               }}
             >
-              <option value=""></option>
               {breedOptions.map((b) => (
                 <option key={b} value={b}>
                   {b}
@@ -134,7 +133,6 @@ export default function AnimalEditableCells({
                 );
               }}
             >
-              <option value=""></option>
               {breedOptions.map((b) => (
                 <option key={b} value={b}>
                   {b}
@@ -282,7 +280,6 @@ export default function AnimalEditableCells({
                 );
               }}
             >
-              <option value=""></option>
               {colorOptions.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -306,7 +303,6 @@ export default function AnimalEditableCells({
                 );
               }}
             >
-              <option value=""></option>
               {colorOptions.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -332,7 +328,6 @@ export default function AnimalEditableCells({
               saveAnimalField(animal.id, 'pattern', e.target.value);
             }}
           >
-            <option value=""></option>
             {patternOptions.map((p) => (
               <option key={p} value={p}>
                 {p}
