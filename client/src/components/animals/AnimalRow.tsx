@@ -197,7 +197,7 @@ export default function AnimalRow({
                 inputMode="numeric"
                 pattern="[0-9]*"
                 style={{
-                  minWidth: '19ch'
+                  minWidth: '25ch'
                 }}
                 value={formatMicrochip(
                   animal.microchip_number || ''
