@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   useNavigate,
   useParams,
@@ -75,7 +75,16 @@ export default function WalkinIntake() {
   const { clinic, loading } =
     useClinic(id);
 
-  document.title = 'Walk-In Intake';
+  useEffect(() => {
+    if (!clinic) {
+      document.title = 'Loading Intake...';
+      return;
+    }
+
+    document.title = isStaffMode
+      ? `Walk-In Intake - ${clinic.name}`
+      : `${clinic.name} Pre-Registration`;
+  }, [clinic, isStaffMode]);
 
   // ----------------------
   // OWNER STATE

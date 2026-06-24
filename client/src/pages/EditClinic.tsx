@@ -56,11 +56,16 @@ function extractProductName(full: string) {
 export default function EditClinic() {
   const { id } = useParams();
   const navigate = useNavigate();
-  document.title=`Edit ${name}`
 
   const [form, setForm] = useState<ClinicForm | null>(null);
   const [vets, setVets] = useState<VetUser[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  useEffect(() => {
+    document.title = form?.name
+        ? `Edit ${form.name}`
+        : 'Edit Clinic';
+    }, [form?.name]);
 
   useEffect(() => {
     api.get('/users?role=staff')

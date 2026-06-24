@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 import { api } from '../api/api';
 import { useClinic } from '../hooks/useClinics';
@@ -9,12 +9,19 @@ import OwnerCard from '../components/owner/OwnerCard';
 import AnimalsTable from '../components/owner/AnimalsTable';
 import AddAnimalModal from '../components/owner/AddAnimalModal';
 
+import Button from 'react-bootstrap/Button';
+
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus } from '@fortawesome/free-solid-svg-icons';
+
 import type { Owner, Animal } from '../types/intake';
 
 type UserOption = {
   id: string;
   name: string;
 };
+
+
 
 export default function OwnerProfilePage() {
   const { clinicId, ownerId } = useParams();
@@ -37,8 +44,13 @@ export default function OwnerProfilePage() {
   const [editingAnimals, setEditingAnimals] = useState<Set<string>>(new Set());
 
   const [showAddAnimalModal, setShowAddAnimalModal] = useState(false);
+  const navigate = useNavigate();
 
-  document.title=`${owner?.first_name} ${owner?.last_name} Profile`
+  useEffect(() => {
+    document.title = owner
+      ? `${owner.first_name} ${owner.last_name} Profile`
+      : 'Owner Profile';
+  }, [owner]);
 
   const onDeleteAnimal = async (animalId: string) => {
     try {
@@ -53,7 +65,7 @@ export default function OwnerProfilePage() {
   };
 
   // -------------------------
-  // FETCH USERS (IMPORTANT FOR VACCINES)
+  // FETCH USERS
   // -------------------------
   useEffect(() => {
     const fetchUsers = async () => {
@@ -68,6 +80,12 @@ export default function OwnerProfilePage() {
 
     fetchUsers();
   }, []);
+
+  const goToIntake = () => {
+    navigate(`/clinics/${clinicId}/intake?mode=staff`, {
+      state: clinic
+    });
+  };
 
   // -------------------------
   // NORMALIZE ANIMAL
@@ -222,7 +240,22 @@ export default function OwnerProfilePage() {
         paddingTop: '1.5rem'
       }}
     >
-      <ClinicHeader clinic={clinic} />
+      <ClinicHeader
+        clinic={clinic}
+        rightSlot={
+          <Button
+            variant="success"
+            onClick={goToIntake}
+          >
+            <FontAwesomeIcon
+              icon={faPlus}
+              className="me-2"
+            />
+
+            New Intake
+          </Button>
+        }
+      />
 
       <OwnerCard
         owner={owner}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { api } from '../api/api';
@@ -57,7 +57,11 @@ export default function PublicRegistrationPage() {
 
   const { clinic, loading } = useClinic(id);
 
-  document.title = 'Pre-Registration';
+  useEffect(() => {
+    document.title = clinic?.name
+      ? `${clinic.name} Pre-Registration`
+      : 'Pre-Registration';
+  }, [clinic?.name]);
 
   const [owner, setOwner] =
     useState<OwnerDraft>(EMPTY_OWNER);
