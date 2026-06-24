@@ -277,15 +277,15 @@ export default function ClinicPage() {
           </Button>
 
             <Button
-              variant="outline-info"
-              onClick={copyRegistrationLink}
+              variant="success"
+              onClick={goToIntake}
             >
               <FontAwesomeIcon
-                icon={linkCopied ? faCheck : faCopy}
+                icon={faPlus}
                 className="me-2"
               />
 
-              Registration Link
+              New Intake
             </Button>
 
             <Button
@@ -301,16 +301,18 @@ export default function ClinicPage() {
             </Button>
 
             <Button
-              variant="success"
-              onClick={goToIntake}
+              variant="outline-info"
+              onClick={copyRegistrationLink}
             >
               <FontAwesomeIcon
-                icon={faPlus}
+                icon={linkCopied ? faCheck : faCopy}
                 className="me-2"
               />
 
-              New Intake
+              Registration Link
             </Button>
+
+
           </div>
         }
       />

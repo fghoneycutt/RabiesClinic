@@ -96,6 +96,8 @@ export default function WalkinIntake() {
   const [submitting, setSubmitting] =
     useState(false);
 
+  const [noEmail, setNoEmail] = useState(false);
+
   // ----------------------
   // ADD ANIMAL
   // ----------------------
@@ -304,6 +306,8 @@ export default function WalkinIntake() {
       <OwnerForm
         owner={owner}
         setOwner={setOwner}
+        noEmail={noEmail}
+        setNoEmail={setNoEmail}
       />
 
       <hr className="my-4" />

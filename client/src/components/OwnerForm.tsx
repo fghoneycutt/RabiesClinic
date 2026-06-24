@@ -7,6 +7,8 @@ import type { OwnerDraft } from '../types/intake';
 interface Props {
   owner: OwnerDraft;
   setOwner: React.Dispatch<React.SetStateAction<OwnerDraft>>;
+  noEmail: boolean;
+  setNoEmail: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const STATES_AND_PROVINCES = [
@@ -19,33 +21,59 @@ const STATES_AND_PROVINCES = [
   'VA', 'WA', 'WV', 'WI', 'WY', 'YT'
 ];
 
-export default function OwnerForm({ owner, setOwner }: Props) {
-
-  const update = (field: keyof OwnerDraft, value: any) => {
+export default function OwnerForm({
+  owner,
+  setOwner,
+  noEmail,
+  setNoEmail
+}: Props) {
+  const update = (
+    field: keyof OwnerDraft,
+    value: any
+  ) => {
     setOwner(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const formatPhoneNumber = (value: string) => {
-    const numbers = value.replace(/\D/g, '').slice(0, 10);
+  const formatPhoneNumber = (
+    value: string
+  ) => {
+    const numbers = value
+      .replace(/\D/g, '')
+      .slice(0, 10);
 
-    if (numbers.length < 4) return numbers;
+    if (numbers.length < 4) {
+      return numbers;
+    }
 
     if (numbers.length < 7) {
       return `(${numbers.slice(0, 3)}) ${numbers.slice(3)}`;
     }
 
-    return `(${numbers.slice(0, 3)}) ${numbers.slice(3, 6)}-${numbers.slice(6)}`;
+    return `(${numbers.slice(0, 3)}) ${numbers.slice(
+      3,
+      6
+    )}-${numbers.slice(6)}`;
   };
 
-  const handlePhoneChange = (value: string) => {
-    update('phone', formatPhoneNumber(value));
+  const handlePhoneChange = (
+    value: string
+  ) => {
+    update(
+      'phone',
+      formatPhoneNumber(value)
+    );
   };
 
-  const handleZipChange = (value: string) => {
-    const numbersOnly = value.replace(/\D/g, '').slice(0, 5);
+  const handleZipChange = (
+    value: string
+  ) => {
+    const numbersOnly = value
+      .replace(/\D/g, '')
+      .slice(0, 5);
+
     update('zip_code', numbersOnly);
   };
 
@@ -56,58 +84,127 @@ export default function OwnerForm({ owner, setOwner }: Props) {
       <Row className="mb-3">
         <Col>
           <Form.Group>
-            <Form.Label>First Name</Form.Label>
+            <Form.Label>
+              First Name{' '}
+              <span className="text-danger">*</span>
+            </Form.Label>
+
             <Form.Control
+              required
               type="text"
               value={owner.first_name || ''}
-              onChange={(e) => update('first_name', e.target.value)}
+              onChange={(e) =>
+                update(
+                  'first_name',
+                  e.target.value
+                )
+              }
             />
           </Form.Group>
         </Col>
 
         <Col>
           <Form.Group>
-            <Form.Label>Last Name</Form.Label>
+            <Form.Label>
+              Last Name{' '}
+              <span className="text-danger">*</span>
+            </Form.Label>
+
             <Form.Control
+              required
               type="text"
               value={owner.last_name || ''}
-              onChange={(e) => update('last_name', e.target.value)}
+              onChange={(e) =>
+                update(
+                  'last_name',
+                  e.target.value
+                )
+              }
             />
           </Form.Group>
         </Col>
       </Row>
+
+      {/* NO EMAIL */}
+      <Form.Group className="mb-3">
+        <Form.Check
+          type="checkbox"
+          label="No Email"
+          checked={noEmail}
+          onChange={(e) => {
+            const checked =
+              e.target.checked;
+
+            setNoEmail(checked);
+
+            if (checked) {
+              update('email', '');
+            }
+          }}
+        />
+      </Form.Group>
 
       {/* EMAIL + PHONE */}
       <Row className="mb-3">
-        <Col>
-          <Form.Group>
-            <Form.Label>Email</Form.Label>
-            <Form.Control
-              type="email"
-              value={owner.email || ''}
-              onChange={(e) => update('email', e.target.value)}
-            />
-          </Form.Group>
-        </Col>
+        {!noEmail && (
+          <Col>
+            <Form.Group>
+              <Form.Label>
+                Email
+              </Form.Label>
+
+              <Form.Control
+                type="email"
+                value={owner.email || ''}
+                onChange={(e) =>
+                  update(
+                    'email',
+                    e.target.value
+                  )
+                }
+              />
+            </Form.Group>
+          </Col>
+        )}
 
         <Col>
           <Form.Group>
-            <Form.Label>Phone Number</Form.Label>
+            <Form.Label>
+              Phone Number{' '}
+              <span className="text-danger">*</span>
+            </Form.Label>
+
             <Form.Control
+              required
               type="tel"
               value={owner.phone || ''}
-              onChange={(e) => handlePhoneChange(e.target.value)}
+              onChange={(e) =>
+                handlePhoneChange(
+                  e.target.value
+                )
+              }
             />
           </Form.Group>
         </Col>
       </Row>
+
       {/* ADDRESS */}
       <Form.Group className="mb-3">
-        <Form.Label>Address</Form.Label>
+        <Form.Label>
+          Address{' '}
+          <span className="text-danger">*</span>
+        </Form.Label>
+
         <Form.Control
+          required
           type="text"
           value={owner.address || ''}
-          onChange={(e) => update('address', e.target.value)}
+          onChange={(e) =>
+            update(
+              'address',
+              e.target.value
+            )
+          }
         />
       </Form.Group>
 
@@ -115,22 +212,42 @@ export default function OwnerForm({ owner, setOwner }: Props) {
       <Row className="mb-3">
         <Col>
           <Form.Group>
-            <Form.Label>City</Form.Label>
+            <Form.Label>
+              City{' '}
+              <span className="text-danger">*</span>
+            </Form.Label>
+
             <Form.Control
+              required
               type="text"
               value={owner.city || ''}
-              onChange={(e) => update('city', e.target.value)}
+              onChange={(e) =>
+                update(
+                  'city',
+                  e.target.value
+                )
+              }
             />
           </Form.Group>
         </Col>
 
         <Col>
           <Form.Group>
-            <Form.Label>County</Form.Label>
+            <Form.Label>
+              County{' '}
+              <span className="text-danger">*</span>
+            </Form.Label>
+
             <Form.Control
+              required
               type="text"
               value={owner.county || ''}
-              onChange={(e) => update('county', e.target.value)}
+              onChange={(e) =>
+                update(
+                  'county',
+                  e.target.value
+                )
+              }
             />
           </Form.Group>
         </Col>
@@ -140,29 +257,52 @@ export default function OwnerForm({ owner, setOwner }: Props) {
       <Row className="mb-3">
         <Col>
           <Form.Group>
-            <Form.Label>State / Province</Form.Label>
+            <Form.Label>
+              State / Province{' '}
+              <span className="text-danger">*</span>
+            </Form.Label>
 
             <Form.Select
+              required
               value={owner.state || ''}
-              onChange={(e) => update('state', e.target.value)}
+              onChange={(e) =>
+                update(
+                  'state',
+                  e.target.value
+                )
+              }
             >
-              {STATES_AND_PROVINCES.map((state) => (
-                <option key={state} value={state}>
-                  {state}
-                </option>
-              ))}
+              {STATES_AND_PROVINCES.map(
+                (state) => (
+                  <option
+                    key={state}
+                    value={state}
+                  >
+                    {state}
+                  </option>
+                )
+              )}
             </Form.Select>
           </Form.Group>
         </Col>
 
         <Col>
           <Form.Group>
-            <Form.Label>Zip Code</Form.Label>
+            <Form.Label>
+              Zip Code{' '}
+              <span className="text-danger">*</span>
+            </Form.Label>
+
             <Form.Control
+              required
               type="text"
               inputMode="numeric"
               value={owner.zip_code || ''}
-              onChange={(e) => handleZipChange(e.target.value)}
+              onChange={(e) =>
+                handleZipChange(
+                  e.target.value
+                )
+              }
             />
           </Form.Group>
         </Col>

@@ -74,6 +74,8 @@ export default function PublicRegistrationPage() {
 
   const [error, setError] = useState('');
 
+  const [noEmail, setNoEmail] = useState(false);
+
   // ----------------------
   // ADD ANIMAL
   // ----------------------
@@ -215,128 +217,177 @@ export default function PublicRegistrationPage() {
     }
   };
 
+  // ----------------------
+  // SUBMIT MORE
+  // ----------------------
+  const submitMore = () => {
+    setOwner({ ...EMPTY_OWNER });
+    setAnimals([{ ...EMPTY_ANIMAL }]);
+    setError('');
+    setSubmitted(false);
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
+  // ----------------------
+  // CLOSE PAGE
+  // ----------------------
+  const closePage = () => {
+    window.close();
+  };
+
   if (loading || !clinic) {
     return <p>Loading clinic...</p>;
   }
 
   // ----------------------
-// SUCCESS PAGE
-// ----------------------
-if (submitted) {
-  const formatClinicDateTime = (
-    date: string,
-    start: string,
-    end: string | null
-  ) => {
-    const d = new Date(`${date}T00:00:00`);
+  // SUCCESS PAGE
+  // ----------------------
+  if (submitted) {
+    const formatClinicDateTime = (
+      date: string,
+      start: string,
+      end: string | null
+    ) => {
+      const d = new Date(`${date}T00:00:00`);
 
-    const weekday = d.toLocaleDateString('en-US', {
-      weekday: 'long'
-    });
+      const weekday =
+        d.toLocaleDateString('en-US', {
+          weekday: 'long'
+        });
 
-    const month = d.toLocaleDateString('en-US', {
-      month: 'long'
-    });
+      const month =
+        d.toLocaleDateString('en-US', {
+          month: 'long'
+        });
 
-    const day = d.getDate();
-    const year = d.getFullYear();
+      const day = d.getDate();
+      const year = d.getFullYear();
 
-    const suffix = (n: number) => {
-      if (n > 3 && n < 21) return 'th';
+      const suffix = (n: number) => {
+        if (n > 3 && n < 21) return 'th';
 
-      switch (n % 10) {
-        case 1:
-          return 'st';
-        case 2:
-          return 'nd';
-        case 3:
-          return 'rd';
-        default:
-          return 'th';
-      }
+        switch (n % 10) {
+          case 1:
+            return 'st';
+          case 2:
+            return 'nd';
+          case 3:
+            return 'rd';
+          default:
+            return 'th';
+        }
+      };
+
+      const formatTime = (t: string) => {
+        if (!t) return '';
+
+        const [h, m] = t.split(':');
+
+        let hour = parseInt(h, 10);
+
+        const ampm =
+          hour >= 12 ? 'PM' : 'AM';
+
+        hour = hour % 12 || 12;
+
+        return `${hour}:${m} ${ampm}`;
+      };
+
+      return `${weekday}, ${month} ${day}${suffix(day)}, ${year} • ${formatTime(
+        start
+      )} - ${formatTime(end || '')}`;
     };
 
-    const formatTime = (t: string) => {
-      if (!t) return '';
+    return (
+      <div
+        style={{
+          maxWidth: 800,
+          margin: '0 auto'
+        }}
+      >
+        <h2 className="mb-4">
+          Thank You For Pre-Registering for the{' '}
+          {clinic.name}!
+        </h2>
 
-      const [h, m] = t.split(':');
+        <p>
+          We appreciate your help keeping your pets
+          safe and healthy.
+        </p>
 
-      let hour = parseInt(h, 10);
+        <p>
+          Please note that pre-registering does not
+          guarantee you a spot and that we provide
+          service on a first-come, first-served basis
+          while supplies last.
+        </p>
 
-      const ampm =
-        hour >= 12 ? 'PM' : 'AM';
+        <p>
+          If you have any questions, please contact
+          the shelter at{' '}
+          <a href="tel:+13365971741">
+            (336) 597-1741
+          </a>.
+        </p>
 
-      hour = hour % 12 || 12;
+        <p className="text-muted">
+          (You do not need to call to confirm your
+          registration.)
+        </p>
 
-      return `${hour}:${m} ${ampm}`;
-    };
+        <hr className="my-4" />
 
-    return `${weekday}, ${month} ${day}${suffix(day)}, ${year} • ${formatTime(
-      start
-    )} - ${formatTime(end || '')}`;
-  };
+        <h4 className="mb-3">
+          Clinic Information
+        </h4>
 
-  return (
-    <div
-      style={{
-        maxWidth: 800,
-        margin: '0 auto'
-      }}
-    >
-      <h2 className="mb-4">
-        Thank You For Pre-Registering!
-      </h2>
+        <div className="mb-3">
+          <strong>Location:</strong>
+          <br />
+          {clinic.location_name}
+        </div>
 
-      <p>
-        We appreciate your help keeping your pets
-        safe and healthy.
-      </p>
+        <div className="mb-3">
+          <strong>Address:</strong>
+          <br />
+          {clinic.address}
+          <br />
+          {clinic.city}, {clinic.state}{' '}
+          {clinic.zip_code}
+        </div>
 
-      <p>
-        Please note that pre-registering does not
-        guarantee you a spot and that we provide
-        service on a first-come, first-served basis
-        while supplies last.
-      </p>
+        <div className="mb-4">
+          <strong>Date & Time:</strong>
+          <br />
+          {formatClinicDateTime(
+            clinic.clinic_date,
+            clinic.start_time,
+            clinic.end_time
+          )}
+        </div>
 
-      <p>
-        If you have any questions, please contact
-        the shelter at <strong>(336) 597-1741</strong>.
-      </p>
+        <div className="d-flex gap-3 flex-wrap">
+          <Button
+            variant="primary"
+            onClick={submitMore}
+          >
+            Submit More Animals
+          </Button>
 
-      <hr className="my-4" />
-
-      <h4 className="mb-3">
-        Clinic Information
-      </h4>
-
-      <div className="mb-3">
-        <strong>Location:</strong>
-        <br />
-        {clinic.location_name}
+          <Button
+            variant="outline-secondary"
+            onClick={closePage}
+          >
+            Close Page
+          </Button>
+        </div>
       </div>
-
-      <div className="mb-3">
-        <strong>Address:</strong>
-        <br />
-        {clinic.address}
-        <br />
-        {clinic.city}, {clinic.state}{' '}
-        {clinic.zip_code}
-      </div>
-
-      <div className="mb-4">
-        <strong>Date & Time:</strong>
-        <br />
-        {formatClinicDateTime(
-          clinic.clinic_date,
-          clinic.start_time,
-          clinic.end_time
-        )}
-      </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <div
@@ -345,14 +396,9 @@ if (submitted) {
         margin: '0 auto'
       }}
     >
-      <Alert
-        variant="info"
-        className="mb-4"
-      >
-        Complete this form before arriving
-        at the clinic. When you arrive,
-        simply provide your name to staff.
-      </Alert>
+      <h2 className="mb-4">
+        {clinic.name} Pre-Registration
+      </h2>
 
       {error && (
         <Alert
@@ -371,6 +417,8 @@ if (submitted) {
       <OwnerForm
         owner={owner}
         setOwner={setOwner}
+        noEmail={noEmail}
+        setNoEmail={setNoEmail}
       />
 
       <hr className="my-4" />
