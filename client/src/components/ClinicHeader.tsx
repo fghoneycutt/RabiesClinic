@@ -6,13 +6,15 @@ type Props = {
   rightSlot?: React.ReactNode;
   title?: string;
   clinicUrl?: string;
+  disableLink?: boolean;
 };
 
 export default function ClinicHeader({
   clinic,
   rightSlot,
   title,
-  clinicUrl
+  clinicUrl,
+  disableLink = false
 }: Props) {
   const formatClinicDateTime = (
     date: string,

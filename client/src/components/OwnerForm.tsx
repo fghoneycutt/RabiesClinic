@@ -77,26 +77,30 @@ export default function OwnerForm({ owner, setOwner }: Props) {
         </Col>
       </Row>
 
-      {/* EMAIL */}
-      <Form.Group className="mb-3">
-        <Form.Label>Email</Form.Label>
-        <Form.Control
-          type="email"
-          value={owner.email || ''}
-          onChange={(e) => update('email', e.target.value)}
-        />
-      </Form.Group>
+      {/* EMAIL + PHONE */}
+      <Row className="mb-3">
+        <Col>
+          <Form.Group>
+            <Form.Label>Email</Form.Label>
+            <Form.Control
+              type="email"
+              value={owner.email || ''}
+              onChange={(e) => update('email', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
 
-      {/* PHONE */}
-      <Form.Group className="mb-3">
-        <Form.Label>Phone Number</Form.Label>
-        <Form.Control
-          type="tel"
-          value={owner.phone || ''}
-          onChange={(e) => handlePhoneChange(e.target.value)}
-        />
-      </Form.Group>
-
+        <Col>
+          <Form.Group>
+            <Form.Label>Phone Number</Form.Label>
+            <Form.Control
+              type="tel"
+              value={owner.phone || ''}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+      </Row>
       {/* ADDRESS */}
       <Form.Group className="mb-3">
         <Form.Label>Address</Form.Label>

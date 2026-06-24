@@ -38,42 +38,88 @@ export default function AddAnimalModal({
   clinicId,
   onAnimalCreated
 }: Props) {
-  const [loading, setLoading] = useState(false);
-  const [animal, setAnimal] = useState(emptyAnimal);
+  const [loading, setLoading] =
+    useState(false);
 
-  const updateAnimal = (field: keyof Animal, value: any) => {
+  const [animal, setAnimal] =
+    useState(emptyAnimal);
+
+  const updateAnimal = (
+    field: keyof Animal,
+    value: any
+  ) => {
     setAnimal(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
+  // ----------------------
+  // VALIDATION
+  // ----------------------
+  const isAnimalValid = () => {
+    const hasAge =
+      animal.age_years !== null ||
+      animal.age_months !== null;
+
+    return (
+      animal.name.trim() !== '' &&
+      animal.species.trim() !== '' &&
+      animal.sex.trim() !== '' &&
+      animal.primary_breed?.trim() !== '' &&
+      animal.primary_color?.trim() !== '' &&
+      hasAge
+    );
+  };
+
   const submit = async () => {
+    if (!isAnimalValid()) {
+      alert(
+        'Please complete all required fields before adding the animal.'
+      );
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const res = await api.post('/animals', {
-        owner_id: ownerId,
-        clinic_id: clinicId,
-        ...animal
-      });
+      const res = await api.post(
+        '/animals',
+        {
+          owner_id: ownerId,
+          clinic_id: clinicId,
+          ...animal
+        }
+      );
 
-      onAnimalCreated(res.data.animal);
+      onAnimalCreated(
+        res.data.animal
+      );
 
       setAnimal(emptyAnimal);
       onHide();
     } catch (err) {
       console.error(err);
-      alert('Failed to create animal');
+
+      alert(
+        'Failed to create animal'
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
+    <Modal
+      show={show}
+      onHide={onHide}
+      size="lg"
+      centered
+    >
       <Modal.Header closeButton>
-        <Modal.Title>Add Animal</Modal.Title>
+        <Modal.Title>
+          Add Animal
+        </Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
@@ -85,12 +131,24 @@ export default function AddAnimalModal({
       </Modal.Body>
 
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
+        <Button
+          variant="secondary"
+          onClick={onHide}
+        >
           Cancel
         </Button>
 
-        <Button variant="primary" onClick={submit} disabled={loading}>
-          {loading ? 'Saving...' : 'Add Animal'}
+        <Button
+          variant="primary"
+          onClick={submit}
+          disabled={
+            loading ||
+            !isAnimalValid()
+          }
+        >
+          {loading
+            ? 'Saving...'
+            : 'Add Animal'}
         </Button>
       </Modal.Footer>
     </Modal>

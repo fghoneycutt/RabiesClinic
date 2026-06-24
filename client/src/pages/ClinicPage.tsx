@@ -13,6 +13,15 @@ import InputGroup from 'react-bootstrap/InputGroup';
 import Spinner from 'react-bootstrap/Spinner';
 import Badge from 'react-bootstrap/Badge';
 
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faCopy,
+  faCheck,
+  faPenToSquare,
+  faFileExport,
+  faPlus
+} from '@fortawesome/free-solid-svg-icons';
+
 // -----------------------------------
 // TYPES
 // -----------------------------------
@@ -56,12 +65,11 @@ function debounce<T extends (...args: any[]) => void>(
 }
 
 // -----------------------------------
-// AGE FORMATTER (ONLY CHANGE)
+// AGE FORMATTER
 // -----------------------------------
 const formatAge = (age?: string) => {
   if (!age) return '—';
 
-  // supports formats like "15y 4m", "15y", "4m"
   const yearsMatch = age.match(/(\d+)\s*y/);
   const monthsMatch = age.match(/(\d+)\s*m/);
 
@@ -91,7 +99,8 @@ export default function ClinicPage() {
   const navigate = useNavigate();
 
   const { clinic, loading, error } = useClinic(id);
-  document.title=`${clinic?.name}`
+
+  document.title = `${clinic?.name ?? 'Clinic'}`;
 
   // -----------------------------------
   // STATE
@@ -100,6 +109,7 @@ export default function ClinicPage() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // -----------------------------------
   // NAVIGATION
@@ -118,6 +128,69 @@ export default function ClinicPage() {
 
   const goToEditClinic = () => {
     navigate(`/clinics/${id}/edit`);
+  };
+
+  const copyRegistrationLink = async () => {
+    try {
+      const registrationUrl =
+        `${window.location.origin}/clinics/${id}/register`;
+
+      await navigator.clipboard.writeText(
+        registrationUrl
+      );
+
+      setLinkCopied(true);
+
+      setTimeout(() => {
+        setLinkCopied(false);
+      }, 2000);
+
+    } catch (err) {
+      console.error(err);
+      alert('Failed to copy registration link');
+    }
+  };
+
+  // -----------------------------------
+  // EXPORT
+  // -----------------------------------
+  const exportClinic = async () => {
+    if (!clinic) {
+      return;
+    }
+
+    try {
+      const res = await api.get(
+        `/clinics/${id}/export`,
+        {
+          responseType: 'blob'
+        }
+      );
+
+      const url = window.URL.createObjectURL(
+        new Blob([res.data])
+      );
+
+      const link = document.createElement('a');
+
+      link.href = url;
+
+      link.setAttribute(
+        'download',
+        `${clinic.name.replace(/\s+/g, '_')}_export.xlsx`
+      );
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Failed to export clinic data');
+    }
   };
 
   // -----------------------------------
@@ -179,17 +252,64 @@ export default function ClinicPage() {
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-      {/* HEADER */}
       <ClinicHeader
         clinic={clinic}
         rightSlot={
-          <div className="d-flex gap-2">
-            <Button variant="outline-primary" onClick={goToEditClinic}>
-              Edit Clinic
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, auto)',
+              gap: '0.5rem',
+              justifyContent: 'end'
+            }}
+          >
+
+          <Button
+            variant="outline-primary"
+            onClick={goToEditClinic}
+          >
+            <FontAwesomeIcon
+              icon={faPenToSquare}
+              className="me-2"
+            />
+
+            Edit Clinic
+          </Button>
+
+            <Button
+              variant="outline-info"
+              onClick={copyRegistrationLink}
+            >
+              <FontAwesomeIcon
+                icon={linkCopied ? faCheck : faCopy}
+                className="me-2"
+              />
+
+              Registration Link
             </Button>
 
-            <Button variant="success" onClick={goToIntake}>
-              + New Intake
+            <Button
+              variant="outline-success"
+              onClick={exportClinic}
+            >
+              <FontAwesomeIcon
+                icon={faFileExport}
+                className="me-2"
+              />
+
+              Export Data
+            </Button>
+
+            <Button
+              variant="success"
+              onClick={goToIntake}
+            >
+              <FontAwesomeIcon
+                icon={faPlus}
+                className="me-2"
+              />
+
+              New Intake
             </Button>
           </div>
         }
@@ -200,14 +320,20 @@ export default function ClinicPage() {
         <Card.Body className="py-3">
           <div className="d-flex align-items-center gap-5 flex-wrap">
             <div>
-              <div className="text-muted small">Registered Owners</div>
+              <div className="text-muted small">
+                Registered Owners
+              </div>
+
               <div className="fs-3 fw-bold">
                 {clinic.registered_owners ?? 0}
               </div>
             </div>
 
             <div>
-              <div className="text-muted small">Registered Animals</div>
+              <div className="text-muted small">
+                Registered Animals
+              </div>
+
               <div className="fs-3 fw-bold">
                 {clinic.registered_animals ?? 0}
               </div>
@@ -221,17 +347,15 @@ export default function ClinicPage() {
         <Card.Body>
           <div className="mb-3">
             <h5 className="mb-1">Search Records</h5>
-            <div className="text-muted small">
-              Search by owner, pet name, rabies tag, phone, address, or microchip.
-            </div>
           </div>
 
           <InputGroup className="mb-3">
             <Form.Control
-              placeholder="Search owners or pets..."
+              placeholder="Search by owner or pet name"
               value={searchTerm}
               onChange={(e) => {
                 const value = e.target.value;
+
                 setSearchTerm(value);
                 debouncedSearch(value);
               }}
@@ -259,7 +383,10 @@ export default function ClinicPage() {
           {/* SEARCHING */}
           {searching && (
             <div className="d-flex align-items-center gap-2">
-              <Spinner animation="border" size="sm" />
+              <Spinner
+                animation="border"
+                size="sm"
+              />
               <span>Searching...</span>
             </div>
           )}
@@ -267,129 +394,187 @@ export default function ClinicPage() {
           {/* INITIAL STATE */}
           {!hasSearched && !searching && (
             <div className="text-center py-5 text-muted">
-              <div className="mb-2 fs-5">Start typing to search records</div>
-              <div className="small">
-                Owners, pets, rabies tags, microchips, phone numbers, addresses.
+              <div className="mb-2 fs-5">
+                Start typing to search records
               </div>
             </div>
           )}
 
           {/* RESULT COUNT */}
-          {!searching && hasSearched && results.length > 0 && (
-            <div className="small text-muted mb-3">
-              {results.length} owner{results.length !== 1 ? 's' : ''} found
-            </div>
-          )}
+          {!searching &&
+            hasSearched &&
+            results.length > 0 && (
+              <div className="small text-muted mb-3">
+                {results.length} owner
+                {results.length !== 1 ? 's' : ''} found
+              </div>
+            )}
 
           {/* RESULTS */}
-          {!searching && results.length > 0 && (
-            <div className="d-flex flex-column gap-3">
-              {results.map((owner) => (
-                <Card key={owner.owner_id} className="border shadow-sm">
-                  <Card.Body
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => goToOwnerProfile(owner.owner_id)}
+          {!searching &&
+            results.length > 0 && (
+              <div className="d-flex flex-column gap-3">
+                {results.map((owner) => (
+                  <Card
+                    key={owner.owner_id}
+                    className="border shadow-sm"
                   >
-                    <div className="d-flex justify-content-between flex-wrap gap-3">
-                      <div>
-                        <div className="fw-bold fs-5 text-primary">
-                          {owner.owner_name}
-                        </div>
+                    <Card.Body
+                      style={{ cursor: 'pointer' }}
+                      onClick={() =>
+                        goToOwnerProfile(owner.owner_id)
+                      }
+                    >
+                      <div className="d-flex justify-content-between flex-wrap gap-3">
+                        <div>
+                          <div className="fw-bold fs-5 text-primary">
+                            {owner.owner_name}
+                          </div>
 
-                        <div className="text-muted small">
-                          {owner.address}
-                        </div>
+                          <div className="text-muted small">
+                            {owner.address}
+                          </div>
 
-                        {owner.phone && <div className="small">{owner.phone}</div>}
-                        {owner.email && <div className="small">{owner.email}</div>}
-                      </div>
-
-                      <Badge bg="secondary" className="align-self-start">
-                        {(owner.animals?.length ?? 0)} pet
-                        {(owner.animals?.length ?? 0) !== 1 ? 's' : ''}
-                      </Badge>
-                    </div>
-
-                    {/* ANIMALS */}
-                    {owner.animals?.length ? (
-                      <div className="mt-3">
-                        <div className="small fw-bold text-muted mb-2">
-                          Animals
-                        </div>
-
-                        {/* HEADER */}
-                        <div
-                          className="d-grid small fw-bold text-muted border-bottom pb-2 mb-2"
-                          style={{
-                            gridTemplateColumns:
-                              '1.2fr 0.9fr 1fr 0.9fr 0.9fr 0.9fr 1fr 1fr 1.2fr 1.2fr',
-                            gap: '8px'
-                          }}
-                        >
-                          <div>Name</div>
-                          <div>Species</div>
-                          <div>Breed</div>
-                          <div>Sex</div>
-                          <div>Altered</div>
-                          <div>Age</div>
-                          <div>Color</div>
-                          <div>Pattern</div>
-                          <div>Rabies</div>
-                          <div>Microchip</div>
-                        </div>
-
-                        {/* ROWS */}
-                        <div className="d-flex flex-column gap-1">
-                          {owner.animals.map((animal) => (
-                            <div
-                              key={animal.id}
-                              className="d-grid small py-2 border-bottom align-items-center"
-                              style={{
-                                gridTemplateColumns:
-                                  '1.2fr 0.9fr 1fr 0.9fr 0.9fr 0.9fr 1fr 1fr 1.2fr 1.2fr',
-                                gap: '8px'
-                              }}
-                            >
-                              <div className="fw-bold">{animal.name}</div>
-
-                              <div>{capitalize(animal.species)}</div>
-
-                              <div>{animal.breed || '—'}</div>
-
-                              <div>{capitalize(animal.sex)}</div>
-
-                              <div>{animal.altered ? 'Yes' : 'Unknown'}</div>
-
-                              <div>{formatAge(animal.age)}</div>
-
-                              <div>{animal.color || '—'}</div>
-
-                              <div>{animal.pattern || '—'}</div>
-
-                              <div>
-                                {animal.rabies_tag_number
-                                  ? `${animal.vaccine_type === 'rabies_3_year' ? '3 Yr' : '1 Yr'} • ${animal.rabies_tag_number}`
-                                  : 'None'}
-                              </div>
-
-                              <div>{animal.microchip_number || '—'}</div>
+                          {owner.phone && (
+                            <div className="small">
+                              {owner.phone}
                             </div>
-                          ))}
+                          )}
+
+                          {owner.email && (
+                            <div className="small">
+                              {owner.email}
+                            </div>
+                          )}
                         </div>
+
+                        <Badge
+                          bg="secondary"
+                          className="align-self-start"
+                        >
+                          {(owner.animals?.length ?? 0)} pet
+                          {(owner.animals?.length ?? 0) !== 1
+                            ? 's'
+                            : ''}
+                        </Badge>
                       </div>
-                    ) : null}
-                  </Card.Body>
-                </Card>
-              ))}
-            </div>
-          )}
+
+                      {owner.animals?.length ? (
+                        <div className="mt-3">
+                          <div className="small fw-bold text-muted mb-2">
+                            Animals
+                          </div>
+
+                          <div
+                            className="d-grid small fw-bold text-muted border-bottom pb-2 mb-2"
+                            style={{
+                              gridTemplateColumns:
+                                '1.2fr 0.9fr 1fr 0.9fr 0.9fr 0.9fr 1fr 1fr 1.2fr 1.2fr',
+                              gap: '8px'
+                            }}
+                          >
+                            <div>Name</div>
+                            <div>Species</div>
+                            <div>Breed</div>
+                            <div>Sex</div>
+                            <div>Altered</div>
+                            <div>Age</div>
+                            <div>Color</div>
+                            <div>Pattern</div>
+                            <div>Rabies</div>
+                            <div>Microchip</div>
+                          </div>
+
+                          <div className="d-flex flex-column gap-1">
+                            {owner.animals.map(
+                              (animal) => (
+                                <div
+                                  key={animal.id}
+                                  className="d-grid small py-2 border-bottom align-items-center"
+                                  style={{
+                                    gridTemplateColumns:
+                                      '1.2fr 0.9fr 1fr 0.9fr 0.9fr 0.9fr 1fr 1fr 1.2fr 1.2fr',
+                                    gap: '8px'
+                                  }}
+                                >
+                                  <div className="fw-bold">
+                                    {animal.name}
+                                  </div>
+
+                                  <div>
+                                    {capitalize(
+                                      animal.species
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    {animal.breed || '—'}
+                                  </div>
+
+                                  <div>
+                                    {capitalize(
+                                      animal.sex
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    {animal.altered
+                                      ? 'Yes'
+                                      : 'Unknown'}
+                                  </div>
+
+                                  <div>
+                                    {formatAge(
+                                      animal.age
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    {animal.color || '—'}
+                                  </div>
+
+                                  <div>
+                                    {animal.pattern || '—'}
+                                  </div>
+
+                                  <div>
+                                    {animal.rabies_tag_number
+                                      ? `${
+                                          animal.vaccine_type ===
+                                          'rabies_3_year'
+                                            ? '3 Yr'
+                                            : '1 Yr'
+                                        } • ${
+                                          animal.rabies_tag_number
+                                        }`
+                                      : 'None'}
+                                  </div>
+
+                                  <div>
+                                    {animal.microchip_number ||
+                                      '—'}
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                    </Card.Body>
+                  </Card>
+                ))}
+              </div>
+            )}
 
           {/* EMPTY */}
-          {hasSearched && !searching && searchTerm && results.length === 0 && (
-            <div className="text-center py-4 text-muted">
-              No matches found.
-            </div>
-          )}
+          {hasSearched &&
+            !searching &&
+            searchTerm &&
+            results.length === 0 && (
+              <div className="text-center py-4 text-muted">
+                No matches found.
+              </div>
+            )}
         </Card.Body>
       </Card>
     </div>

@@ -357,8 +357,13 @@ exports.exportClinicData = async (req, res) => {
         v.vaccinated_by AS vaccinated_by_name,
         v.supervising_veterinarian,
 
-        -- 🔥 CONDITIONAL FALLBACK: If date_time_administered is missing, fall back to the clinic's date
-        COALESCE(v.date_time_administered::date, c.clinic_date) AS date_vaccinated,
+        -- If date_time_administered is missing,
+        -- fall back to clinic date
+        COALESCE(
+          v.date_time_administered::date,
+          c.clinic_date
+        ) AS date_vaccinated,
+
         v.date_time_due::date AS vaccination_expires,
 
         v.product_expiration_date,
@@ -367,12 +372,38 @@ exports.exportClinicData = async (req, res) => {
         c.name AS vaccine_location
 
       FROM animals a
-      JOIN owners o ON o.id = a.owner_id
-      JOIN clinics c ON c.id = a.clinic_id
-      LEFT JOIN vaccinations v ON v.animal_id = a.id AND v.is_active = true
+      JOIN owners o
+        ON o.id = a.owner_id
+
+      JOIN clinics c
+        ON c.id = a.clinic_id
+
+      LEFT JOIN vaccinations v
+        ON v.animal_id = a.id
+        AND v.is_active = true
 
       WHERE c.id = $1
-      ORDER BY o.last_name, o.first_name
+        AND (
+          NULLIF(
+            TRIM(
+              COALESCE(a.microchip_number, '')
+            ),
+            ''
+          ) IS NOT NULL
+
+          OR
+
+          NULLIF(
+            TRIM(
+              COALESCE(v.rabies_tag_number, '')
+            ),
+            ''
+          ) IS NOT NULL
+        )
+
+      ORDER BY
+        o.last_name,
+        o.first_name
       `,
       [id]
     );
@@ -389,15 +420,25 @@ exports.exportClinicData = async (req, res) => {
     // -----------------------------
     // CREATE EXCEL FILE
     // -----------------------------
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
+    const worksheet =
+      XLSX.utils.json_to_sheet(rows);
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Clinic Export');
+    const workbook =
+      XLSX.utils.book_new();
 
-    const buffer = XLSX.write(workbook, {
-      type: 'buffer',
-      bookType: 'xlsx'
-    });
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      'Clinic Export'
+    );
+
+    const buffer = XLSX.write(
+      workbook,
+      {
+        type: 'buffer',
+        bookType: 'xlsx'
+      }
+    );
 
     // -----------------------------
     // SEND FILE

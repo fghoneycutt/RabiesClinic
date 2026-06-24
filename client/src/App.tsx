@@ -1,4 +1,11 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation
+} from 'react-router-dom';
+
 import Container from 'react-bootstrap/Container';
 
 import AppNavbar from './components/Navbar';
@@ -8,78 +15,121 @@ import ProtectedRoute from './auth/ProtectedRoute';
 
 import Home from './pages/Home';
 import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
 import AdminCreateUserPage from './pages/AdminCreateUserPage';
 import AdminUserListPage from './pages/AdminUserListPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 import WalkinIntake from './pages/WalkinIntake';
+import PublicRegistrationPage from './pages/PublicRegistrationPage';
+
 import CreateClinic from './pages/CreateClinic';
 import EditClinic from './pages/EditClinic';
 import ClinicPage from './pages/ClinicPage';
 import OwnerProfilePage from './pages/OwnerProfilePage';
 
-export default function App() {
+// -----------------------------------
+// APP LAYOUT
+// -----------------------------------
+function AppLayout() {
+  const location = useLocation();
+
+  const hideNavbar =
+    /^\/clinics\/[^/]+\/register$/.test(
+      location.pathname
+    );
+
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <>
+      {!hideNavbar && <AppNavbar />}
 
-        <AppNavbar />
+      <Container className="py-4">
+        <Routes>
 
-        <Container className="py-4">
-          <Routes>
+          {/* -------------------- */}
+          {/* PUBLIC ROUTES */}
+          {/* -------------------- */}
 
-            {/* PUBLIC */}
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/login"
+            element={<LoginPage />}
+          />
+
+          <Route
+            path="/clinics/:id/register"
+            element={<PublicRegistrationPage />}
+          />
+
+          {/* -------------------- */}
+          {/* PROTECTED ROUTES */}
+          {/* -------------------- */}
+
+          <Route element={<ProtectedRoute />}>
+
+            <Route
+              path="/"
+              element={<Home />}
+            />
+
+            <Route
+              path="/clinics/new"
+              element={<CreateClinic />}
+            />
+
+            <Route
+              path="/clinics/:id/edit"
+              element={<EditClinic />}
+            />
+
+            <Route
+              path="/clinics/:id"
+              element={<ClinicPage />}
+            />
 
             <Route
               path="/clinics/:id/intake"
               element={<WalkinIntake />}
             />
 
-            {/* PROTECTED */}
-            <Route element={<ProtectedRoute />}>
+            <Route
+              path="/clinics/:clinicId/owners/:ownerId"
+              element={<OwnerProfilePage />}
+            />
 
-              <Route
-                path="/clinics/new"
-                element={<CreateClinic />}
-              />
+            <Route
+              path="/admin/create-users"
+              element={<AdminCreateUserPage />}
+            />
 
-              <Route
-                path="/clinics/:id/edit"
-                element={<EditClinic />}
-              />
+            <Route
+              path="/admin/users"
+              element={<AdminUserListPage />}
+            />
 
-              <Route
-                path="/clinics/:id"
-                element={<ClinicPage />}
-              />
+            {/* Logged-in users get actual 404 page */}
+            <Route
+              path="*"
+              element={<NotFoundPage />}
+            />
 
-              <Route
-                path="/clinics/:clinicId/owners/:ownerId"
-                element={<OwnerProfilePage />}
-              />
+          </Route>
 
-              {/* ADMIN ONLY (still protected for now) */}
-              <Route
-                path="/admin/create-users"
-                element={<AdminCreateUserPage />}
-              />
-              <Route
-                path="/admin/users"
-                element={<AdminUserListPage />}
-              />
+          {/* Unauthenticated users get redirected to login */}
+          <Route
+            path="*"
+            element={<Navigate to="/login" replace />}
+          />
 
-            </Route>
+        </Routes>
+      </Container>
+    </>
+  );
+}
 
-            {/* 404 */}
-            <Route path="*" element={<NotFoundPage />} />
-
-          </Routes>
-        </Container>
-
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppLayout />
       </AuthProvider>
     </BrowserRouter>
   );

@@ -22,13 +22,25 @@ type Clinic = {
 };
 
 // ------------------------------------
-// Prevent timezone shifts when parsing
-// YYYY-MM-DD values from PostgreSQL
+// Parse YYYY-MM-DD or ISO timestamps
+// without timezone shifting
 // ------------------------------------
 const parseClinicDate = (dateString: string) => {
-  const [year, month, day] = dateString
-    .split('-')
-    .map(Number);
+  if (!dateString) {
+    return null;
+  }
+
+  const datePart = dateString.substring(0, 10);
+
+  const parts = datePart.split('-');
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
 
   return new Date(year, month - 1, day);
 };
@@ -56,11 +68,21 @@ export default function Home() {
 
         const upcomingClinics = res.data.filter((c: Clinic) => {
           const clinicDate = parseClinicDate(c.clinic_date);
+
+          if (!clinicDate) {
+            return false;
+          }
+
           return clinicDate >= today;
         });
 
         const pastClinics = res.data.filter((c: Clinic) => {
           const clinicDate = parseClinicDate(c.clinic_date);
+
+          if (!clinicDate) {
+            return false;
+          }
+
           return clinicDate < today;
         });
 
@@ -81,6 +103,10 @@ export default function Home() {
   ) => {
     const d = parseClinicDate(date);
 
+    if (!d) {
+      return 'Invalid Date';
+    }
+
     const weekday = d.toLocaleDateString('en-US', {
       weekday: 'long'
     });
@@ -91,8 +117,12 @@ export default function Home() {
 
     const day = d.getDate();
 
+    const year = d.getFullYear();
+
     const getOrdinal = (n: number) => {
-      if (n > 3 && n < 21) return 'th';
+      if (n > 3 && n < 21) {
+        return 'th';
+      }
 
       switch (n % 10) {
         case 1:
@@ -113,7 +143,7 @@ export default function Home() {
 
       const ampm = hour >= 12 ? 'pm' : 'am';
 
-      hour = hour % 12;
+      hour %= 12;
 
       if (hour === 0) {
         hour = 12;
@@ -122,9 +152,9 @@ export default function Home() {
       return `${hour}:${minute}${ampm}`;
     };
 
-    return `${weekday}, ${month} ${day}${getOrdinal(day)} ${formatTime(
-      start
-    )} - ${formatTime(end)}`;
+    return `${weekday}, ${month} ${day}${getOrdinal(
+      day
+    )}, ${year} • ${formatTime(start)} - ${formatTime(end)}`;
   };
 
   const ClinicCard = ({
@@ -160,58 +190,9 @@ export default function Home() {
               clinic.end_time
             )}
           </p>
-
-          {isPast ? (
-            <Button
-              variant="success"
-              onClick={() =>
-                exportClinic(clinic.id, clinic.name)
-              }
-            >
-              Export Data
-            </Button>
-          ) : null}
         </Card.Body>
       </Card>
     );
-  };
-
-  const exportClinic = async (
-    clinicId: string,
-    clinicName: string
-  ) => {
-    try {
-      const res = await api.get(
-        `/clinics/${clinicId}/export`,
-        {
-          responseType: 'blob'
-        }
-      );
-
-      const url = window.URL.createObjectURL(
-        new Blob([res.data])
-      );
-
-      const link = document.createElement('a');
-
-      link.href = url;
-
-      link.setAttribute(
-        'download',
-        `${clinicName.replace(/\s+/g, '_')}_export.xlsx`
-      );
-
-      document.body.appendChild(link);
-
-      link.click();
-
-      link.remove();
-
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Export failed:', err);
-      alert('Failed to export clinic data');
-    }
   };
 
   return (
