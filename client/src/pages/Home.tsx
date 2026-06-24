@@ -159,10 +159,8 @@ export default function Home() {
 
   const ClinicCard = ({
     clinic,
-    isPast
   }: {
     clinic: Clinic;
-    isPast: boolean;
   }) => {
     return (
       <Card className="mb-3">
@@ -223,7 +221,6 @@ export default function Home() {
               <ClinicCard
                 key={clinic.id}
                 clinic={clinic}
-                isPast={false}
               />
             ))
           )}
@@ -240,7 +237,6 @@ export default function Home() {
               <ClinicCard
                 key={clinic.id}
                 clinic={clinic}
-                isPast={true}
               />
             ))
           )}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 
 import { api } from '../api/api';
 import { useClinic } from '../hooks/useClinics';
@@ -53,7 +53,6 @@ const EMPTY_ANIMAL: AnimalDraft = {
 };
 
 export default function PublicRegistrationPage() {
-  const navigate = useNavigate();
   const { id } = useParams();
 
   const { clinic, loading } = useClinic(id);
