@@ -17,9 +17,12 @@ const ALLOWED_FIELDS = new Set([
 ]);
 
 async function createVaccination(req, res) {
+  const client = await pool.connect();
+  
   try {
     const {
       animal_id,
+      clinic_id, // Read from body purely for the animals sync step
       vaccine_type,
       product,
       rabies_tag_number,
@@ -30,8 +33,10 @@ async function createVaccination(req, res) {
       supervising_veterinarian,
       date_time_administered,
       date_time_due,
-      manufacturer // ✅ NEW
+      manufacturer
     } = req.body;
+
+    await client.query('BEGIN');
 
     // fallback: derive from product if missing
     function extractManufacturer(productString) {
@@ -49,7 +54,8 @@ async function createVaccination(req, res) {
 
     const finalManufacturer = manufacturer || extractManufacturer(product);
 
-    const result = await pool.query(
+    // 1. Insert the vaccination record (clinic_id removed)
+    const result = await client.query(
       `
       INSERT INTO vaccinations (
         animal_id,
@@ -66,81 +72,113 @@ async function createVaccination(req, res) {
         manufacturer
       )
       VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
       )
       RETURNING *
       `,
       [
-        animal_id,
-        vaccine_type,
-        product,
-        rabies_tag_number,
-        lot_number,
-        product_expiration_date,
-        notes,
-        vaccinated_by,
-        supervising_veterinarian,
-        date_time_administered,
-        date_time_due,
-        finalManufacturer
+        animal_id,                // $1
+        vaccine_type,             // $2
+        product,                  // $3
+        rabies_tag_number,        // $4
+        lot_number,               // $5
+        product_expiration_date,  // $6
+        notes,                    // $7
+        vaccinated_by,            // $8
+        supervising_veterinarian, // $9
+        date_time_administered,   // $10
+        date_time_due,            // $12
+        finalManufacturer         // $12
       ]
     );
 
+    // 2. Synchronize the Animal's clinic_id if it's different
+    if (clinic_id && animal_id) {
+      await client.query(
+        `
+        UPDATE animals
+        SET clinic_id = $1
+        WHERE id = $2 AND clinic_id IS DISTINCT FROM $1
+        `,
+        [clinic_id, animal_id]
+      );
+    }
+
+    await client.query('COMMIT');
     return res.json(result.rows[0]);
 
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error(err);
     return res.status(500).json({
       message: 'Failed to create vaccination'
     });
+  } finally {
+    client.release();
   }
 }
 
 async function updateVaccination(req, res) {
+  const { id } = req.params;
+  const client = await pool.connect();
+
   try {
-    const { id } = req.params;
+    await client.query('BEGIN');
 
-    // ensure manufacturer is allowed
+    // 1. Filter body down to allowed fields
     ALLOWED_FIELDS.add('manufacturer');
-
     const allowedBody = Object.fromEntries(
-      Object.entries(req.body).filter(([key]) =>
-        ALLOWED_FIELDS.has(key)
-      )
+      Object.entries(req.body).filter(([key]) => ALLOWED_FIELDS.has(key))
     );
 
     const keys = Object.keys(allowedBody);
     const values = Object.values(allowedBody);
 
     if (keys.length === 0) {
-      return res.status(400).json({
-        message: 'No valid fields provided'
-      });
+      client.release();
+      return res.status(400).json({ message: 'No valid fields provided' });
     }
 
-    const setClause = keys
-      .map((k, i) => `${k} = $${i + 1}`)
-      .join(', ');
-
-    const query = `
+    // 2. Perform the vaccination update
+    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const vacQuery = `
       UPDATE vaccinations
       SET ${setClause}
       WHERE id = $${keys.length + 1}
       RETURNING *
     `;
+    const vacResult = await client.query(vacQuery, [...values, id]);
 
-    const result = await pool.query(query, [
-      ...values,
-      id
-    ]);
+    if (vacResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(404).json({ message: 'Vaccination record not found' });
+    }
 
-    return res.json(result.rows[0]);
+    const updatedVaccine = vacResult.rows[0];
+
+    // 3. Sync the Animal's clinic_id if it differs
+    // We match the vaccination to the animal via the animal_id foreign key
+    if (updatedVaccine.clinic_id && updatedVaccine.animal_id) {
+      await client.query(
+        `
+        UPDATE animals
+        SET clinic_id = $1
+        WHERE id = $2 AND clinic_id IS DISTINCT FROM $1
+        `,
+        [updatedVaccine.clinic_id, updatedVaccine.animal_id]
+      );
+    }
+
+    await client.query('COMMIT');
+    return res.json(updatedVaccine);
 
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error(err);
-    return res.status(500).json({
-      message: 'Failed to update vaccination'
-    });
+    return res.status(500).json({ message: 'Failed to update vaccination' });
+  } finally {
+    client.release();
   }
 }
 

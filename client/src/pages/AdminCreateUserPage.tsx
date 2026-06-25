@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/api';
 
+import PasswordInput from '../components/input/PasswordInput';
+
 import Card from 'react-bootstrap/Card';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -49,7 +51,7 @@ export default function AdminCreateUserPage() {
       <Card>
         <Card.Body>
 
-          <h4 className="mb-3">Create Staff User (Admin Only)</h4>
+          <h4 className="mb-3">Create Staff User</h4>
 
           <Form.Group className="mb-2">
             <Form.Label>Name</Form.Label>
@@ -61,12 +63,12 @@ export default function AdminCreateUserPage() {
             <Form.Control value={email} onChange={e => setEmail(e.target.value)} />
           </Form.Group>
 
+          {/* PASSWORD FIELD - FIXED FOR CUSTOM PROPS */}
           <Form.Group className="mb-2">
-            <Form.Label>Password</Form.Label>
-            <Form.Control
-              type="password"
+            <PasswordInput
+              label="Password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(val) => setPassword(val)}
             />
           </Form.Group>
 

@@ -49,6 +49,9 @@ const Req = ({ children }: { children: React.ReactNode }) => (
 export default function AnimalForm(props: Props) {
   const { animal, updateAnimal } = props;
 
+  // Local state for tracking touched elements for visual validation
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
   // Local state for the calculator field (stored as 'YYYY-MM-DD')
   const [approxBirthdate, setApproxBirthdate] = useState<string>('');
 
@@ -75,19 +78,23 @@ export default function AnimalForm(props: Props) {
 
   const showMultiHeader = 'mode' in props && props.mode === 'multi';
 
+  const handleBlur = (field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
+
   // ----------------------------------------------------------------
   // Reciprocal Update Logic
   // ----------------------------------------------------------------
 
   // Automatically calculate the approximate birthdate string whenever age values change
   useEffect(() => {
-    let years = animal.age_years || 0;
-    let months = animal.age_months || 0;
-
     if (animal.age_years === null && animal.age_months === null) {
       setApproxBirthdate('');
       return;
     }
+
+    let years = animal.age_years || 0;
+    let months = animal.age_months || 0;
 
     // If months are 12 or higher, normalize them into years
     if (months >= 12) {
@@ -102,8 +109,12 @@ export default function AnimalForm(props: Props) {
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
+    const calculatedDateString = `${yyyy}-${mm}-${dd}`;
 
-    setApproxBirthdate(`${yyyy}-${mm}-${dd}`);
+    // Update only if it differs from what is already typed to avoid loops
+    if (approxBirthdate !== calculatedDateString) {
+      setApproxBirthdate(calculatedDateString);
+    }
   }, [animal.age_years, animal.age_months]);
 
   // When user modifies the date selection directly
@@ -137,8 +148,16 @@ export default function AnimalForm(props: Props) {
       months--;
     }
 
-    updateAnimal('age_years', years >= 0 ? years : 0);
-    updateAnimal('age_months', months >= 0 ? months : 0);
+    const targetYears = years >= 0 ? years : 0;
+    const targetMonths = months >= 0 ? months : 0;
+
+    // Fire state updates only if values change to suppress downstream redraw loop
+    if (animal.age_years !== targetYears) {
+      updateAnimal('age_years', targetYears);
+    }
+    if (animal.age_months !== targetMonths) {
+      updateAnimal('age_months', targetMonths);
+    }
   };
 
   return (
@@ -170,11 +189,16 @@ export default function AnimalForm(props: Props) {
             <Form.Group>
               <Form.Label><Req>Name</Req></Form.Label>
               <Form.Control
+                required
+                type="text"
                 value={animal.name ?? ''}
-                onChange={e =>
-                  updateAnimal('name', e.target.value)
-                }
+                onChange={e => updateAnimal('name', e.target.value)}
+                onBlur={() => handleBlur('name')}
+                isInvalid={touched.name && !animal.name?.trim()}
               />
+              <Form.Control.Feedback type="invalid">
+                Animal name is required.
+              </Form.Control.Feedback>
             </Form.Group>
           </Col>
 
@@ -182,6 +206,7 @@ export default function AnimalForm(props: Props) {
             <Form.Group>
               <Form.Label><Req>Species</Req></Form.Label>
               <Form.Select
+                required
                 value={animal.species ?? ''}
                 onChange={e =>
                   updateAnimal(
@@ -189,11 +214,16 @@ export default function AnimalForm(props: Props) {
                     e.target.value as AnimalDraft['species']
                   )
                 }
+                onBlur={() => handleBlur('species')}
+                isInvalid={touched.species && !animal.species}
               >
                 <option value=""></option>
                 <option value="dog">Dog</option>
                 <option value="cat">Cat</option>
               </Form.Select>
+              <Form.Control.Feedback type="invalid">
+                Species selection is required.
+              </Form.Control.Feedback>
             </Form.Group>
           </Col>
         </Row>
@@ -204,6 +234,7 @@ export default function AnimalForm(props: Props) {
             <Form.Group>
               <Form.Label><Req>Sex</Req></Form.Label>
               <Form.Select
+                required
                 value={animal.sex ?? ''}
                 onChange={e =>
                   updateAnimal(
@@ -211,19 +242,24 @@ export default function AnimalForm(props: Props) {
                     e.target.value as AnimalDraft['sex']
                   )
                 }
+                onBlur={() => handleBlur('sex')}
+                isInvalid={touched.sex && !animal.sex}
               >
                 <option value=""></option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </Form.Select>
+              <Form.Control.Feedback type="invalid">
+                Sex selection is required.
+              </Form.Control.Feedback>
             </Form.Group>
           </Col>
 
           <Col md={6}>
             <Form.Group>
               <Form.Label><Req>Altered Status</Req></Form.Label>
-
               <Form.Select
+                required
                 value={
                   animal.altered_status === true
                     ? 'yes'
@@ -241,6 +277,7 @@ export default function AnimalForm(props: Props) {
 
                   updateAnimal('altered_status', val);
                 }}
+                onBlur={() => handleBlur('altered_status')}
               >
                 <option value="unknown">Unknown</option>
                 <option value="yes">Yes</option>
@@ -255,7 +292,6 @@ export default function AnimalForm(props: Props) {
           <Col md={6}>
             <Form.Group>
               <Form.Label><Req>Primary Breed</Req></Form.Label>
-
               <Select
                 isDisabled={!animal.species}
                 options={breedOptions.map(b => ({
@@ -270,14 +306,20 @@ export default function AnimalForm(props: Props) {
                 onChange={selected =>
                   updateAnimal('primary_breed', selected?.value || '')
                 }
+                onBlur={() => handleBlur('primary_breed')}
+                className={touched.primary_breed && !animal.primary_breed ? 'is-invalid' : ''}
               />
+              {touched.primary_breed && !animal.primary_breed && (
+                <div className="text-danger mt-1" style={{ fontSize: '0.875em' }}>
+                  Primary breed is required.
+                </div>
+              )}
             </Form.Group>
           </Col>
 
           <Col md={6}>
             <Form.Group>
               <Form.Label>Secondary Breed</Form.Label>
-
               <Select
                 isDisabled={!animal.species}
                 options={breedOptions.map(b => ({
@@ -330,7 +372,6 @@ export default function AnimalForm(props: Props) {
                 onChange={e => {
                   const val = e.target.value;
                   
-                  // If empty, let them clear the field
                   if (val === '') {
                     updateAnimal('age_months', null);
                     return;
@@ -338,9 +379,8 @@ export default function AnimalForm(props: Props) {
 
                   const num = Number(val);
 
-                  // Prevent typing anything less than 0 or greater than 11
                   if (num < 0 || num > 11) {
-                    return; // Do nothing, reject the input
+                    return; 
                   }
 
                   updateAnimal('age_months', num);
@@ -369,7 +409,6 @@ export default function AnimalForm(props: Props) {
           <Col md={6}>
             <Form.Group>
               <Form.Label><Req>Primary Color</Req></Form.Label>
-
               <Select
                 isDisabled={!animal.species}
                 options={colorOptions.map(c => ({
@@ -384,14 +423,19 @@ export default function AnimalForm(props: Props) {
                 onChange={selected =>
                   updateAnimal('primary_color', selected?.value || '')
                 }
+                onBlur={() => handleBlur('primary_color')}
               />
+              {touched.primary_color && !animal.primary_color && (
+                <div className="text-danger mt-1" style={{ fontSize: '0.875em' }}>
+                  Primary color is required.
+                </div>
+              )}
             </Form.Group>
           </Col>
 
           <Col md={6}>
             <Form.Group>
               <Form.Label>Secondary Color</Form.Label>
-
               <Select
                 isDisabled={!animal.species}
                 options={colorOptions.map(c => ({
@@ -414,7 +458,6 @@ export default function AnimalForm(props: Props) {
         {/* PATTERN */}
         <Form.Group className="mb-3">
           <Form.Label>Pattern</Form.Label>
-
           <Select
             isDisabled={!animal.species}
             options={patternOptions.map(p => ({

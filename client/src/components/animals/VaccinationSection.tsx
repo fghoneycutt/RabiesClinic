@@ -58,7 +58,15 @@ export default function VaccineSection({
   // -----------------------------
   const formatDisplayDate = (value?: string | null) => {
     if (!value) return '-';
-    const d = new Date(value);
+    
+    // If it's a date-only string (YYYY-MM-DD), append midnight local time 
+    // to force JavaScript to parse it in the user's current timezone.
+    let dateString = value;
+    if (typeof value === 'string' && value.length === 10 && value.includes('-')) {
+      dateString = `${value}T00:00:00`;
+    }
+
+    const d = new Date(dateString);
     if (isNaN(d.getTime())) return '-';
 
     return d.toLocaleDateString('en-US', {
@@ -355,9 +363,37 @@ export default function VaccineSection({
                         )}
                       </td>
 
-                      <td>{formatDisplayDate(active.date_time_administered)}</td>
+                      {/* --- Administered Column --- */}
+                      <td>
+                        {editing ? (
+                          <Form.Control
+                            size="sm"
+                            type="date"
+                            value={formatDateOnly(active.date_time_administered)}
+                            onChange={e =>
+                              updateField('date_time_administered', e.target.value)
+                            }
+                          />
+                        ) : (
+                          formatDisplayDate(active.date_time_administered)
+                        )}
+                      </td>
 
-                      <td>{formatDisplayDate(active.date_time_due)}</td>
+                      {/* --- Next Due Column --- */}
+                      <td>
+                        {editing ? (
+                          <Form.Control
+                            size="sm"
+                            type="date"
+                            value={formatDateOnly(active.date_time_due)}
+                            onChange={e =>
+                              updateField('date_time_due', e.target.value)
+                            }
+                          />
+                        ) : (
+                          formatDisplayDate(active.date_time_due)
+                        )}
+                      </td>
 
                       <td>
                         {editing ? (

@@ -5,6 +5,7 @@ import { api } from '../api/api';
 import { useClinic } from '../hooks/useClinics';
 
 import ClinicHeader from '../components/ClinicHeader';
+import ClinicRegistrationsList from '../components/clinics/ClinicRegistrationsList';
 
 import Card from 'react-bootstrap/Card';
 import Button from 'react-bootstrap/Button';
@@ -94,6 +95,19 @@ const formatAge = (age?: string) => {
 const capitalize = (v?: string | null) =>
   v ? v.charAt(0).toUpperCase() + v.slice(1) : '—';
 
+const isClinicPast = (clinicDateString?: string): boolean => {
+  if (!clinicDateString) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize today to midnight
+
+  const clinicDate = new Date(clinicDateString);
+  clinicDate.setHours(0, 0, 0, 0); // Normalize clinic day to midnight
+
+  // Returns true if today is strictly past the clinic day
+  return today.getTime() > clinicDate.getTime();
+};
+
 export default function ClinicPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -156,41 +170,38 @@ export default function ClinicPage() {
   // EXPORT
   // -----------------------------------
   const exportClinic = async () => {
-    if (!clinic) {
-      return;
-    }
+    if (!clinic) return;
 
     try {
       const res = await api.get(
         `/clinics/${id}/export`,
-        {
-          responseType: 'blob'
-        }
+        { responseType: 'blob' }
       );
 
-      const url = window.URL.createObjectURL(
-        new Blob([res.data])
-      );
-
+      const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
-
       link.href = url;
-
-      link.setAttribute(
-        'download',
-        `${clinic.name.replace(/\s+/g, '_')}_export.xlsx`
-      );
-
+      link.setAttribute('download', `${clinic.name.replace(/\s+/g, '_')}_export.xlsx`);
+      
       document.body.appendChild(link);
-
       link.click();
-
       link.remove();
-
       window.URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Export failed:', err);
-      alert('Failed to export clinic data');
+
+      // Extract error text cleanly out of the binary Blob package
+      if (err.response?.data instanceof Blob) {
+        const text = await err.response.data.text();
+        try {
+          const parsedError = JSON.parse(text);
+          alert(`Export failed: ${parsedError.error || parsedError.message}`);
+        } catch {
+          alert('Failed to export clinic data');
+        }
+      } else {
+        alert('Failed to export clinic data');
+      }
     }
   };
 
@@ -305,16 +316,13 @@ export default function ClinicPage() {
               Export Data
             </Button>
 
-            <Button
-              variant="outline-info"
-              onClick={copyRegistrationLink}
-            >
-              <FontAwesomeIcon
-                icon={linkCopied ? faCheck : faCopy}
-                className="me-2"
-              />
+          {/* CONDITIONAL RENDER: Hides button if today is after the clinic date */}
+          {!isClinicPast(clinic.clinic_date) && (
+            <Button variant="outline-info" onClick={copyRegistrationLink}>
+              <FontAwesomeIcon icon={linkCopied ? faCheck : faCopy} className="me-2" />
               Registration Link
             </Button>
+          )}
           </div>
         }
       />
@@ -585,6 +593,12 @@ export default function ClinicPage() {
           </Card.Body>
         </Card>
       </div>
+      
+      <ClinicRegistrationsList 
+        clinicId={id!} 
+        onOwnerClick={goToOwnerProfile}
+        searchTerm={searchTerm}
+      />
     </div>
   );
 }

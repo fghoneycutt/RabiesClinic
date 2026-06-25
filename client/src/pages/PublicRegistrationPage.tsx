@@ -422,6 +422,10 @@ export default function PublicRegistrationPage() {
           onClick={submit}
           variant="primary"
           disabled={submitting || !canSubmit}
+          style={{
+            cursor: (submitting || !canSubmit) ? 'not-allowed' : 'pointer',
+            pointerEvents: 'auto' // Re-enables mouse tracking so the cursor actually renders
+          }}
         >
           {submitting
             ? 'Submitting...'

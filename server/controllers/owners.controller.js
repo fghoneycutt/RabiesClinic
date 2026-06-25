@@ -126,11 +126,20 @@ exports.updateOwner = async (req, res) => {
   }
 };
 
-// GET OWNER PROFILE BY ID
+// GET OWNER PROFILE BY ID (Filtered by Clinic Context)
 exports.getOwnerById = async (req, res) => {
   try {
-
     const { id } = req.params;
+    // Extract clinicId from query params (e.g., ?clinicId=xyz)
+    // Alternatively, if it's in the route parameters, use: req.params.clinicId
+    const { clinicId } = req.query; 
+
+    if (!clinicId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required clinicId context'
+      });
+    }
 
     // -------------------------
     // OWNER
@@ -152,16 +161,17 @@ exports.getOwnerById = async (req, res) => {
     }
 
     // -------------------------
-    // ANIMALS
+    // ANIMALS (Scoped to Clinic)
     // -------------------------
     const animalsResult = await pool.query(
       `
       SELECT *
       FROM animals
-      WHERE owner_id = $1
+      WHERE owner_id = $1 
+        AND clinic_id = $2  -- 🔥 CRITICAL FIX: Scope to current clinic context
       ORDER BY created_at DESC
       `,
-      [id]
+      [id, clinicId]
     );
 
     const animals = animalsResult.rows;
@@ -170,11 +180,9 @@ exports.getOwnerById = async (req, res) => {
     // VACCINATIONS
     // -------------------------
     const animalIds = animals.map(a => a.id);
-
     let vaccinations = [];
 
     if (animalIds.length > 0) {
-
       const vaccinationResult = await pool.query(
         `
         SELECT *
@@ -208,14 +216,11 @@ exports.getOwnerById = async (req, res) => {
     });
 
   } catch (err) {
-
     console.error(err);
-
     res.status(500).json({
       success: false,
       error: err.message
     });
-
   }
 };
 

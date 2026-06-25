@@ -353,12 +353,151 @@ exports.updateClinic = async (req, res) => {
   }
 };
 
+/// GET PAGINATED CLINIC REGISTRATIONS SORTED BY RECENT
+exports.getClinicRegistrations = async (req, res) => {
+  try {
+    const { id: clinicId } = req.params;
+    
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 15);
+    const offset = (page - 1) * limit;
+
+    // 1. Get total unique owners registered at this clinic
+    const countRes = await pool.query(
+      `SELECT COUNT(DISTINCT owner_id) FROM animals WHERE clinic_id = $1`,
+      [clinicId]
+    );
+    const totalRecords = parseInt(countRes.rows[0]?.count || 0);
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    // 2. Fetch the slice of owner IDs ordered by newest registration
+    const ownerIdsRes = await pool.query(
+      `
+      SELECT o.id
+      FROM owners o
+      WHERE o.id IN (
+        SELECT DISTINCT owner_id 
+        FROM animals 
+        WHERE clinic_id = $1
+      )
+      ORDER BY o.created_at DESC, o.id DESC
+      LIMIT $2 OFFSET $3
+      `,
+      [clinicId, limit, offset]
+    );
+
+    const targetOwnerIds = ownerIdsRes.rows.map(r => r.id);
+
+    if (targetOwnerIds.length === 0) {
+      return res.json({
+        success: true,
+        owners: [],
+        pagination: { page, limit, totalRecords, totalPages }
+      });
+    }
+
+    // 3. Fetch detailed data (FIXED: Pulling rabies_tag_number from vaccinations table 'v')
+    const detailedRes = await pool.query(
+      `
+      SELECT
+        o.id AS owner_id,
+        o.first_name,
+        o.last_name,
+        o.email,
+        o.phone,
+        o.address,
+        o.city,
+        o.state,
+        o.zip_code,
+        o.created_at,
+
+        a.id AS animal_id,
+        a.name AS animal_name,
+        a.species,
+        a.sex,
+        a.altered_status,
+        a.primary_breed,
+        a.secondary_breed,
+        a.age_years,
+        a.age_months,
+        a.primary_color,
+        a.secondary_color,
+        a.pattern,
+        a.microchip_number,
+
+        v.rabies_tag_number, -- <-- FIXED: Pulling from vaccinations table
+        v.vaccine_type       -- <-- Pulling from vaccinations table
+
+      FROM owners o
+      LEFT JOIN animals a 
+        ON o.id = a.owner_id AND a.clinic_id = $1
+      LEFT JOIN vaccinations v 
+        ON v.animal_id = a.id AND v.is_active = true
+      WHERE o.id = ANY($2)
+      ORDER BY o.created_at DESC, o.id DESC, a.name ASC
+      `,
+      [clinicId, targetOwnerIds]
+    );
+
+    // 4. Map flat relational rows into structured objects
+    const ownerMap = new Map();
+
+    targetOwnerIds.forEach(id => {
+      const matchRow = detailedRes.rows.find(r => r.owner_id === id);
+      if (matchRow) {
+        ownerMap.set(id, {
+          owner_id: matchRow.owner_id,
+          owner_name: `${matchRow.first_name} ${matchRow.last_name}`,
+          address: [matchRow.address, matchRow.city, matchRow.state, matchRow.zip_code].filter(Boolean).join(', '),
+          email: matchRow.email,
+          phone: matchRow.phone,
+          animals: []
+        });
+      }
+    });
+
+    for (const row of detailedRes.rows) {
+      if (row.animal_id && ownerMap.has(row.owner_id)) {
+        ownerMap.get(row.owner_id).animals.push({
+          id: row.animal_id,
+          name: row.animal_name,
+          species: row.species,
+          breed: [row.primary_breed, row.secondary_breed].filter(Boolean).join(' x '),
+          sex: row.sex,
+          altered: row.altered_status,
+          age: row.age_years ? `${row.age_years}y` : row.age_months ? `${row.age_months}m` : '—',
+          color: [row.primary_color, row.secondary_color].filter(Boolean).join(' / '),
+          pattern: row.pattern,
+          rabies_tag_number: row.rabies_tag_number, // <-- Now correctly receives data
+          vaccine_type: row.vaccine_type,
+          microchip_number: row.microchip_number
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      owners: Array.from(ownerMap.values()),
+      pagination: { page, limit, totalRecords, totalPages }
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 // -----------------------------------
 // EXPORT CLINIC DATA
 // -----------------------------------
 exports.exportClinicData = async (req, res) => {
   try {
-    const { id } = req.params;
+    // Safety check: fall back to clinicId if your router uses nested params
+    const id = req.params.id || req.params.clinicId; 
+
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'Clinic ID is required' });
+    }
 
     const result = await pool.query(
       `
@@ -368,7 +507,6 @@ exports.exportClinicData = async (req, res) => {
         o.last_name AS person_last_name,
         o.phone AS phone,
         o.email AS email,
-
         o.address AS address,
         o.city AS city,
         o.county AS county,
@@ -400,53 +538,28 @@ exports.exportClinicData = async (req, res) => {
         v.vaccinated_by AS vaccinated_by_name,
         v.supervising_veterinarian,
 
-        -- If date_time_administered is missing,
-        -- fall back to clinic date
         COALESCE(
           v.date_time_administered::date,
           c.clinic_date
         ) AS date_vaccinated,
 
         v.date_time_due::date AS vaccination_expires,
-
         v.product_expiration_date,
 
         -- CLINIC CONTEXT
         c.name AS vaccine_location
 
       FROM animals a
-      JOIN owners o
-        ON o.id = a.owner_id
-
-      JOIN clinics c
-        ON c.id = a.clinic_id
-
-      LEFT JOIN vaccinations v
-        ON v.animal_id = a.id
-        AND v.is_active = true
-
+      JOIN owners o ON o.id = a.owner_id
+      JOIN clinics c ON c.id = a.clinic_id
+      LEFT JOIN vaccinations v ON v.animal_id = a.id AND v.is_active = true
       WHERE c.id = $1
         AND (
-          NULLIF(
-            TRIM(
-              COALESCE(a.microchip_number, '')
-            ),
-            ''
-          ) IS NOT NULL
-
+          NULLIF(TRIM(COALESCE(a.microchip_number, '')), '') IS NOT NULL
           OR
-
-          NULLIF(
-            TRIM(
-              COALESCE(v.rabies_tag_number, '')
-            ),
-            ''
-          ) IS NOT NULL
+          NULLIF(TRIM(COALESCE(v.rabies_tag_number, '')), '') IS NOT NULL
         )
-
-      ORDER BY
-        o.last_name,
-        o.first_name
+      ORDER BY o.last_name, o.first_name
       `,
       [id]
     );
@@ -456,55 +569,25 @@ exports.exportClinicData = async (req, res) => {
     if (!rows.length) {
       return res.status(404).json({
         success: false,
-        error: 'No data found for clinic'
+        error: 'No data found for clinic matching export criteria'
       });
     }
 
-    // -----------------------------
     // CREATE EXCEL FILE
-    // -----------------------------
-    const worksheet =
-      XLSX.utils.json_to_sheet(rows);
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Clinic Export');
 
-    const workbook =
-      XLSX.utils.book_new();
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      'Clinic Export'
-    );
-
-    const buffer = XLSX.write(
-      workbook,
-      {
-        type: 'buffer',
-        bookType: 'xlsx'
-      }
-    );
-
-    // -----------------------------
     // SEND FILE
-    // -----------------------------
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename=clinic_${id}_export.xlsx`
-    );
-
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-
+    res.setHeader('Content-Disposition', `attachment; filename=clinic_${id}_export.xlsx`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     return res.send(buffer);
 
   } catch (err) {
     console.error(err);
-
-    return res.status(500).json({
-      success: false,
-      error: err.message
-    });
+    return res.status(500).json({ success: false, error: err.message });
   }
 };
 

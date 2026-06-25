@@ -120,7 +120,10 @@ export default function OwnerProfilePage() {
       try {
         setLoading(true);
 
-        const res = await api.get(`/owners/${ownerId}`);
+        // 🔥 FIX: Pass clinicId context to the backend using Axios params config
+        const res = await api.get(`/owners/${ownerId}`, {
+          params: { clinicId }
+        });
 
         setOwner(res.data.owner);
 
@@ -135,7 +138,7 @@ export default function OwnerProfilePage() {
     };
 
     if (ownerId) fetchOwner();
-  }, [ownerId]);
+  }, [ownerId, clinicId]); // Add clinicId here to re-fetch if it changes
 
   // -------------------------
   // OWNER UPDATE LOCAL
@@ -192,8 +195,10 @@ export default function OwnerProfilePage() {
     value: any
   ) => {
     try {
+      // Automatically include the active clinicId from the URL params
       await api.put(`/animals/${animalId}`, {
-        [field]: value
+        [field]: value,
+        clinic_id: clinicId
       });
     } catch (err) {
       console.error(err);

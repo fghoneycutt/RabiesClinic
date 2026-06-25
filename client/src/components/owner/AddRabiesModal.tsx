@@ -186,18 +186,32 @@ export default function AddRabiesModal({
     try {
       const { id, ...cleanForm } = form;
 
+      // 1. Prioritize the current state value set by the product onChange lookup
+      let finalManufacturer = form.manufacturer ? String(form.manufacturer).trim() : '';
+
+      // 2. If it's blank or an em-dash, fall back to matching the constant array
+      if (!finalManufacturer || finalManufacturer === '—' || finalManufacturer === '-') {
+        const match = RABIES_PRODUCT_MANUFACTURER.find(p => p.product === form.product);
+        finalManufacturer = match ? match.manufacturer : '';
+      }
+
+      // 3. Fall back to clinic offering settings only if we still have nothing
+      if (!finalManufacturer || finalManufacturer === '—' || finalManufacturer === '-') {
+        finalManufacturer = getDefaults(form.vaccine_type as VaccineType)?.default_manufacturer || '';
+      }
+
       const payload = {
         ...cleanForm,
         animal_id: animalId,
+        clinic_id: clinic?.id,
 
         date_time_due: clean(form.date_time_due),
         date_time_administered: clean(form.date_time_administered),
 
         product: clean(form.product),
-        manufacturer:
-          clean(form.manufacturer) ||
-          getDefaults(form.vaccine_type as VaccineType)?.default_manufacturer ||
-          null
+        manufacturer: finalManufacturer !== '' && finalManufacturer !== '—' && finalManufacturer !== '-' 
+          ? finalManufacturer 
+          : null
       };
 
       const res = await api.post(`/vaccinations/${animalId}`, payload);
@@ -206,7 +220,6 @@ export default function AddRabiesModal({
       onHide();
     } catch (err: any) {
       console.error('Failed to save vaccination:', err?.response?.data || err);
-
       alert(err?.response?.data?.message || 'Failed to save vaccination');
     }
   };
@@ -253,9 +266,15 @@ export default function AddRabiesModal({
             value={form.product}
             isInvalid={!form.product?.trim()}
             onChange={e => {
-              const value = e.target.value;
-              update('product', value);
-              update('manufacturer', extractManufacturer(value));
+              const selectedProduct = e.target.value;
+              update('product', selectedProduct);
+              
+              const match = RABIES_PRODUCT_MANUFACTURER.find(p => p.product === selectedProduct);
+              if (match) {
+                update('manufacturer', match.manufacturer);
+              } else {
+                update('manufacturer', '');
+              }
             }}
           >
             <option value="">Select product...</option>

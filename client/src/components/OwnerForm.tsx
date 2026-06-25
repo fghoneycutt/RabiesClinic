@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
@@ -27,6 +28,9 @@ export default function OwnerForm({
   noEmail,
   setNoEmail
 }: Props) {
+  // Local state to track which fields have lost focus (blurred)
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
   const update = (
     field: keyof OwnerDraft,
     value: any
@@ -34,6 +38,13 @@ export default function OwnerForm({
     setOwner(prev => ({
       ...prev,
       [field]: value
+    }));
+  };
+
+  const handleBlur = (field: string) => {
+    setTouched(prev => ({
+      ...prev,
+      [field]: true
     }));
   };
 
@@ -99,7 +110,12 @@ export default function OwnerForm({
                   e.target.value
                 )
               }
+              onBlur={() => handleBlur('first_name')}
+              isInvalid={touched.first_name && !owner.first_name?.trim()}
             />
+            <Form.Control.Feedback type="invalid">
+              First name is required.
+            </Form.Control.Feedback>
           </Form.Group>
         </Col>
 
@@ -120,7 +136,12 @@ export default function OwnerForm({
                   e.target.value
                 )
               }
+              onBlur={() => handleBlur('last_name')}
+              isInvalid={touched.last_name && !owner.last_name?.trim()}
             />
+            <Form.Control.Feedback type="invalid">
+              Last name is required.
+            </Form.Control.Feedback>
           </Form.Group>
         </Col>
       </Row>
@@ -143,6 +164,8 @@ export default function OwnerForm({
                   e.target.value
                 )
               }
+              onBlur={() => handleBlur('email')}
+              isInvalid={false}
             />
           </Form.Group>
 
@@ -184,7 +207,12 @@ export default function OwnerForm({
                   e.target.value
                 )
               }
+              onBlur={() => handleBlur('phone')}
+              isInvalid={touched.phone && owner.phone.replace(/\D/g, '').length !== 10}
             />
+            <Form.Control.Feedback type="invalid">
+              A valid 10-digit phone number is required.
+            </Form.Control.Feedback>
           </Form.Group>
         </Col>
       </Row>
@@ -206,7 +234,12 @@ export default function OwnerForm({
               e.target.value
             )
           }
+          onBlur={() => handleBlur('address')}
+          isInvalid={touched.address && !owner.address?.trim()}
         />
+        <Form.Control.Feedback type="invalid">
+          Street address is required.
+        </Form.Control.Feedback>
       </Form.Group>
 
       {/* CITY + COUNTY */}
@@ -228,7 +261,12 @@ export default function OwnerForm({
                   e.target.value
                 )
               }
+              onBlur={() => handleBlur('city')}
+              isInvalid={touched.city && !owner.city?.trim()}
             />
+            <Form.Control.Feedback type="invalid">
+              City is required.
+            </Form.Control.Feedback>
           </Form.Group>
         </Col>
 
@@ -249,7 +287,12 @@ export default function OwnerForm({
                   e.target.value
                 )
               }
+              onBlur={() => handleBlur('county')}
+              isInvalid={touched.county && !owner.county?.trim()}
             />
+            <Form.Control.Feedback type="invalid">
+              County is required.
+            </Form.Control.Feedback>
           </Form.Group>
         </Col>
       </Row>
@@ -272,6 +315,8 @@ export default function OwnerForm({
                   e.target.value
                 )
               }
+              onBlur={() => handleBlur('state')}
+              isInvalid={touched.state && !owner.state?.trim()}
             >
               {STATES_AND_PROVINCES.map(
                 (state) => (
@@ -284,6 +329,9 @@ export default function OwnerForm({
                 )
               )}
             </Form.Select>
+            <Form.Control.Feedback type="invalid">
+              State selection is required.
+            </Form.Control.Feedback>
           </Form.Group>
         </Col>
 
@@ -305,7 +353,12 @@ export default function OwnerForm({
                   e.target.value
                 )
               }
+              onBlur={() => handleBlur('zip_code')}
+              isInvalid={touched.zip_code && owner.zip_code?.trim().length !== 5}
             />
+            <Form.Control.Feedback type="invalid">
+              A valid 5-digit zip code is required.
+            </Form.Control.Feedback>
           </Form.Group>
         </Col>
       </Row>

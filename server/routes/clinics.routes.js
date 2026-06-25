@@ -17,6 +17,9 @@ router.get(
 // EXPORT CLINIC DATA
 router.get('/:id/export', clinicsController.exportClinicData);
 
+// GET PAGINATED CLINIC REGISTRATIONS SORTED BY RECENT
+router.get('/:id/registrations', clinicsController.getClinicRegistrations);
+
 // GET SINGLE CLINIC
 router.get('/:id', clinicsController.getClinicById);
 
