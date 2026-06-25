@@ -267,6 +267,7 @@ export const DOG_BREEDS = [
 
 export const CAT_BREEDS = [
   '',
+  'Domestic Shorthair',
   'Abyssinian',
   'American Bobtail',
   'American Curl',
@@ -285,7 +286,6 @@ export const CAT_BREEDS = [
   'Devon Rex',
   'Domestic Longhair',
   'Domestic Medium Hair',
-  'Domestic Shorthair',
   'Egyptian Mau',
   'Exotic Longhair',
   'Exotic Shorthair',

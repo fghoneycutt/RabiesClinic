@@ -79,11 +79,6 @@ export default function AddRabiesModal({
     return formatDateTimeLocal(d);
   };
 
-  const extractManufacturer = (product: string): string => {
-    const match = product.match(/\(([^)]+)\)$/);
-    return match ? match[1].trim() : '';
-  };
-
   // -----------------------------
   // EMPTY FORM
   // -----------------------------

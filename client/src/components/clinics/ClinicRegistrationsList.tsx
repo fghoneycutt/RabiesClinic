@@ -107,7 +107,14 @@ export default function ClinicRegistrationsList({ clinicId, onOwnerClick, search
     <div className="mt-4">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
-          <h5 className="mb-0 fw-bold">Registrations</h5>
+          <h5 className="mb-0 fw-bold">
+            Registrations 
+            {totalRecords > 0 && (
+              <span className="text-muted fw-normal ms-2 fs-6">
+                ({totalRecords} owners total)
+              </span>
+            )}
+          </h5>
         </div>
 
         {/* PAGINATION TOOLBAR */}
