@@ -220,6 +220,41 @@ export default function PublicRegistrationPage() {
   }
 
   // ----------------------
+  // PAST CLINIC GUARD LAYER
+  // ----------------------
+  const checkIsClinicPast = () => {
+    if (!clinic?.clinic_date) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Strip time from current moment
+
+    const clinicDay = new Date(clinic.clinic_date);
+    clinicDay.setHours(0, 0, 0, 0); // Strip time from target date
+
+    return today.getTime() > clinicDay.getTime();
+  };
+
+  if (checkIsClinicPast()) {
+    return (
+      <div 
+        style={{ maxWidth: 650, margin: '4rem auto' }} 
+        className="text-center p-5 border rounded bg-white shadow-sm"
+      >
+        <div className="mb-4 display-4 text-warning">
+          <i className="fas fa-calendar-times"></i>
+        </div>
+        <h3 className="fw-bold text-dark mb-3">Registration is Closed</h3>
+        <p className="text-secondary fs-5 mb-4 leading-relaxed">
+          Thank you for your interest! Pre-registration for the <strong>{clinic.name}</strong> is now closed, as this event has already concluded.
+        </p>
+        <div className="p-3 bg-light rounded text-muted mb-4 small">
+          See us at our next clinic! Keep an eye on our community announcements or contact the shelter at <a href="tel:+13365971741" className="text-decoration-none fw-bold">(336) 597-1741</a> for upcoming event dates.
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------------
   // SUCCESS PAGE
   // ----------------------
   if (submitted) {
