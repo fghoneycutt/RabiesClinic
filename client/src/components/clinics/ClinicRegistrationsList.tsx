@@ -215,6 +215,30 @@ export default function ClinicRegistrationsList({ clinicId, onOwnerClick, search
             </Card.Body>
           </Card>
         ))}
+      {/* PAGINATION TOOLBAR */}
+      {totalPages > 1 && (
+        <div className="d-flex gap-2 align-items-center justify-content-end mt-3">
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+          >
+            <FontAwesomeIcon icon={faChevronLeft} />
+          </Button>
+          <span className="small text-muted px-1">
+            Page <strong>{page}</strong> of {totalPages}
+          </span>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+          >
+            <FontAwesomeIcon icon={faChevronRight} />
+          </Button>
+        </div>
+      )}
       </div>
     </div>
   );
