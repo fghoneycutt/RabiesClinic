@@ -72,11 +72,14 @@ export default function AddRabiesModal({
     )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
-  const buildDueDate = (years: number) => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() + years);
-    d.setHours(0, 0, 0, 0);
-    return formatDateTimeLocal(d);
+  // Updated to calculate years dynamic from a specific starting point
+  const buildDueDate = (years: number, baseDateStr?: string) => {
+    const base = baseDateStr ? new Date(baseDateStr) : new Date();
+    // Fallback safeguard if the date string is malformed or empty
+    if (isNaN(base.getTime())) return ''; 
+    
+    base.setFullYear(base.getFullYear() + years);
+    return formatDateTimeLocal(base);
   };
 
   // -----------------------------
@@ -133,9 +136,9 @@ export default function AddRabiesModal({
 
     const dueDate =
       type === 'rabies_1_year'
-        ? buildDueDate(1)
+        ? buildDueDate(1, form.date_time_administered)
         : type === 'rabies_3_year'
-        ? buildDueDate(3)
+        ? buildDueDate(3, form.date_time_administered)
         : '';
 
     const savedVetId = clinic?.default_veterinarian;
@@ -333,7 +336,23 @@ export default function AddRabiesModal({
           <Form.Control
             type="datetime-local"
             value={form.date_time_administered}
-            onChange={e => update('date_time_administered', e.target.value)}
+            onChange={e => {
+              const newAdministeredDate = e.target.value;
+              
+              // Calculate new expiration bounds if a type has been locked in
+              let newDueDate = form.date_time_due;
+              if (form.vaccine_type === 'rabies_1_year') {
+                newDueDate = buildDueDate(1, newAdministeredDate);
+              } else if (form.vaccine_type === 'rabies_3_year') {
+                newDueDate = buildDueDate(3, newAdministeredDate);
+              }
+
+              setForm(prev => ({
+                ...prev,
+                date_time_administered: newAdministeredDate,
+                date_time_due: newDueDate
+              }));
+            }}
           />
         </Form.Group>
 
