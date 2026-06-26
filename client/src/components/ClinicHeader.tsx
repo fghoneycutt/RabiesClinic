@@ -61,23 +61,23 @@ export default function ClinicHeader({
 
   const linkTo = clinicUrl || `/clinics/${clinic.id}`;
 
-return (
-  <div className="mb-4">
+  return (
+    <div className="mb-4">
 
-    {/* HEADER ROW */}
-    <div className="d-flex flex-column flex-lg-row justify-content-between align-items-start">
+      {/* HEADER ROW */}
+      <div className="d-flex flex-column flex-lg-row justify-content-between align-items-start">
 
-      {/* CLICKABLE LEFT SIDE */}
-      <Link
-        to={linkTo}
-        style={{
-          textDecoration: 'none',
-          color: 'inherit',
-          flex: 1
-        }}
-      >
-        <div>
-          <h2 className="mb-1">{clinic.name}</h2>
+        {/* NON-CLICKABLE CONTAINER */}
+        <div style={{ flex: 1 }}>
+          
+          {/* ONLY THE TITLE IS A LINK */}
+          <Link 
+            to={linkTo} 
+            className="text-decoration-none text-dark hover-opacity"
+            style={{ display: 'inline-block' }}
+          >
+            <h2 className="mb-1">{clinic.name}</h2>
+          </Link>
 
           <p className="text-muted mb-1">
             {clinic.location_name}
@@ -102,20 +102,19 @@ return (
             </h3>
           )}
         </div>
-      </Link>
 
-      {/* DESKTOP BUTTONS */}
-      <div className="ms-lg-3 d-none d-lg-block">
+        {/* DESKTOP BUTTONS */}
+        <div className="ms-lg-3 d-none d-lg-block">
+          {rightSlot}
+        </div>
+
+      </div>
+
+      {/* MOBILE/TABLET BUTTONS */}
+      <div className="mt-3 d-lg-none">
         {rightSlot}
       </div>
 
     </div>
-
-    {/* MOBILE/TABLET BUTTONS */}
-    <div className="mt-3 d-lg-none">
-      {rightSlot}
-    </div>
-
-  </div>
-);
+  );
 }
