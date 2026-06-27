@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 
@@ -15,7 +15,10 @@ type Props = {
   onAnimalCreated: (animal: Animal) => void;
 };
 
-const emptyAnimal: Omit<Animal, 'id'> = {
+// ----------------------
+// EMPTY ANIMAL SCHEMA
+// ----------------------
+const EMPTY_ANIMAL: Omit<Animal, 'id'> = {
   name: '',
   species: '',
   sex: '',
@@ -38,118 +41,163 @@ export default function AddAnimalModal({
   clinicId,
   onAnimalCreated
 }: Props) {
-  const [loading, setLoading] =
-    useState(false);
+  const [loading, setLoading] = useState(false);
+  
+  // Track an array of animals exactly like WalkinIntake
+  const [animals, setAnimals] = useState<Omit<Animal, 'id'>[]>([
+    { ...EMPTY_ANIMAL }
+  ]);
 
-  const [animal, setAnimal] =
-    useState(emptyAnimal);
+  // Reset modal state back to a single blank form whenever it opens
+  useEffect(() => {
+    if (show) {
+      setAnimals([{ ...EMPTY_ANIMAL }]);
+    }
+  }, [show]);
 
-  const updateAnimal = (
-    field: keyof Animal,
-    value: any
-  ) => {
-    setAnimal(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  // ----------------------
+  // ARRAY STATE ACTIONS
+  // ----------------------
+  const addAnimal = () => {
+    setAnimals(prev => [...prev, { ...EMPTY_ANIMAL }]);
+  };
+
+  const cloneLastAnimal = () => {
+    setAnimals(prev => {
+      if (prev.length === 0) {
+        return [{ ...EMPTY_ANIMAL }];
+      }
+      const lastAnimal = prev[prev.length - 1];
+      
+      // Clone everything except the unique identifiers
+      const cloned = {
+        ...lastAnimal,
+        name: '',
+        rabies_tag_number: null,
+        microchip_number: null
+      };
+      return [...prev, cloned];
+    });
+  };
+
+  const removeAnimal = (indexToRemove: number) => {
+    setAnimals(prev => {
+      if (prev.length === 1) return prev; // Keep at least one form open
+      return prev.filter((_, i) => i !== indexToRemove);
+    });
+  };
+
+  const updateAnimal = (index: number, field: keyof Animal, value: any) => {
+    setAnimals(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        [field]: value
+      };
+      return updated;
+    });
   };
 
   // ----------------------
   // VALIDATION
   // ----------------------
-  const isAnimalValid = () => {
-    const hasAge =
-      animal.age_years !== null ||
-      animal.age_months !== null;
-
+  const isAnimalValid = (ani: Omit<Animal, 'id'>) => {
+    const hasAge = ani.age_years !== null || ani.age_months !== null;
     return (
-      animal.name.trim() !== '' &&
-      animal.species.trim() !== '' &&
-      animal.sex.trim() !== '' &&
-      animal.primary_breed?.trim() !== '' &&
-      animal.primary_color?.trim() !== '' &&
+      ani.name.trim() !== '' &&
+      ani.species.trim() !== '' &&
+      ani.sex.trim() !== '' &&
+      ani.primary_breed?.trim() !== '' &&
+      ani.primary_color?.trim() !== '' &&
       hasAge
     );
   };
 
+  const canSubmit = animals.length > 0 && animals.every(isAnimalValid);
+
+  // ----------------------
+  // SUBMIT BATCH TO API
+  // ----------------------
   const submit = async () => {
-    if (!isAnimalValid()) {
-      alert(
-        'Please complete all required fields before adding the animal.'
-      );
+    if (!canSubmit) {
+      alert('Please complete all required fields for each animal.');
       return;
     }
 
     try {
       setLoading(true);
 
-      const res = await api.post(
-        '/animals',
-        {
+      // FIX: Combined 'animal Data' into a single variable name 'animalData'
+      for (const animalData of animals) {
+        const res = await api.post('/animals', {
           owner_id: ownerId,
           clinic_id: clinicId,
-          ...animal
-        }
-      );
+          ...animalData
+        });
+        
+        // Notify the parent UI profile list of each new creation
+        onAnimalCreated(res.data.animal);
+      }
 
-      onAnimalCreated(
-        res.data.animal
-      );
-
-      setAnimal(emptyAnimal);
       onHide();
     } catch (err) {
       console.error(err);
-
-      alert(
-        'Failed to create animal'
-      );
+      alert('Failed to save animals. Some records may not have saved.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal
-      show={show}
-      onHide={onHide}
-      size="lg"
-      centered
-    >
+    <Modal show={show} onHide={onHide} size="lg" centered>
       <Modal.Header closeButton>
-        <Modal.Title>
-          Add Animal
-        </Modal.Title>
+        <Modal.Title>Add Animals to Profile</Modal.Title>
       </Modal.Header>
 
-      <Modal.Body>
-        <AnimalForm
-          animal={animal as Animal}
-          mode="single"
-          updateAnimal={updateAnimal}
-        />
+      <Modal.Body style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+        {animals.map((animal, i) => (
+          <div key={i} className={i > 0 ? "mt-4 pt-4 border-top" : ""}>
+            <AnimalForm
+              animal={animal as Animal}
+              mode="multi"
+              index={i}
+              showClinicFields={true}
+              removeAnimal={removeAnimal}
+              updateAnimal={(field, value) => updateAnimal(i, field, value)}
+            />
+          </div>
+        ))}
       </Modal.Body>
 
       <Modal.Footer>
-        <Button
-          variant="secondary"
-          onClick={onHide}
-        >
-          Cancel
-        </Button>
+        <div className="d-flex justify-content-between w-100">
+          
+          {/* Layout Controls identical to WalkinIntake workspace layout */}
+          <div className="d-flex gap-2">
+            <Button variant="secondary" onClick={addAnimal} disabled={loading}>
+              + Add Another Animal
+            </Button>
 
-        <Button
-          variant="primary"
-          onClick={submit}
-          disabled={
-            loading ||
-            !isAnimalValid()
-          }
-        >
-          {loading
-            ? 'Saving...'
-            : 'Add Animal'}
-        </Button>
+            <Button variant="outline-secondary" onClick={cloneLastAnimal} disabled={loading}>
+              + Clone Animal
+            </Button>
+          </div>
+          
+          {/* Modal Commit State Actions */}
+          <div className="d-flex gap-2">
+            <Button variant="secondary" onClick={onHide} disabled={loading}>
+              Cancel
+            </Button>
+
+            <Button
+              variant="primary"
+              onClick={submit}
+              disabled={loading || !canSubmit}
+            >
+              {loading ? 'Saving Records...' : `Add ${animals.length} Animal${animals.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </div>
       </Modal.Footer>
     </Modal>
   );
