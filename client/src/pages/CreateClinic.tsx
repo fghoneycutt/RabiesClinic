@@ -47,7 +47,9 @@ type VetUser = {
 
 export default function CreateClinic() {
   const navigate = useNavigate();
-  document.title="Create Clinic"
+
+  document.title = 'Create Clinic';
+
   const [vets, setVets] = useState<VetUser[]>([]);
 
   const [form, setForm] = useState<ClinicForm>({
@@ -81,10 +83,11 @@ export default function CreateClinic() {
   });
 
   useEffect(() => {
-    api.get('/users?role=staff')
+    api
+      .get('/users?role=staff')
       .then(res => setVets(res.data))
       .catch(err =>
-        console.error("Could not load veterinarian drop-down options:", err)
+        console.error('Could not load veterinarian drop-down options:', err)
       );
   }, []);
 
@@ -96,85 +99,83 @@ export default function CreateClinic() {
   };
 
   const submit = async () => {
-  try {
-    // -----------------------------
-    // REQUIRED FIELD VALIDATION
-    // -----------------------------
-    if (
-      !form.name ||
-      !form.location_name ||
-      !form.address ||
-      !form.city ||
-      !form.state ||
-      !form.zip_code ||
-      !form.clinic_date ||
-      !form.start_time ||
-      !form.end_time
-    ) {
-      alert('Please fill out all required fields before submitting.');
-      return;
-    }
-
-    // -----------------------------
-    // CLEANER HELPER (prevents "")
-    // -----------------------------
-    const clean = (v: any) => (v === '' ? null : v);
-
-    const offerings = {
-      rabies_1_year: {
-        enabled: form.rabies_1_year_enabled,
-        default_product: clean(form.rabies_1_year_product),
-        default_manufacturer: clean(form.rabies_1_year_manufacturer),
-        default_lot_number: clean(form.rabies_1_year_lot_number),
-        default_product_expiration_date: clean(
-          form.rabies_1_year_product_expiration_date
-        )
-      },
-      rabies_3_year: {
-        enabled: form.rabies_3_year_enabled,
-        default_product: clean(form.rabies_3_year_product),
-        default_manufacturer: clean(form.rabies_3_year_manufacturer),
-        default_lot_number: clean(form.rabies_3_year_lot_number),
-        default_product_expiration_date: clean(
-          form.rabies_3_year_product_expiration_date
-        )
-      },
-      microchip: {
-        enabled: form.microchip_enabled
+    try {
+      if (
+        !form.name ||
+        !form.location_name ||
+        !form.address ||
+        !form.city ||
+        !form.state ||
+        !form.zip_code ||
+        !form.clinic_date ||
+        !form.start_time ||
+        !form.end_time
+      ) {
+        alert('Please fill out all required fields before submitting.');
+        return;
       }
-    };
 
-    await api.post('/clinics', {
-      name: form.name,
-      location_name: form.location_name,
-      address: form.address,
-      city: form.city,
-      state: form.state,
-      zip_code: form.zip_code,
+      const clean = (v: any) => (v === '' ? null : v);
 
-      clinic_date: clean(form.clinic_date),
-      start_time: clean(form.start_time),
-      end_time: clean(form.end_time),
+      const offerings = {
+        rabies_1_year: {
+          enabled: form.rabies_1_year_enabled,
+          default_product: clean(form.rabies_1_year_product),
+          default_manufacturer: clean(form.rabies_1_year_manufacturer),
+          default_lot_number: clean(form.rabies_1_year_lot_number),
+          default_product_expiration_date: clean(
+            form.rabies_1_year_product_expiration_date
+          )
+        },
+        rabies_3_year: {
+          enabled: form.rabies_3_year_enabled,
+          default_product: clean(form.rabies_3_year_product),
+          default_manufacturer: clean(form.rabies_3_year_manufacturer),
+          default_lot_number: clean(form.rabies_3_year_lot_number),
+          default_product_expiration_date: clean(
+            form.rabies_3_year_product_expiration_date
+          )
+        },
+        microchip: {
+          enabled: form.microchip_enabled
+        }
+      };
 
-      offerings,
-      default_veterinarian_id: form.default_veterinarian_id || null,
-      notes: form.notes || null
-    });
+      await api.post('/clinics', {
+        name: form.name,
+        location_name: form.location_name,
+        address: form.address,
+        city: form.city,
+        state: form.state,
+        zip_code: form.zip_code,
 
-    navigate('/');
-  } catch (err) {
-    console.error(err);
-    alert('Failed to create clinic');
-  }
-};
+        clinic_date: clean(form.clinic_date),
+        start_time: clean(form.start_time),
+        end_time: clean(form.end_time),
+
+        offerings,
+        default_veterinarian_id: form.default_veterinarian_id || null,
+        notes: form.notes || null
+      });
+
+      navigate('/');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to create clinic');
+    }
+  };
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+    <div
+      style={{
+        maxWidth: 900,
+        margin: '0 auto',
+        padding: '1rem'
+      }}
+    >
       <h2 className="mb-4">Create Clinic</h2>
 
       <Form>
-
-        {/* BASIC INFO */}
         <Form.Group className="mb-3">
           <Form.Label>Clinic Name</Form.Label>
           <Form.Control
@@ -183,11 +184,10 @@ export default function CreateClinic() {
           />
         </Form.Group>
 
-        {/* LOCATION */}
-        <Row className="mb-3">
-          <Col>
+        <Row className="g-3 mb-3">
+          <Col xs={12} md={6}>
             <Form.Group>
-              <Form.Label>Location Name</Form.Label>
+              <Form.Label>Location</Form.Label>
               <Form.Control
                 value={form.location_name}
                 onChange={e => update('location_name', e.target.value)}
@@ -195,7 +195,7 @@ export default function CreateClinic() {
             </Form.Group>
           </Col>
 
-          <Col>
+          <Col xs={12} md={6}>
             <Form.Group>
               <Form.Label>Address</Form.Label>
               <Form.Control
@@ -206,8 +206,8 @@ export default function CreateClinic() {
           </Col>
         </Row>
 
-        <Row className="mb-3">
-          <Col>
+        <Row className="g-3 mb-3">
+          <Col xs={12} md={4}>
             <Form.Group>
               <Form.Label>City</Form.Label>
               <Form.Control
@@ -217,7 +217,7 @@ export default function CreateClinic() {
             </Form.Group>
           </Col>
 
-          <Col>
+          <Col xs={12} md={4}>
             <Form.Group>
               <Form.Label>State</Form.Label>
               <Form.Control
@@ -227,22 +227,28 @@ export default function CreateClinic() {
             </Form.Group>
           </Col>
 
-          <Col>
+          <Col xs={12} md={4}>
             <Form.Group>
               <Form.Label>Zip Code</Form.Label>
               <Form.Control
-                inputMode="numeric" 
+                type="text"
+                inputMode="numeric"
                 pattern="[0-9]*"
+                maxLength={5}
                 value={form.zip_code}
-                onChange={e => update('zip_code', e.target.value)}
+                onChange={e =>
+                  update(
+                    'zip_code',
+                    e.target.value.replace(/\D/g, '').slice(0, 5)
+                  )
+                }
               />
             </Form.Group>
           </Col>
         </Row>
 
-        {/* SCHEDULING */}
-        <Row className="mb-4">
-          <Col>
+        <Row className="g-3 mb-4">
+          <Col xs={12} md={4}>
             <Form.Group>
               <Form.Label>Clinic Date</Form.Label>
               <Form.Control
@@ -253,7 +259,7 @@ export default function CreateClinic() {
             </Form.Group>
           </Col>
 
-          <Col>
+          <Col xs={12} sm={6} md={4}>
             <Form.Group>
               <Form.Label>Start Time</Form.Label>
               <Form.Control
@@ -264,7 +270,7 @@ export default function CreateClinic() {
             </Form.Group>
           </Col>
 
-          <Col>
+          <Col xs={12} sm={6} md={4}>
             <Form.Group>
               <Form.Label>End Time</Form.Label>
               <Form.Control
@@ -276,12 +282,10 @@ export default function CreateClinic() {
           </Col>
         </Row>
 
-        {/* OFFERINGS */}
         <Card className="mb-4">
           <Card.Body>
             <h5 className="mb-3">Offerings</h5>
 
-            {/* 1 YEAR */}
             <Form.Check
               label="Rabies 1-Year"
               checked={form.rabies_1_year_enabled}
@@ -291,8 +295,8 @@ export default function CreateClinic() {
             />
 
             {form.rabies_1_year_enabled && (
-              <Row className="mt-3">
-                <Col>
+              <Row className="g-3 mt-2">
+                                <Col xs={12}>
                   <Form.Group>
                     <Form.Label>Product</Form.Label>
                     <Form.Select
@@ -302,8 +306,14 @@ export default function CreateClinic() {
                           item => item.product === e.target.value
                         );
 
-                        update('rabies_1_year_product', selected?.product || '');
-                        update('rabies_1_year_manufacturer', selected?.manufacturer || '');
+                        update(
+                          'rabies_1_year_product',
+                          selected?.product || ''
+                        );
+                        update(
+                          'rabies_1_year_manufacturer',
+                          selected?.manufacturer || ''
+                        );
                       }}
                     >
                       <option value="">Select product</option>
@@ -316,21 +326,24 @@ export default function CreateClinic() {
                   </Form.Group>
                 </Col>
 
-                <Col>
+                <Col xs={12} md={6}>
                   <Form.Group>
                     <Form.Label>Lot Number</Form.Label>
                     <Form.Control
-                      inputMode="numeric" 
+                      inputMode="numeric"
                       pattern="[0-9]*"
                       value={form.rabies_1_year_lot_number}
                       onChange={e =>
-                        update('rabies_1_year_lot_number', e.target.value)
+                        update(
+                          'rabies_1_year_lot_number',
+                          e.target.value
+                        )
                       }
                     />
                   </Form.Group>
                 </Col>
 
-                <Col>
+                <Col xs={12} md={6}>
                   <Form.Group>
                     <Form.Label>Expiration Date</Form.Label>
                     <Form.Control
@@ -348,19 +361,21 @@ export default function CreateClinic() {
               </Row>
             )}
 
-            {/* 3 YEAR */}
             <div className="mt-4">
               <Form.Check
                 label="Rabies 3-Year"
                 checked={form.rabies_3_year_enabled}
                 onChange={e =>
-                  update('rabies_3_year_enabled', e.target.checked)
+                  update(
+                    'rabies_3_year_enabled',
+                    e.target.checked
+                  )
                 }
               />
 
               {form.rabies_3_year_enabled && (
-                <Row className="mt-3">
-                  <Col>
+                <Row className="g-3 mt-2">
+                  <Col xs={12}>
                     <Form.Group>
                       <Form.Label>Product</Form.Label>
                       <Form.Select
@@ -370,8 +385,14 @@ export default function CreateClinic() {
                             item => item.product === e.target.value
                           );
 
-                          update('rabies_3_year_product', selected?.product || '');
-                          update('rabies_3_year_manufacturer', selected?.manufacturer || '');
+                          update(
+                            'rabies_3_year_product',
+                            selected?.product || ''
+                          );
+                          update(
+                            'rabies_3_year_manufacturer',
+                            selected?.manufacturer || ''
+                          );
                         }}
                       >
                         <option value="">Select product</option>
@@ -384,26 +405,31 @@ export default function CreateClinic() {
                     </Form.Group>
                   </Col>
 
-                  <Col>
+                  <Col xs={12} md={6}>
                     <Form.Group>
                       <Form.Label>Lot Number</Form.Label>
                       <Form.Control
-                        inputMode="numeric" 
+                        inputMode="numeric"
                         pattern="[0-9]*"
                         value={form.rabies_3_year_lot_number}
                         onChange={e =>
-                          update('rabies_3_year_lot_number', e.target.value)
+                          update(
+                            'rabies_3_year_lot_number',
+                            e.target.value
+                          )
                         }
                       />
                     </Form.Group>
                   </Col>
 
-                  <Col>
+                  <Col xs={12} md={6}>
                     <Form.Group>
                       <Form.Label>Expiration Date</Form.Label>
                       <Form.Control
                         type="date"
-                        value={form.rabies_3_year_product_expiration_date}
+                        value={
+                          form.rabies_3_year_product_expiration_date
+                        }
                         onChange={e =>
                           update(
                             'rabies_3_year_product_expiration_date',
@@ -417,7 +443,6 @@ export default function CreateClinic() {
               )}
             </div>
 
-            {/* MICROCHIP */}
             <Form.Check
               className="mt-3"
               label="Microchip"
@@ -429,7 +454,6 @@ export default function CreateClinic() {
           </Card.Body>
         </Card>
 
-        {/* VET + NOTES */}
         <Card className="mb-4">
           <Card.Body>
             <Form.Group>
@@ -437,7 +461,10 @@ export default function CreateClinic() {
               <Form.Select
                 value={form.default_veterinarian_id}
                 onChange={e =>
-                  update('default_veterinarian_id', e.target.value)
+                  update(
+                    'default_veterinarian_id',
+                    e.target.value
+                  )
                 }
               >
                 <option value="">Select veterinarian</option>
@@ -455,13 +482,19 @@ export default function CreateClinic() {
                 as="textarea"
                 rows={3}
                 value={form.notes}
-                onChange={e => update('notes', e.target.value)}
+                onChange={e =>
+                  update('notes', e.target.value)
+                }
               />
             </Form.Group>
           </Card.Body>
         </Card>
 
-        <Button onClick={submit}>Create Clinic</Button>
+        <div className="d-grid">
+          <Button size="lg" onClick={submit}>
+            Create Clinic
+          </Button>
+        </div>
       </Form>
     </div>
   );
