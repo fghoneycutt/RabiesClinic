@@ -78,7 +78,6 @@ export default function PublicRegistrationPage() {
 
   const [error, setError] = useState('');
 
-  const [noEmail, setNoEmail] = useState(false);
 
   // ----------------------
   // ADD ANIMAL
@@ -131,15 +130,19 @@ export default function PublicRegistrationPage() {
   // VALIDATION
   // ----------------------
   const isOwnerValid = () => {
+    const validEmail =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(owner.email.trim());
+
     return (
       owner.first_name.trim() !== '' &&
       owner.last_name.trim() !== '' &&
+      validEmail &&
       owner.phone.replace(/\D/g, '').length === 10 &&
-      owner.address?.trim() !== '' &&
-      owner.city?.trim() !== '' &&
-      owner.county?.trim() !== '' &&
-      owner.state?.trim() !== '' &&
-      owner.zip_code?.trim().length === 5
+      owner.address.trim() !== '' &&
+      owner.city.trim() !== '' &&
+      owner.county.trim() !== '' &&
+      owner.state.trim() !== '' &&
+      owner.zip_code.trim().length === 5
     );
   };
 
@@ -421,8 +424,6 @@ export default function PublicRegistrationPage() {
       <OwnerForm
         owner={owner}
         setOwner={setOwner}
-        noEmail={noEmail}
-        setNoEmail={setNoEmail}
       />
 
       <hr className="my-4" />

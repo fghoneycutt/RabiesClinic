@@ -6,13 +6,13 @@ export interface Owner {
   id: string;
   first_name: string;
   last_name: string;
-  email?: string;
+  email: string;
   phone: string;
-  address?: string;
-  city?: string;
-  county?: string;
-  state?: string;
-  zip_code?: string;
+  address: string;
+  city: string;
+  county: string;
+  state: string;
+  zip_code: string;
 }
 
 export type OwnerDraft = Omit<Owner, 'id'> & {

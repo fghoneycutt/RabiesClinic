@@ -8,8 +8,6 @@ import type { OwnerDraft } from '../types/intake';
 interface Props {
   owner: OwnerDraft;
   setOwner: React.Dispatch<React.SetStateAction<OwnerDraft>>;
-  noEmail: boolean;
-  setNoEmail: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const STATES_AND_PROVINCES = [
@@ -25,8 +23,6 @@ const STATES_AND_PROVINCES = [
 export default function OwnerForm({
   owner,
   setOwner,
-  noEmail,
-  setNoEmail
 }: Props) {
   // Local state to track which fields have lost focus (blurred)
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -151,41 +147,26 @@ export default function OwnerForm({
         <Col md={6}>
           <Form.Group className="mb-2">
             <Form.Label>
-              Email
+              Email <span className="text-danger">*</span>
             </Form.Label>
 
             <Form.Control
+              required
               type="email"
-              disabled={noEmail}
               value={owner.email || ''}
               onChange={(e) =>
-                update(
-                  'email',
-                  e.target.value
-                )
+                update('email', e.target.value)
               }
               onBlur={() => handleBlur('email')}
-              isInvalid={false}
+              isInvalid={
+                touched.email &&
+                !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(owner.email || '')
+              }
             />
-          </Form.Group>
 
-          {/* NO EMAIL CHECKBOX (Now placed below the email field) */}
-          <Form.Group>
-            <Form.Check
-              type="checkbox"
-              label="No Email"
-              checked={noEmail}
-              onChange={(e) => {
-                const checked =
-                  e.target.checked;
-
-                setNoEmail(checked);
-
-                if (checked) {
-                  update('email', '');
-                }
-              }}
-            />
+            <Form.Control.Feedback type="invalid">
+              A valid email address is required.
+            </Form.Control.Feedback>
           </Form.Group>
         </Col>
 
