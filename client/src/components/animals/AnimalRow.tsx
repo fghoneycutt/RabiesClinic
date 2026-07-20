@@ -4,8 +4,8 @@ import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 
 import AnimalEditableCells from './AnimalEditableCells';
-import VaccineSection from './VaccinationSection';
-import AddRabiesModal from '../owner/AddRabiesModal';
+import VaccineSection from '../vaccines/VaccinationSection';
+import AddRabiesModal from '../vaccines/AddRabiesModal';
 import DeleteAnimalModal from './DeleteAnimalModal';
 
 import type {

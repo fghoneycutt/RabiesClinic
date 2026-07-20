@@ -4,13 +4,15 @@ import { useParams } from 'react-router-dom';
 import { api } from '../api/api';
 import { useClinic } from '../hooks/useClinics';
 
-import OwnerForm from '../components/OwnerForm';
-import AnimalForm from '../components/AnimalForm';
+import OwnerForm from '../components/owner/OwnerForm';
+import AnimalForm from '../components/animals/AnimalForm';
 
 import Button from 'react-bootstrap/Button';
 import Alert from 'react-bootstrap/Alert';
 
 import type { OwnerDraft, AnimalDraft } from '../types/intake';
+
+import { isOwnerValid } from '../utils/ownerValidation';
 
 // ----------------------
 // EMPTY OWNER
@@ -126,26 +128,6 @@ export default function PublicRegistrationPage() {
     });
   };
 
-  // ----------------------
-  // VALIDATION
-  // ----------------------
-  const isOwnerValid = () => {
-    const validEmail =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(owner.email.trim());
-
-    return (
-      owner.first_name.trim() !== '' &&
-      owner.last_name.trim() !== '' &&
-      validEmail &&
-      owner.phone.replace(/\D/g, '').length === 10 &&
-      owner.address.trim() !== '' &&
-      owner.city.trim() !== '' &&
-      owner.county.trim() !== '' &&
-      owner.state.trim() !== '' &&
-      owner.zip_code.trim().length === 5
-    );
-  };
-
   const isAnimalValid = (
     animal: AnimalDraft
   ) => {
@@ -164,7 +146,7 @@ export default function PublicRegistrationPage() {
   };
 
   const canSubmit =
-    isOwnerValid() &&
+    isOwnerValid(owner) &&
     animals.length > 0 &&
     animals.every(isAnimalValid);
 
@@ -172,13 +154,12 @@ export default function PublicRegistrationPage() {
   // SUBMIT
   // ----------------------
   const submit = async () => {
-    if (!canSubmit) {
+    if (!isOwnerValid(owner) || !animals.every(isAnimalValid)) {
       setError(
         'Please complete all required fields before submitting.'
       );
       return;
     }
-
     setError('');
     setSubmitting(true);
 

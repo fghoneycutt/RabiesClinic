@@ -4,10 +4,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/api';
 import { useClinic } from '../hooks/useClinics';
 
-import ClinicHeader from '../components/ClinicHeader';
+import ClinicHeader from '../components/clinics/ClinicHeader';
 import OwnerCard from '../components/owner/OwnerCard';
 import AnimalsTable from '../components/owner/AnimalsTable';
-import AddAnimalModal from '../components/owner/AddAnimalModal';
+import AddAnimalModal from '../components/animals/AddAnimalModal';
 
 import Button from 'react-bootstrap/Button';
 

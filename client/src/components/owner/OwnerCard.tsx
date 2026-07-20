@@ -4,6 +4,13 @@ import Form from 'react-bootstrap/Form';
 
 import type { Owner } from '../../types/intake';
 
+import {
+  formatPhoneNumber,
+  isOwnerValid
+} from '../../utils/ownerValidation';
+
+import { STATES_AND_PROVINCES } from '../../constants/states';
+
 type Props = {
   owner: Owner;
   editing: boolean;
@@ -12,27 +19,6 @@ type Props = {
   saveOwner: () => Promise<void>;
 };
 
-const STATES_AND_PROVINCES = [
-  '', 'AA', 'AB', 'AE', 'AL', 'AK', 'AP', 'AZ', 'AR', 'BC', 'CA',
-  'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'GU', 'HI', 'ID', 'IL', 'IN',
-  'IA', 'KS', 'KY', 'LA', 'MB', 'ME', 'MD', 'MA', 'MI', 'MN', 'MP',
-  'MS', 'MO', 'MT', 'NB', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NL', 'NM',
-  'NS', 'NT', 'NU', 'NV', 'NY', 'OH', 'OK', 'ON', 'OR', 'PA', 'PE',
-  'PR', 'QC', 'RI', 'SC', 'SD', 'SK', 'TN', 'TX', 'UT', 'VI', 'VT',
-  'VA', 'WA', 'WV', 'WI', 'WY', 'YT'
-];
-
-const formatPhoneNumber = (value: string) => {
-  const numbers = value.replace(/\D/g, '').slice(0, 10);
-
-  if (numbers.length < 4) return numbers;
-
-  if (numbers.length < 7) {
-    return `(${numbers.slice(0, 3)}) ${numbers.slice(3)}`;
-  }
-
-  return `(${numbers.slice(0, 3)}) ${numbers.slice(3, 6)}-${numbers.slice(6)}`;
-};
 
 export default function OwnerCard({
   owner,
@@ -41,12 +27,19 @@ export default function OwnerCard({
   updateOwnerField,
   saveOwner
 }: Props) {
-  const handleEditToggle = () => {
-    if (editing) {
-      saveOwner();
+  const handleEditToggle = async () => {
+    if (!editing) {
+      setEditing(true);
+      return;
     }
 
-    setEditing(!editing);
+    if (!isOwnerValid(owner)) {
+      alert('Please complete all required fields with valid information before saving.');
+      return;
+    }
+
+    await saveOwner();
+    setEditing(false);
   };
 
   return (

@@ -6,7 +6,7 @@ import Col from 'react-bootstrap/Col';
 import Select from 'react-select';
 import Button from 'react-bootstrap/Button';
 
-import type { AnimalDraft } from '../types/intake';
+import type { AnimalDraft } from '../../types/intake';
 
 import {
   DOG_BREEDS,
@@ -15,7 +15,7 @@ import {
   CAT_COLORS,
   DOG_PATTERNS,
   CAT_PATTERNS
-} from '../constants/animalOptions';
+} from '../../constants/animalOptions';
 
 type BaseProps = {
   animal: AnimalDraft;

@@ -5,7 +5,7 @@ import Button from 'react-bootstrap/Button';
 import { api } from '../../api/api';
 import type { Animal } from '../../types/intake';
 
-import AnimalForm from '../AnimalForm';
+import AnimalForm from './AnimalForm';
 
 type Props = {
   show: boolean;

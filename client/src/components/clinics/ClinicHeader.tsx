@@ -1,4 +1,4 @@
-import type { Clinic } from '../types/intake';
+import type { Clinic } from '../../types/intake';
 import { Link } from 'react-router-dom';
 
 type Props = {
@@ -21,10 +21,8 @@ export default function ClinicHeader({
   ) => {
     if (!date) return '';
 
-    // FIX: prevent UTC date shift
     const d = new Date(`${date}T00:00:00`);
 
-    // ✅ added weekday
     const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
     const month = d.toLocaleDateString('en-US', { month: 'long' });
     const year = d.getFullYear();
@@ -44,7 +42,6 @@ export default function ClinicHeader({
       }
     };
 
-    // ✅ updated format includes weekday
     const formattedDate = `${weekday}, ${month} ${day}${suffix(day)}, ${year}`;
 
     const formatTime = (t: string) => {

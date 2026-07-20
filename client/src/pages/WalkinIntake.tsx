@@ -8,9 +8,11 @@ import {
 import { api } from '../api/api';
 import { useClinic } from '../hooks/useClinics';
 
-import ClinicHeader from '../components/ClinicHeader';
-import OwnerForm from '../components/OwnerForm';
-import AnimalForm from '../components/AnimalForm';
+import ClinicHeader from '../components/clinics/ClinicHeader';
+import OwnerForm from '../components/owner/OwnerForm';
+import AnimalForm from '../components/animals/AnimalForm';
+
+import { isOwnerValid } from '../utils/ownerValidation';
 
 import Button from 'react-bootstrap/Button';
 
@@ -177,26 +179,6 @@ export default function WalkinIntake() {
     });
   };
 
-  // ----------------------
-  // VALIDATION
-  // ----------------------
-  const isOwnerValid = () => {
-    const validEmail =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(owner.email.trim());
-
-    return (
-      owner.first_name.trim() !== '' &&
-      owner.last_name.trim() !== '' &&
-      validEmail &&
-      owner.phone.replace(/\D/g, '').length === 10 &&
-      owner.address.trim() !== '' &&
-      owner.city.trim() !== '' &&
-      owner.county.trim() !== '' &&
-      owner.state.trim() !== '' &&
-      owner.zip_code.trim().length === 5
-    );
-  };
-
   const isAnimalValid = (
     animal: AnimalDraft
   ) => {
@@ -218,7 +200,7 @@ export default function WalkinIntake() {
   };
 
   const canSubmit =
-    isOwnerValid() &&
+    isOwnerValid(owner) &&
     animals.length > 0 &&
     animals.every(isAnimalValid);
 
@@ -226,7 +208,7 @@ export default function WalkinIntake() {
   // SUBMIT
   // ----------------------
   const submit = async () => {
-    if (!canSubmit) {
+    if (!isOwnerValid(owner) || !animals.every(isAnimalValid)) {
       alert(
         'Please complete all required fields before submitting.'
       );
