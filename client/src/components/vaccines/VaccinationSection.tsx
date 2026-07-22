@@ -271,7 +271,6 @@ export default function VaccineSection({
                       <th style={colStyle.lot}>Lot #</th>
                       <th style={colStyle.date}>Administered</th>
                       <th style={colStyle.date}>Next Due</th>
-                      <th style={colStyle.vet}>Vet</th>
                       <th style={colStyle.vet}>Vaccinated By</th>
                       <th style={colStyle.exp}>Expiration</th>
                     </tr>
@@ -305,8 +304,19 @@ export default function VaccineSection({
                             }
                           >
                             <option value=""></option>
-                            <option value="rabies_1_year">1 Year</option>
-                            <option value="rabies_3_year">3 Year</option>
+
+                            {clinic?.offerings?.rabies_1_year?.enabled && (
+                              <option value="rabies_1_year">
+                                1 Year
+                              </option>
+                            )}
+
+                            {clinic?.offerings?.rabies_3_year?.enabled && (
+                              <option value="rabies_3_year">
+                                3 Year
+                              </option>
+                            )}
+
                           </Form.Select>
                         ) : (
                           active.vaccine_type?.includes('1_year')
@@ -338,7 +348,7 @@ export default function VaccineSection({
                                 key={`${p.product}-${p.manufacturer}`}
                                 value={p.product}
                               >
-                                {p.product} ({p.manufacturer})
+                                {p.product}
                               </option>
                             ))}
                           </Form.Select>
@@ -392,27 +402,6 @@ export default function VaccineSection({
                           />
                         ) : (
                           formatDisplayDate(active.date_time_due)
-                        )}
-                      </td>
-
-                      <td>
-                        {editing ? (
-                          <Form.Select
-                            size="sm"
-                            value={active.supervising_veterinarian || ''}
-                            onChange={e =>
-                              updateField('supervising_veterinarian', e.target.value)
-                            }
-                          >
-                            <option value=""></option>
-                            {users.map(u => (
-                              <option key={u.id} value={u.name}>
-                                {u.name}
-                              </option>
-                            ))}
-                          </Form.Select>
-                        ) : (
-                          active.supervising_veterinarian || '-'
                         )}
                       </td>
 

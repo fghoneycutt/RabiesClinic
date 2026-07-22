@@ -129,6 +129,73 @@ const COORDINATE_MAPS = {
   }
 };
 
+// ==========================================
+// SIGNATURE POSITION
+// ==========================================
+// Adjust these after seeing the generated PDF.
+const SIGNATURE_COORDINATES = {
+  page: 0,
+  x: 340,
+  y: 440,
+  width: 120,
+  height: 45
+};
+
+
+// ==========================================
+// SIGNATURE DRAWING HELPER
+// ==========================================
+async function drawSignature(pdfDoc, pages, signatureBuffer) {
+
+  if (!signatureBuffer) {
+    return;
+  }
+
+  try {
+
+    let image;
+
+    // PNG signature
+    if (
+      signatureBuffer[0] === 0x89 &&
+      signatureBuffer[1] === 0x50 &&
+      signatureBuffer[2] === 0x4E &&
+      signatureBuffer[3] === 0x47
+    ) {
+      image = await pdfDoc.embedPng(signatureBuffer);
+    }
+
+    // JPEG signature
+    else if (
+      signatureBuffer[0] === 0xFF &&
+      signatureBuffer[1] === 0xD8
+    ) {
+      image = await pdfDoc.embedJpg(signatureBuffer);
+    }
+
+    else {
+      console.warn('Unsupported signature image format.');
+      return;
+    }
+
+
+    pages[SIGNATURE_COORDINATES.page].drawImage(image, {
+      x: SIGNATURE_COORDINATES.x,
+      y: SIGNATURE_COORDINATES.y,
+      width: SIGNATURE_COORDINATES.width,
+      height: SIGNATURE_COORDINATES.height
+    });
+
+
+  } catch (err) {
+    console.warn(
+      'Failed embedding veterinarian signature:',
+      err.message
+    );
+  }
+}
+
+
 async function generateRabiesForm(data) {
 
   // =========================
@@ -140,6 +207,7 @@ async function generateRabiesForm(data) {
 
   const form = pdfDoc.getForm();
   const pages = pdfDoc.getPages();
+
 
   // =========================
   // NORMALIZED FIELD MAP
@@ -155,23 +223,30 @@ async function generateRabiesForm(data) {
     return fieldMap.get(name.trim());
   }
 
+
   // =========================
   // SAFE TEXT SANITIZER
   // =========================
   function sanitizeText(value, maxLength) {
     if (value == null) return '';
+
     let str = String(value);
+
     if (maxLength && str.length > maxLength) {
       str = str.slice(0, maxLength);
     }
+
     return str;
   }
+
 
   // =========================
   // GENERIC FIELD SETTER
   // =========================
   function setField(name, value) {
+
     try {
+
       const field = getField(name);
 
       if (!field) {
@@ -179,43 +254,81 @@ async function generateRabiesForm(data) {
         return;
       }
 
+
       if (field instanceof PDFTextField) {
+
         const maxLength = field.getMaxLength();
-        field.setText(sanitizeText(value, maxLength));
+
+        field.setText(
+          sanitizeText(value, maxLength)
+        );
+
       } else if (field instanceof PDFCheckBox) {
-        if (value === true) field.check();
-        else field.uncheck();
+
+        if (value === true) {
+          field.check();
+        } else {
+          field.uncheck();
+        }
+
       }
 
     } catch (err) {
-      console.warn(`Field error: ${name}`, err.message);
+
+      console.warn(
+        `Field error: ${name}`,
+        err.message
+      );
+
     }
   }
+
 
   // ===================================================
   // LAYER-SAFE VISUAL CHECK STAMPING
   // ===================================================
   function drawVisualCheck(groupName, key) {
+
     try {
-      const normalizedKey = normalizeCoordinateKey(groupName, key);
-      const coord = COORDINATE_MAPS[groupName]?.[normalizedKey];
+
+      const normalizedKey =
+        normalizeCoordinateKey(groupName, key);
+
+      const coord =
+        COORDINATE_MAPS[groupName]?.[normalizedKey];
+
 
       if (!coord) {
-        console.warn(`No coordinates found for ${groupName} -> ${normalizedKey}`);
+
+        console.warn(
+          `No coordinates found for ${groupName} -> ${normalizedKey}`
+        );
+
         return;
       }
 
+
       pages[coord.page].drawText('X', {
+
         x: coord.x,
         y: coord.y,
         size: 11,
         color: rgb(0, 0, 0)
+
       });
 
+
     } catch (err) {
-      console.warn(`Failed stamping check for ${groupName}:`, err.message);
+
+      console.warn(
+        `Failed stamping check for ${groupName}:`,
+        err.message
+      );
+
     }
+
   }
+
 
   // =========================
   // REMOVE RADIO FIELDS
@@ -229,14 +342,28 @@ async function generateRabiesForm(data) {
     'USDA Licensed Vaccine'
   ];
 
+
   radioFieldsToClear.forEach(fieldName => {
+
     try {
+
       const field = getField(fieldName);
-      if (field) form.removeField(field);
+
+      if (field) {
+        form.removeField(field);
+      }
+
     } catch (err) {
-      console.warn(`Failed removing field ${fieldName}:`, err.message);
+
+      console.warn(
+        `Failed removing field ${fieldName}:`,
+        err.message
+      );
+
     }
+
   });
+
 
   // =========================
   // OWNER DATA
@@ -248,8 +375,14 @@ async function generateRabiesForm(data) {
   setField('State', data.owner.state);
   setField('Zip Code', data.owner.zip);
 
-  const phoneDigits = String(data.owner.phone || '').replace(/\D/g, '');
+
+  const phoneDigits =
+    String(data.owner.phone || '')
+      .replace(/\D/g, '');
+
   setField('Telephone #', phoneDigits);
+
+
 
   // =========================
   // ANIMAL DATA
@@ -261,10 +394,13 @@ async function generateRabiesForm(data) {
   setField('Microchip #', data.animal.microchip);
   setField('Neutered', data.animal.neutered);
 
+
   drawVisualCheck('Species', data.animal.species);
   drawVisualCheck('Size', data.animal.size);
   drawVisualCheck('Sex', data.animal.sex);
   drawVisualCheck('AgeUnit', data.animal.ageUnit);
+
+
 
   // =========================
   // VACCINE DATA
@@ -272,52 +408,121 @@ async function generateRabiesForm(data) {
   setField('Product Name', data.vaccine.product);
   setField('Vaccine Serial Number', data.vaccine.lotNumber);
 
-  setField('Date Vaccinated', formatDateToUS(data.vaccine.dateVaccinated));
-  setField('Next Vaccination Date', formatDateToUS(data.vaccine.nextDueDate));
+  setField(
+    'Date Vaccinated',
+    formatDateToUS(data.vaccine.dateVaccinated)
+  );
+
+  setField(
+    'Next Vaccination Date',
+    formatDateToUS(data.vaccine.nextDueDate)
+  );
+
 
   // =========================
-  // MANUFACTURER LETTERS (FIXED ONLY HERE)
+  // MANUFACTURER LETTERS
   // =========================
+  const manufacturer =
+    String(data.vaccine.manufacturer || '')
+      .trim()
+      .toUpperCase()
+      .padEnd(3, ' ');
 
-  const manufacturer = String(data.vaccine.manufacturer || '')
-  .trim()
-  .toUpperCase()
-  .padEnd(3, ' ');
 
   setField('Manufacturer', manufacturer[0]);
   setField('Man2', manufacturer[1]);
   setField('Man3', manufacturer[2]);
 
+
+
   // =========================
   // DOSE + USDA
   // =========================
-  const doseStatus = data.vaccine.isBooster ? 'Booster' : 'Initial';
+  const doseStatus =
+    data.vaccine.isBooster
+      ? 'Booster'
+      : 'Initial';
 
-  drawVisualCheck('Dose', doseStatus);
-  drawVisualCheck('USDALicensed', data.vaccine.doseType);
+
+  drawVisualCheck(
+    'Dose',
+    doseStatus
+  );
+
+
+  drawVisualCheck(
+    'USDALicensed',
+    data.vaccine.doseType
+  );
+
+
 
   // =========================
   // CLINIC / VET
   // =========================
-  setField('Rabies Tag #', data.clinic.rabiesTagNumber);
-  setField("Veterinarian's Name", data.vet.name);
-  setField("Veterinarian's address", data.vet.address);
-  setField('License Number', data.vet.licenseNumber);
+  setField(
+    'Rabies Tag #',
+    data.clinic.rabiesTagNumber
+  );
+
+
+  setField(
+    "Veterinarian's Name",
+    data.vet.name
+  );
+
+
+  setField(
+    "Veterinarian's address",
+    data.vet.address
+  );
+
+
+  setField(
+    'License Number',
+    data.vet.licenseNumber
+  );
+
+
+  // NEW: DRAW DIGITAL SIGNATURE
+  await drawSignature(
+    pdfDoc,
+    pages,
+    data.vet.signature
+  );
+
+
 
   ['Print Form', 'Reset Form'].forEach(fieldName => {
+
     try {
+
       const field = getField(fieldName);
-      if (field) form.removeField(field);
+
+      if (field) {
+        form.removeField(field);
+      }
+
     } catch (err) {
-      console.warn(`Failed removing ${fieldName}`, err.message);
+
+      console.warn(
+        `Failed removing ${fieldName}`,
+        err.message
+      );
+
     }
+
   });
+
+
 
   // =========================
   // FINALIZE
   // =========================
   form.flatten();
+
   return await pdfDoc.save();
+
 }
 
 module.exports = {

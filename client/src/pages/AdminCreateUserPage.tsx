@@ -16,7 +16,8 @@ export default function AdminCreateUserPage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<'staff' | 'admin'>('staff');
-  const [licenseNumber, setLicenseNumber] = useState(''); // Added state for license
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [signature, setSignature] = useState<File | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,13 +27,23 @@ export default function AdminCreateUserPage() {
     setError(null);
 
     try {
-      await api.post('/auth/register', {
+      const res = await api.post('/auth/register', {
         email,
         password,
         name,
         role,
-        license_number: licenseNumber // Sending alphanumeric license string to the backend
+        license_number: licenseNumber
       });
+
+      if (signature) {
+        const formData = new FormData();
+        formData.append('signature', signature);
+
+        await api.post(
+          `/users/${res.data.id}/signature`,
+          formData
+        );
+      }
 
       navigate('/admin/users');
 
@@ -91,6 +102,21 @@ export default function AdminCreateUserPage() {
               value={licenseNumber} 
               onChange={e => setLicenseNumber(e.target.value)} 
             />
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Signature (Optional)</Form.Label>
+            <Form.Control
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={e => {
+                const file = (e.target as HTMLInputElement).files?.[0] ?? null;
+                setSignature(file);
+              }}
+            />
+            <Form.Text muted>
+              Upload a scanned signature (PNG or JPEG).
+            </Form.Text>
           </Form.Group>
 
           <Button onClick={createUser} disabled={loading}>

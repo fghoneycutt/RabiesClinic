@@ -27,6 +27,8 @@ export default function AdminUserListPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<User>>({});
   const [saveLoading, setSaveLoading] = useState(false);
+  const [uploadingSignatureId, setUploadingSignatureId] = useState<string | null>(null);
+  const [signatureSuccessId, setSignatureSuccessId] = useState<string | null>(null);
 
   document.title="Users"
 
@@ -90,6 +92,37 @@ export default function AdminUserListPage() {
     }
   };
 
+  const uploadSignature = async (
+    id: string,
+    file: File
+  ) => {
+    try {
+      setUploadingSignatureId(id);
+
+      const formData = new FormData();
+      formData.append('signature', file);
+
+      await api.post(
+        `/users/${id}/signature`,
+        formData
+      );
+
+      setSignatureSuccessId(id);
+
+      setTimeout(() => {
+        setSignatureSuccessId(null);
+      }, 2000);
+
+    } catch (err: any) {
+      console.error(err);
+      setError(
+        err?.response?.data?.message || 'Failed to upload signature'
+      );
+    } finally {
+      setUploadingSignatureId(null);
+    }
+  };
+
   return (
     <Card>
       <Card.Body>
@@ -132,6 +165,7 @@ export default function AdminUserListPage() {
 
               {users.map(user => {
                 const isEditing = editingId === user.id;
+                const signatureInputId = `signature-upload-${user.id}`;
 
                 return (
                   <tr key={user.id}>
@@ -216,15 +250,58 @@ export default function AdminUserListPage() {
                           </Button>
                         </div>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="outline-primary"
-                          onClick={() => startEdit(user)}
-                          disabled={editingId !== null}
-                          title="Edit Inline"
-                        >
-                          <i className="fas fa-edit"></i>
-                        </Button>
+                        <div className="d-flex justify-content-center gap-2">
+
+                          <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() => startEdit(user)}
+                            disabled={editingId !== null}
+                            title="Edit User"
+                          >
+                            <i className="fas fa-edit"></i>
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline-success"
+                            disabled={uploadingSignatureId === user.id}
+                            title="Upload Signature"
+                            onClick={() =>
+                              document
+                                .getElementById(signatureInputId)
+                                ?.click()
+                            }
+                          >
+                            {uploadingSignatureId === user.id ? (
+                            <Spinner
+                              animation="border"
+                              size="sm"
+                            />
+                          ) : signatureSuccessId === user.id ? (
+                            <i className="fas fa-check"></i>
+                          ) : (
+                            <i className="fas fa-file-signature"></i>
+                          )}
+                          </Button>
+
+                          <Form.Control
+                            id={signatureInputId}
+                            type="file"
+                            accept="image/png,image/jpeg"
+                            style={{ display: 'none' }}
+                            onChange={e => {
+                              const file =
+                                (e.target as HTMLInputElement)
+                                  .files?.[0];
+
+                              if (file) {
+                                uploadSignature(user.id, file);
+                              }
+                            }}
+                          />
+
+                        </div>
                       )}
                     </td>
                   </tr>

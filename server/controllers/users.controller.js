@@ -93,8 +93,60 @@ async function editUser(req, res) {
   }
 }
 
+async function uploadSignature(req, res) {
+  const { id } = req.params;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        message: 'No signature file uploaded.'
+      });
+    }
+
+    if (
+      req.file.mimetype !== 'image/png' &&
+      req.file.mimetype !== 'image/jpeg'
+    ) {
+      return res.status(400).json({
+        message: 'Signature must be a PNG or JPEG image.'
+      });
+    }
+
+    const userCheck = await db.query(
+      'SELECT id FROM users WHERE id = $1',
+      [id]
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({
+        message: 'User not found.'
+      });
+    }
+
+    await db.query(
+      `
+      UPDATE users
+      SET signature = $1
+      WHERE id = $2
+      `,
+      [req.file.buffer, id]
+    );
+
+    return res.json({
+      message: 'Signature uploaded successfully.'
+    });
+
+  } catch (err) {
+    console.error('UPLOAD SIGNATURE ERROR:', err);
+    return res.status(500).json({
+      message: 'Server error'
+    });
+  }
+}
+
 module.exports = {
   createUser, 
   listUsers, 
-  editUser
+  editUser,
+  uploadSignature
 };

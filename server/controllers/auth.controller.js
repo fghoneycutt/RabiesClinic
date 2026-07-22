@@ -48,7 +48,13 @@ async function login(req, res) {
 // -----------------------------
 async function register(req, res) {
 
-  const { email, password, role = 'staff', name = null } = req.body;
+  const {
+    email,
+    password,
+    role = 'staff',
+    name = null,
+    license_number = null
+  } = req.body;
 
   try {
     // 🔥 CHECK IF USERS EXIST
@@ -85,11 +91,26 @@ async function register(req, res) {
 
     const result = await db.query(
       `
-        INSERT INTO users (email, password_hash, role, name)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, email, role, name
+        INSERT INTO users (
+          email,
+          password_hash,
+          role,
+          name,
+          license_number
+        )
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING
+          id,
+          email,
+          role,
+          name,
+          license_number
       `,
-      [email, password_hash, role, name]
+      [email,
+      password_hash,
+      role,
+      name,
+      license_number]
     );
 
     return res.status(201).json(result.rows[0]);

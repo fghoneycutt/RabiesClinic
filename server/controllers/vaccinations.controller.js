@@ -220,13 +220,12 @@ async function deleteVaccination(req, res) {
 
 async function generateRabiesCertificate(req, res) {
   try {
-    const vaccinationId = req.params.id; // Or req.query.id depending on your express route setup
+    const vaccinationId = req.params.id;
 
     if (!vaccinationId) {
       return res.status(400).json({ message: 'Vaccination ID parameter is required' });
     }
 
-    // Comprehensive relational query to match all tables
     const query = `
       SELECT 
         v.id AS vac_id,
@@ -240,6 +239,9 @@ async function generateRabiesCertificate(req, res) {
         v.date_time_administered,
         v.date_time_due,
         v.rabies_tag_number AS vac_tag,
+
+        u.signature AS vaccinated_by_signature,
+        u.license_number AS vaccinated_by_license_number,
         
         a.name AS animal_name,
         a.species,
@@ -269,10 +271,13 @@ async function generateRabiesCertificate(req, res) {
         c.city AS clinic_city,
         c.state AS clinic_state,
         c.zip_code AS clinic_zip
+
       FROM public.vaccinations v
       INNER JOIN public.animals a ON v.animal_id = a.id
       INNER JOIN public.owners o ON a.owner_id = o.id
       LEFT JOIN public.clinics c ON a.clinic_id = c.id
+      LEFT JOIN public.users u ON v.vaccinated_by = u.name
+
       WHERE v.id = $1 AND v.is_active = true
       LIMIT 1;
     `;
@@ -287,7 +292,6 @@ async function generateRabiesCertificate(req, res) {
 
     const row = result.rows[0];
 
-    // Build the dynamic payload payload with schema fallbacks mapping to pdf generator structural expectations
     const data = {
       owner: {
         firstName: row.first_name,
@@ -302,7 +306,6 @@ async function generateRabiesCertificate(req, res) {
       animal: {
         name: row.animal_name,
         species: row.species || '—',
-        // Dynamic structural composition string for colors/patterns
         colors: [row.primary_color, row.secondary_color, row.pattern]
           .filter(Boolean)
           .join(' / ') || '—',
@@ -321,19 +324,24 @@ async function generateRabiesCertificate(req, res) {
         product: row.product,
         manufacturer: row.manufacturer || '—',
         lotNumber: row.lot_number || '—',
-        serialNumber: '—', // Unused or mapping to alternative sequence fields
-        expirationDate: row.product_expiration_date ? new Date(row.product_expiration_date).toISOString().split('T')[0] : '—',
+        serialNumber: '—',
+        expirationDate: row.product_expiration_date
+          ? new Date(row.product_expiration_date).toISOString().split('T')[0]
+          : '—',
         dateVaccinated: new Date(row.date_time_administered).toISOString().split('T')[0],
-        nextDueDate: row.date_time_due ? new Date(row.date_time_due).toISOString().split('T')[0] : '—',
+        nextDueDate: row.date_time_due
+          ? new Date(row.date_time_due).toISOString().split('T')[0]
+          : '—',
         doseType: row.vaccine_type === 'rabies_3_year' ? '3 Year' : '1 Year',
-        isBooster: row.vaccine_type === 'rabies_3_year' // Logical deduction framework fallback
+        isBooster: row.vaccine_type === 'rabies_3_year'
       },
 
       vet: {
-        name: row.supervising_veterinarian || '—',
-        licenseNumber: '—', 
+        name: row.vaccinated_by || '—',
+        licenseNumber: row.vaccinated_by_license_number || '—',
         address: 'Person County Animal Services - 2103 Chub Lake Rd, Roxboro, NC 27574',
-        administeredBy: row.vaccinated_by || '—'
+        administeredBy: row.vaccinated_by || '—',
+        signature: row.vaccinated_by_signature || null
       },
 
       clinic: {
@@ -341,7 +349,6 @@ async function generateRabiesCertificate(req, res) {
       }
     };
 
-    // Feed real generated data engine structure to the pdf processor instance
     const pdfBytes = await generateRabiesForm(data);
 
     res.setHeader('Content-Type', 'application/pdf');
