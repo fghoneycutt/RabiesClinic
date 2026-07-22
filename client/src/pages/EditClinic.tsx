@@ -333,7 +333,7 @@ export default function EditClinic() {
                           key={`${p.product}-${p.manufacturer}`}
                           value={p.product}
                         >
-                          {p.product} ({p.manufacturer})
+                          {p.product}
                         </option>
                       ))}
                     </Form.Select>
@@ -387,7 +387,7 @@ export default function EditClinic() {
                           key={`${p.product}-${p.manufacturer}`}
                           value={p.product}
                         >
-                          {p.product} ({p.manufacturer})
+                          {p.product}
                         </option>
                       ))}
                     </Form.Select>

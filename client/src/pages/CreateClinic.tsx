@@ -457,7 +457,7 @@ export default function CreateClinic() {
         <Card className="mb-4">
           <Card.Body>
             <Form.Group>
-              <Form.Label>Default Veterinarian</Form.Label>
+              <Form.Label>Onsite Veterinarian</Form.Label>
               <Form.Select
                 value={form.default_veterinarian_id}
                 onChange={e =>
