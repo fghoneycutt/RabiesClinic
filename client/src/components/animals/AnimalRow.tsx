@@ -97,7 +97,7 @@ export default function AnimalRow({
 
 
   const updateDraftAnimal = (
-    animalId: string,
+    _animalId: string,
     field: AnimalField,
     value: any
   ) => {
