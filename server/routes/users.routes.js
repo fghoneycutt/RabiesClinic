@@ -25,10 +25,24 @@ router.post(
 );
 
 router.get(
+  '/:id/signature',
+  authenticate,
+  requireRole('admin'),
+  controller.getSignature
+);
+
+router.get(
   '/',
   authenticate,
   requireRole('admin'),
   controller.listUsers
+);
+
+router.delete(
+  '/:id',
+  authenticate,
+  requireRole('admin'),
+  controller.deleteUser
 );
 
 module.exports = router;

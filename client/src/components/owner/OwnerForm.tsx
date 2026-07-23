@@ -8,11 +8,12 @@ import type { OwnerDraft } from '../../types/intake';
 import { STATES_AND_PROVINCES } from '../../constants/states';
 
 import {
-  formatPhoneNumber,
   isValidEmail,
   isValidPhone,
   isValidZipCode
 } from '../../utils/ownerValidation';
+
+import PhoneNumberInput from '../input/PhoneNumberInput';
 
 
 interface Props {
@@ -147,27 +148,22 @@ export default function OwnerForm({
               <span className="text-danger">*</span>
             </Form.Label>
 
-            <Form.Control  
-              inputMode="numeric" 
-              pattern="[0-9]*"
-              required
-              type="tel"
+            <PhoneNumberInput
               value={owner.phone || ''}
-              onChange={(e) =>
-                update(
-                  'phone',
-                  formatPhoneNumber(e.target.value)
-                )
-              }
+              onChange={(value) => update('phone', value)}
               onBlur={() => handleBlur('phone')}
               isInvalid={
                 touched.phone &&
                 !isValidPhone(owner.phone)
               }
             />
-            <Form.Control.Feedback type="invalid">
-              A valid 10-digit phone number is required.
-            </Form.Control.Feedback>
+
+            {touched.phone &&
+              !isValidPhone(owner.phone) && (
+                <div className="invalid-feedback d-block">
+                  A valid 10-digit phone number is required.
+                </div>
+              )}
           </Form.Group>
         </Col>
       </Row>

@@ -281,7 +281,7 @@ export default function AddRabiesModal({
                 key={`${p.product}-${p.manufacturer}`}
                 value={p.product}
               >
-                {p.product} ({p.manufacturer})
+                {p.product}
               </option>
             ))}
           </Form.Select>

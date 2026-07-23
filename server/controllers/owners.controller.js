@@ -353,3 +353,26 @@ exports.searchOwners = async (req, res) => {
     });
   }
 };
+
+// DELETE OWNER
+exports.deleteOwner = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await pool.query(
+      'DELETE FROM owners WHERE id = $1',
+      [id]
+    );
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: 'Failed to delete owner'
+    });
+  }
+};

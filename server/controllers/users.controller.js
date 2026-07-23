@@ -31,14 +31,14 @@ async function createUser(req, res) {
 
 async function listUsers(req, res) {
   try {
-    // PERFECT CONFORMANCE: Exact lowercase snake_case column match
     const result = await db.query(`
       SELECT
         id,
         name,
         email,
         role,
-        license_number, 
+        license_number,
+        signature IS NOT NULL AS signature,
         created_at
       FROM users
       ORDER BY created_at DESC
@@ -144,9 +144,83 @@ async function uploadSignature(req, res) {
   }
 }
 
+async function getSignature (req, res) {
+  try {
+    const result = await db.query(
+      `
+      SELECT signature
+      FROM users
+      WHERE id = $1
+      `,
+      [req.params.id]
+    );
+
+    if (!result.rows.length || !result.rows[0].signature) {
+      return res.sendStatus(404);
+    }
+
+    const signature = result.rows[0].signature;
+
+    // PNG/JPEG detection
+    if (
+      signature[0] === 0x89 &&
+      signature[1] === 0x50 &&
+      signature[2] === 0x4e &&
+      signature[3] === 0x47
+    ) {
+      res.type('png');
+    } else {
+      res.type('jpeg');
+    }
+
+    res.send(signature);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      message: 'Failed to retrieve signature'
+    });
+  }
+};
+
+async function deleteUser(req, res) {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query(
+      `
+      DELETE FROM users
+      WHERE id = $1
+      RETURNING id, email, name
+      `,
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      message: 'User deleted successfully',
+      user: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error('Delete user error:', err);
+
+    res.status(500).json({
+      message: 'Failed to delete user'
+    });
+  }
+};
+
 module.exports = {
   createUser, 
   listUsers, 
   editUser,
-  uploadSignature
+  uploadSignature,
+  getSignature,
+  deleteUser
 };

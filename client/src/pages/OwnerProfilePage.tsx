@@ -6,7 +6,7 @@ import { useClinic } from '../hooks/useClinics';
 
 import ClinicHeader from '../components/clinics/ClinicHeader';
 import OwnerCard from '../components/owner/OwnerCard';
-import AnimalsTable from '../components/owner/AnimalsTable';
+import AnimalsTable from '../components/animals/AnimalsTable';
 import AddAnimalModal from '../components/animals/AddAnimalModal';
 
 import Button from 'react-bootstrap/Button';
@@ -61,6 +61,18 @@ export default function OwnerProfilePage() {
     } catch (err) {
       console.error(err);
       alert('Failed to delete animal');
+    }
+  };
+
+  const onDeleteOwner = async () => {
+    try {
+      await api.delete(`/owners/${ownerId}`);
+
+      navigate(`/clinics/${clinicId}`);
+
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete owner');
     }
   };
 
@@ -141,29 +153,14 @@ export default function OwnerProfilePage() {
   }, [ownerId, clinicId]); // Add clinicId here to re-fetch if it changes
 
   // -------------------------
-  // OWNER UPDATE LOCAL
-  // -------------------------
-  const updateOwnerField = (field: keyof Owner, value: any) => {
-    if (!owner) return;
-
-    setOwner(prev =>
-      prev
-        ? {
-            ...prev,
-            [field]: value
-          }
-        : prev
-    );
-  };
-
-  // -------------------------
   // SAVE OWNER
   // -------------------------
-  const saveOwner = async () => {
-    if (!owner) return;
-
+  const saveOwner = async (updatedOwner: Owner) => {
     try {
-      await api.put(`/owners/${owner.id}`, owner);
+      await api.put(`/owners/${updatedOwner.id}`, updatedOwner);
+
+      // Keep local state in sync with what was saved
+      setOwner(updatedOwner);
       setEditingOwner(false);
     } catch (err) {
       console.error(err);
@@ -180,8 +177,13 @@ export default function OwnerProfilePage() {
     value: any
   ) => {
     setAnimals(prev =>
-      prev.map(a =>
-        a.id === animalId ? { ...a, [field]: value } : a
+      prev.map(animal =>
+        animal.id === animalId
+          ? {
+              ...animal,
+              [field]: value
+            }
+          : animal
       )
     );
   };
@@ -195,11 +197,17 @@ export default function OwnerProfilePage() {
     value: any
   ) => {
     try {
-      // Automatically include the active clinicId from the URL params
       await api.put(`/animals/${animalId}`, {
         [field]: value,
         clinic_id: clinicId
       });
+
+      updateAnimalLocal(
+        animalId,
+        field,
+        value
+      );
+
     } catch (err) {
       console.error(err);
       alert('Failed to update animal');
@@ -266,8 +274,8 @@ export default function OwnerProfilePage() {
         owner={owner}
         editing={editingOwner}
         setEditing={setEditingOwner}
-        updateOwnerField={updateOwnerField}
         saveOwner={saveOwner}
+        onDeleteOwner={onDeleteOwner}
       />
 
       <AnimalsTable

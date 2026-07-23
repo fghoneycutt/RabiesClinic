@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -70,6 +70,9 @@ export default function AnimalRow({
   onDeleteAnimal
 }: Props) {
 
+  const [draftAnimal, setDraftAnimal] =
+    useState<Animal>(animal);
+
   const [
     showRabiesModal,
     setShowRabiesModal
@@ -85,198 +88,312 @@ export default function AnimalRow({
     setVaccineExpanded
   ] = useState(false);
 
-  // -----------------------------
-  // SAFE VACCINE ACCESS
-  // -----------------------------
+
+  useEffect(() => {
+    if (!editing) {
+      setDraftAnimal(animal);
+    }
+  }, [animal, editing]);
+
+
+  const updateDraftAnimal = (
+    animalId: string,
+    field: AnimalField,
+    value: any
+  ) => {
+    setDraftAnimal(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+
+  const saveEdit = async () => {
+
+    const changedFields =
+      Object.keys(draftAnimal).filter(
+        key =>
+          draftAnimal[key as AnimalField] !==
+          animal[key as AnimalField]
+      );
+
+
+    for (const key of changedFields) {
+
+      const field =
+        key as AnimalField;
+
+      await saveAnimalField(
+        animal.id,
+        field,
+        draftAnimal[field]
+      );
+
+      updateAnimalLocal(
+        animal.id,
+        field,
+        draftAnimal[field]
+      );
+    }
+
+
+    toggleAnimalEdit(animal.id);
+  };
+
+
+  const cancelEdit = () => {
+    setDraftAnimal(animal);
+    toggleAnimalEdit(animal.id);
+  };
+
+
   const vaccinations =
     animal.vaccinations ?? [];
 
+
   const latestRabies =
-    vaccinations.length > 0
+    vaccinations.length
       ? vaccinations[0]
       : null;
+
 
   const hasRabies =
     !!latestRabies;
 
-  // -----------------------------
-  // ADD VACCINE
-  // -----------------------------
+
   const addVaccination = (
     vaccination: Vaccination
   ) => {
+
     updateAnimalLocal(
       animal.id,
       'vaccinations',
       [vaccination]
     );
+
   };
+
+
+  const displayedAnimal =
+    editing
+      ? draftAnimal
+      : animal;
+
 
   return (
     <>
-      {/* ================= MAIN ROW ================= */}
       <tr>
 
-        {/* ---------------- ANIMAL CELLS ---------------- */}
         <AnimalEditableCells
-          animal={animal}
+          animal={displayedAnimal}
           editing={editing}
-          updateAnimalLocal={updateAnimalLocal}
-          saveAnimalField={saveAnimalField}
+          updateAnimalLocal={updateDraftAnimal}
         />
 
-        {/* ---------------- RABIES ---------------- */}
+
+        {/* RABIES */}
+
         <td>
+
           {!hasRabies ? (
+
             <Button
               size="sm"
               variant="outline-success"
-              onClick={() => setShowRabiesModal(true)}
-              className="d-inline-flex align-items-center gap-1"
+              onClick={() =>
+                setShowRabiesModal(true)
+              }
             >
               <i className="fas fa-plus"></i> Add
             </Button>
+
           ) : (
+
             <div className="d-flex align-items-center justify-content-between gap-2">
 
               <div
                 className="d-flex align-items-center gap-1 flex-grow-1"
-                style={{ cursor: 'pointer', userSelect: 'none' }}
-                onClick={() => setVaccineExpanded(p => !p)}
+                style={{
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }}
+                onClick={() =>
+                  setVaccineExpanded(
+                    prev => !prev
+                  )
+                }
               >
-                <strong>{latestRabies?.rabies_tag_number}</strong>
+
+                <strong>
+                  {latestRabies?.rabies_tag_number}
+                </strong>
+
 
                 <span className="text-muted small">
-                  {latestRabies?.vaccine_type === 'rabies_1_year'
-                    ? '1 Yr'
-                    : latestRabies?.vaccine_type === 'rabies_3_year'
-                    ? '3 Yr'
-                    : ''}
+
+                  {
+                    latestRabies?.vaccine_type === 'rabies_1_year'
+                      ? '1 Yr'
+                      : latestRabies?.vaccine_type === 'rabies_3_year'
+                      ? '3 Yr'
+                      : ''
+                  }
+
                 </span>
 
-                <span className="ms-1 text-primary small">
-                  {vaccineExpanded ? (
-                    <i className="fas fa-caret-down"></i>
-                  ) : (
-                    <i className="fas fa-caret-right"></i>
-                  )}
+
+                <span className="text-primary small">
+
+                  {
+                    vaccineExpanded
+                      ? <i className="fas fa-caret-down" />
+                      : <i className="fas fa-caret-right" />
+                  }
+
                 </span>
+
               </div>
+
 
               <Button
                 size="sm"
                 variant="outline-secondary"
-                title="Print Rabies Certificate"
-                className="d-inline-flex align-items-center justify-content-center p-1"
-                style={{ width: '28px', height: '28px' }}
                 href={`${import.meta.env.VITE_API_URL}/api/vaccinations/${latestRabies?.id}/certificate`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <i className="fas fa-file-pdf text-danger"></i>
+                <i className="fas fa-file-pdf text-danger" />
               </Button>
 
             </div>
+
           )}
+
         </td>
 
-        {/* ---------------- MICROCHIP ---------------- */}
+
+        {/* MICROCHIP */}
+
         {clinic.offerings?.microchip?.enabled && (
+
           <td>
-            <div className="position-relative d-flex align-items-center">
 
-              <i
-                className="fas fa-microchip text-muted position-absolute ms-2"
-                style={{ opacity: 0.4, pointerEvents: 'none' }}
-              />
+            <Form.Control
+              size="sm"
+              value={
+                formatMicrochip(
+                  displayedAnimal.microchip_number || ''
+                )
+              }
 
-              <Form.Control
-                size="sm"
-                className="ps-4"
-                maxLength={19}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                style={{
-                  minWidth: '23ch'
-                }}
-                value={formatMicrochip(
-                  animal.microchip_number || ''
-                )}
-                onChange={(e) => {
-                  const rawValue = unformatMicrochip(
+              onChange={(e) =>
+                updateDraftAnimal(
+                  animal.id,
+                  'microchip_number',
+                  unformatMicrochip(
                     e.target.value
-                  );
+                  )
+                )
+              }
 
-                  updateAnimalLocal(
-                    animal.id,
-                    'microchip_number',
-                    rawValue
-                  );
-                }}
-                onBlur={(e) => {
-                  const rawValue = unformatMicrochip(
-                    e.target.value
-                  );
+              onCopy={(e) => {
 
-                  saveAnimalField(
-                    animal.id,
-                    'microchip_number',
-                    rawValue
-                  );
-                }}
-                onCopy={(e) => {
-                  e.preventDefault();
+                e.preventDefault();
 
-                  navigator.clipboard.writeText(
-                    animal.microchip_number || ''
-                  );
-                }}
-              />
-            </div>
+                navigator.clipboard.writeText(
+                  displayedAnimal.microchip_number || ''
+                );
+
+              }}
+
+            />
+
           </td>
+
         )}
 
-        {/* ---------------- ACTIONS ---------------- */}
-        <td>
-          <div className="d-flex flex-column gap-1">
 
-            <Button
-              size="sm"
-              variant={editing ? 'success' : 'outline-primary'}
-              onClick={() => toggleAnimalEdit(animal.id)}
-              className="d-inline-flex align-items-center justify-content-center gap-1"
-            >
-              {editing ? (
-                <>
-                  <i className="fas fa-check"></i> Done
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-edit"></i> Edit
-                </>
-              )}
-            </Button>
+        {/* ACTIONS */}
+
+        <td>
+          <div
+            className="d-flex flex-column gap-1"
+            style={{
+              whiteSpace: 'nowrap'
+            }}
+          >
+
+            {!editing ? (
+
+              <Button
+                size="sm"
+                variant="outline-primary"
+                onClick={() =>
+                  toggleAnimalEdit(animal.id)
+                }
+                className="align-self-start"
+              >
+                <i className="fas fa-edit"></i> Edit
+              </Button>
+
+            ) : (
+
+              <>
+
+                <Button
+                  size="sm"
+                  variant="success"
+                  onClick={saveEdit}
+                  className="text-nowrap"
+                >
+                  <i className="fas fa-save"></i> Save
+                </Button>
+
+
+                <Button
+                  size="sm"
+                  variant="outline-secondary"
+                  onClick={cancelEdit}
+                  className="text-nowrap"
+                >
+                  <i className="fas fa-times"></i> Cancel
+                </Button>
+
+              </>
+
+            )}
+
 
             {editing && (
+
               <Button
                 size="sm"
                 variant="outline-danger"
-                onClick={() => setShowDeleteModal(true)}
-                className="d-inline-flex align-items-center justify-content-center gap-1"
+                onClick={() =>
+                  setShowDeleteModal(true)
+                }
+                className="text-nowrap"
               >
                 <i className="fas fa-trash-alt"></i> Delete
               </Button>
+
             )}
 
           </div>
+
         </td>
 
       </tr>
 
-      {/* ================= EXPANDED VACCINE ROW (FIXED) ================= */}
-      {hasRabies && vaccineExpanded && latestRabies && (
+
+      {hasRabies &&
+        vaccineExpanded &&
+        latestRabies && (
+
         <tr>
+
           <td colSpan={999}>
+
             <VaccineSection
               animal={animal}
               clinic={clinic}
@@ -284,26 +401,37 @@ export default function AnimalRow({
               updateAnimalLocal={updateAnimalLocal}
               saveAnimalField={saveAnimalField}
             />
+
           </td>
+
         </tr>
+
       )}
 
-      {/* ================= MODALS (NO TABLE IMPACT) ================= */}
+
       <AddRabiesModal
         show={showRabiesModal}
-        onHide={() => setShowRabiesModal(false)}
+        onHide={() =>
+          setShowRabiesModal(false)
+        }
         animalId={animal.id}
         animalName={animal.name}
         clinic={clinic}
         onSave={addVaccination}
       />
 
+
       <DeleteAnimalModal
         show={showDeleteModal}
-        onHide={() => setShowDeleteModal(false)}
+        onHide={() =>
+          setShowDeleteModal(false)
+        }
         animal={animal}
-        onDeleted={() => onDeleteAnimal(animal.id)}
+        onDeleted={() =>
+          onDeleteAnimal(animal.id)
+        }
       />
+
     </>
   );
 }

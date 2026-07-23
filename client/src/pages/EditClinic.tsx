@@ -129,6 +129,11 @@ export default function EditClinic() {
     setForm(prev => (prev ? { ...prev, [field]: value } : prev));
   };
 
+  const hasOfferings =
+    form?.rabies_1_year ||
+    form?.rabies_3_year ||
+    form?.microchip;
+
   const deleteClinic = async () => {
     try {
       await api.delete(`/clinics/${id}`);
@@ -141,6 +146,13 @@ export default function EditClinic() {
 
   const submit = async () => {
     if (!form) return;
+
+    if (!hasOfferings) {
+      alert(
+        'A clinic must offer at least one service.'
+      );
+      return;
+    }
 
     try {
       const offerings = {
@@ -299,19 +311,61 @@ export default function EditClinic() {
             <Form.Check
               label="Rabies 1-Year"
               checked={form.rabies_1_year}
-              onChange={e => update('rabies_1_year', e.target.checked)}
+              onChange={e => {
+
+                if (
+                  !e.target.checked &&
+                  !form.rabies_3_year &&
+                  !form.microchip
+                ) {
+                  return;
+                }
+
+                update(
+                  'rabies_1_year',
+                  e.target.checked
+                );
+              }}
             />
 
             <Form.Check
               label="Rabies 3-Year"
               checked={form.rabies_3_year}
-              onChange={e => update('rabies_3_year', e.target.checked)}
+              onChange={e => {
+
+                if (
+                  !e.target.checked &&
+                  !form.rabies_1_year &&
+                  !form.microchip
+                ) {
+                  return;
+                }
+
+                update(
+                  'rabies_3_year',
+                  e.target.checked
+                );
+              }}
             />
 
             <Form.Check
               label="Microchip"
               checked={form.microchip}
-              onChange={e => update('microchip', e.target.checked)}
+              onChange={e => {
+
+                if (
+                  !e.target.checked &&
+                  !form.rabies_1_year &&
+                  !form.rabies_3_year
+                ) {
+                  return;
+                }
+
+                update(
+                  'microchip',
+                  e.target.checked
+                );
+              }}
             />
 
             {form.rabies_1_year && (
@@ -422,6 +476,11 @@ export default function EditClinic() {
               </Card>
             )}
           </Card.Body>
+          {!hasOfferings && (
+            <div className="text-danger small mb-3">
+              At least one offering must be selected.
+            </div>
+          )}
         </Card>
 
         <Card className="mb-4">
@@ -458,7 +517,12 @@ export default function EditClinic() {
         </Card>
 
         <div className="d-flex gap-2">
-          <Button onClick={submit}>Save Changes</Button>
+          <Button
+            onClick={submit}
+            disabled={!hasOfferings}
+          >
+            Save Changes
+          </Button>
           <Button
             variant="secondary"
             onClick={() => navigate(`/clinics/${id}`)}

@@ -10,12 +10,15 @@ import Form from 'react-bootstrap/Form';
 
 import { api } from '../api/api';
 
+import DeleteUserModal from '../components/users/DeleteUserModal';
+
 type User = {
   id: string;
   name: string | null;
   email: string;
   role: 'admin' | 'staff';
-  license_number: string | null; // Added field property to match backend schema updates
+  license_number: string | null;
+  signature?: boolean;
 };
 
 export default function AdminUserListPage() {
@@ -29,6 +32,12 @@ export default function AdminUserListPage() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [uploadingSignatureId, setUploadingSignatureId] = useState<string | null>(null);
   const [signatureSuccessId, setSignatureSuccessId] = useState<string | null>(null);
+
+  const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const signatureUrl = (id: string) =>
+  `${api.defaults.baseURL}/users/${id}/signature`;
 
   document.title="Users"
 
@@ -92,6 +101,40 @@ export default function AdminUserListPage() {
     }
   };
 
+  const deleteUser = async () => {
+    if (!deleteUserTarget) return;
+
+    try {
+      setDeleteLoading(true);
+      setError(null);
+
+      await api.delete(
+        `/users/${deleteUserTarget.id}`
+      );
+
+      setUsers(prev =>
+        prev.filter(
+          user => user.id !== deleteUserTarget.id
+        )
+      );
+
+      setEditingId(null);
+      setEditForm({});
+      setDeleteUserTarget(null);
+
+    } catch (err: any) {
+      console.error(err);
+
+      setError(
+        err?.response?.data?.message ||
+        'Failed to delete user'
+      );
+
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const uploadSignature = async (
     id: string,
     file: File
@@ -150,6 +193,7 @@ export default function AdminUserListPage() {
                 <th>Email</th>
                 <th>Role</th>
                 <th>License Number</th>
+                <th>Signature</th>
                 <th style={{ width: 120 }} className="text-center">Actions</th>
               </tr>
             </thead>
@@ -157,7 +201,7 @@ export default function AdminUserListPage() {
             <tbody>
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center">
+                  <td colSpan={6} className="text-center">
                     No users found
                   </td>
                 </tr>
@@ -225,11 +269,30 @@ export default function AdminUserListPage() {
                         user.license_number || '-'
                       )}
                     </td>
+                    {/* SIGNATURE */}
+                    <td className="text-center">
+                      {user.signature ? (
+                        <img
+                          src={signatureUrl(user.id)}
+                          alt={`${user.name || 'User'} signature`}
+                          style={{
+                            maxWidth: '120px',
+                            maxHeight: '50px',
+                            objectFit: 'contain'
+                          }}
+                        />
+                      ) : (
+                        <span className="text-muted">
+                          No signature
+                        </span>
+                      )}
+                    </td>
 
                     {/* INLINE ACTIONS */}
                     <td className="text-center">
                       {isEditing ? (
                         <div className="d-flex justify-content-center gap-2">
+
                           <Button
                             size="sm"
                             variant="success"
@@ -239,6 +302,8 @@ export default function AdminUserListPage() {
                           >
                             <i className="fas fa-save"></i>
                           </Button>
+
+
                           <Button
                             size="sm"
                             variant="secondary"
@@ -248,6 +313,18 @@ export default function AdminUserListPage() {
                           >
                             <i className="fas fa-times"></i>
                           </Button>
+
+
+                          <Button
+                            size="sm"
+                            variant="outline-danger"
+                            onClick={() => setDeleteUserTarget(user)}
+                            disabled={saveLoading}
+                            title="Delete User"
+                          >
+                            <i className="fas fa-trash-alt"></i>
+                          </Button>
+
                         </div>
                       ) : (
                         <div className="d-flex justify-content-center gap-2">
@@ -310,6 +387,14 @@ export default function AdminUserListPage() {
             </tbody>
           </Table>
         )}
+        <DeleteUserModal
+          show={deleteUserTarget !== null}
+          onHide={() => setDeleteUserTarget(null)}
+          userName={deleteUserTarget?.name || ''}
+          userEmail={deleteUserTarget?.email || ''}
+          onDeleted={deleteUser}
+          deleting={deleteLoading}
+        />
       </Card.Body>
     </Card>
   );

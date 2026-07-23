@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { authenticate, requireRole } = require('../middleware/auth.middleware');
 
 const ownersController = require('../controllers/owners.controller');
 
@@ -25,6 +26,14 @@ router.get(
 router.put(
   '/:id',
   ownersController.updateOwner
+);
+
+// DELETE OWNER
+router.delete(
+  '/:id',
+  authenticate,
+  requireRole('admin', 'staff'),
+  ownersController.deleteOwner
 );
 
 module.exports = router;

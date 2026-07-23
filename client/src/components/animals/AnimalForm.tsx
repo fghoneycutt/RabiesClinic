@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Card from 'react-bootstrap/Card';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
@@ -53,7 +53,29 @@ export default function AnimalForm(props: Props) {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   // Local state for the calculator field (stored as 'YYYY-MM-DD')
-  const [approxBirthdate, setApproxBirthdate] = useState<string>('');
+  const [approxBirthdate, setApproxBirthdate] = useState(() => {
+    if (animal.age_years === null && animal.age_months === null) {
+      return '';
+    }
+
+    let years = animal.age_years || 0;
+    let months = animal.age_months || 0;
+
+    if (months >= 12) {
+      years += Math.floor(months / 12);
+      months %= 12;
+    }
+
+    const today = new Date();
+    today.setFullYear(today.getFullYear() - years);
+    today.setMonth(today.getMonth() - months);
+
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+
+    return `${yyyy}-${mm}-${dd}`;
+  });
 
   const breedOptions =
     animal.species === 'dog'
@@ -82,40 +104,33 @@ export default function AnimalForm(props: Props) {
     setTouched(prev => ({ ...prev, [field]: true }));
   };
 
-  // ----------------------------------------------------------------
-  // Reciprocal Update Logic
-  // ----------------------------------------------------------------
-
-  // Automatically calculate the approximate birthdate string whenever age values change
-  useEffect(() => {
-    if (animal.age_years === null && animal.age_months === null) {
+  const updateApproxBirthdateFromAge = (
+    years: number | null,
+    months: number | null
+  ) => {
+    if (years === null && months === null) {
       setApproxBirthdate('');
       return;
     }
 
-    let years = animal.age_years || 0;
-    let months = animal.age_months || 0;
+    let y = years || 0;
+    let m = months || 0;
 
-    // If months are 12 or higher, normalize them into years
-    if (months >= 12) {
-      years += Math.floor(months / 12);
-      months = months % 12;
+    if (m >= 12) {
+      y += Math.floor(m / 12);
+      m = m % 12;
     }
 
     const today = new Date();
-    today.setFullYear(today.getFullYear() - years);
-    today.setMonth(today.getMonth() - months);
+    today.setFullYear(today.getFullYear() - y);
+    today.setMonth(today.getMonth() - m);
 
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
-    const calculatedDateString = `${yyyy}-${mm}-${dd}`;
 
-    // Update only if it differs from what is already typed to avoid loops
-    if (approxBirthdate !== calculatedDateString) {
-      setApproxBirthdate(calculatedDateString);
-    }
-  }, [animal.age_years, animal.age_months]);
+    setApproxBirthdate(`${yyyy}-${mm}-${dd}`);
+  };
 
   // When user modifies the date selection directly
   const handleBirthdateChange = (dateString: string) => {
@@ -349,12 +364,17 @@ export default function AnimalForm(props: Props) {
                 pattern="[0-9]*"
                 type="number"
                 value={animal.age_years ?? ''}
-                onChange={e =>
-                  updateAnimal(
-                    'age_years',
-                    e.target.value === '' ? null : Number(e.target.value)
-                  )
-                }
+                onChange={e => {
+                  const years =
+                    e.target.value === '' ? null : Number(e.target.value);
+
+                  updateAnimal('age_years', years);
+
+                  updateApproxBirthdateFromAge(
+                    years,
+                    animal.age_months
+                  );
+                }}
               />
             </Form.Group>
           </Col>
@@ -374,6 +394,12 @@ export default function AnimalForm(props: Props) {
                   
                   if (val === '') {
                     updateAnimal('age_months', null);
+
+                    updateApproxBirthdateFromAge(
+                      animal.age_years,
+                      null
+                    );
+
                     return;
                   }
 
@@ -384,6 +410,10 @@ export default function AnimalForm(props: Props) {
                   }
 
                   updateAnimal('age_months', num);
+                  updateApproxBirthdateFromAge(
+                    animal.age_years,
+                    num
+                  );
                 }}
               />
             </Form.Group>

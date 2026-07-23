@@ -98,8 +98,19 @@ export default function CreateClinic() {
     }));
   };
 
+  const hasOfferings =
+    form.rabies_1_year_enabled ||
+    form.rabies_3_year_enabled ||
+    form.microchip_enabled;
+
   const submit = async () => {
     try {
+      if (!hasOfferings) {
+        alert(
+          'A clinic must offer at least one service.'
+        );
+        return;
+      }
       if (
         !form.name ||
         !form.location_name ||
@@ -289,9 +300,20 @@ export default function CreateClinic() {
             <Form.Check
               label="Rabies 1-Year"
               checked={form.rabies_1_year_enabled}
-              onChange={e =>
-                update('rabies_1_year_enabled', e.target.checked)
-              }
+              onChange={e => {
+                if (
+                  !e.target.checked &&
+                  !form.rabies_3_year_enabled &&
+                  !form.microchip_enabled
+                ) {
+                  return;
+                }
+
+                update(
+                  'rabies_1_year_enabled',
+                  e.target.checked
+                );
+              }}
             />
 
             {form.rabies_1_year_enabled && (
@@ -365,12 +387,20 @@ export default function CreateClinic() {
               <Form.Check
                 label="Rabies 3-Year"
                 checked={form.rabies_3_year_enabled}
-                onChange={e =>
+                onChange={e => {
+                  if (
+                    !e.target.checked &&
+                    !form.rabies_1_year_enabled &&
+                    !form.microchip_enabled
+                  ) {
+                    return;
+                  }
+
                   update(
                     'rabies_3_year_enabled',
                     e.target.checked
-                  )
-                }
+                  );
+                }}
               />
 
               {form.rabies_3_year_enabled && (
@@ -447,10 +477,26 @@ export default function CreateClinic() {
               className="mt-3"
               label="Microchip"
               checked={form.microchip_enabled}
-              onChange={e =>
-                update('microchip_enabled', e.target.checked)
-              }
+              onChange={e => {
+                if (
+                  !e.target.checked &&
+                  !form.rabies_1_year_enabled &&
+                  !form.rabies_3_year_enabled
+                ) {
+                  return;
+                }
+
+                update(
+                  'microchip_enabled',
+                  e.target.checked
+                );
+              }}
             />
+            {!hasOfferings && (
+              <div className="text-danger small mb-3">
+                At least one offering must be selected.
+              </div>
+            )}
           </Card.Body>
         </Card>
 
@@ -490,8 +536,12 @@ export default function CreateClinic() {
           </Card.Body>
         </Card>
 
-        <div className="d-grid">
-          <Button size="lg" onClick={submit}>
+        <div className="text-end">
+          <Button
+            size="lg"
+            onClick={submit}
+            disabled={!hasOfferings}
+          >
             Create Clinic
           </Button>
         </div>

@@ -7,7 +7,7 @@ import type {
   Clinic
 } from '../../types/intake';
 
-import AnimalRow from '../animals/AnimalRow';
+import AnimalRow from './AnimalRow';
 
 type UserOption = {
   id: string;
