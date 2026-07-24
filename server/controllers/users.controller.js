@@ -93,6 +93,47 @@ async function editUser(req, res) {
   }
 }
 
+async function resetPassword(req, res) {
+  try {
+
+    const { password } = req.body;
+
+    if (!password || password.length < 8) {
+      return res.status(400).json({
+        message: 'Password must be at least 8 characters.'
+      });
+    }
+
+    const passwordHash =
+      await hashPassword(password);
+
+    await db.query(
+      `
+      UPDATE users
+      SET password_hash = $1
+      WHERE id = $2
+      `,
+      [
+        passwordHash,
+        req.params.id
+      ]
+    );
+
+    return res.json({
+      message: 'Password updated successfully.'
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    return res.status(500).json({
+      message: 'Failed to reset password.'
+    });
+
+  }
+}
+
 async function uploadSignature(req, res) {
   const { id } = req.params;
 
@@ -220,6 +261,7 @@ module.exports = {
   createUser, 
   listUsers, 
   editUser,
+  resetPassword,
   uploadSignature,
   getSignature,
   deleteUser

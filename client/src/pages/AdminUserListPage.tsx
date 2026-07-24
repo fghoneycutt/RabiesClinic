@@ -11,6 +11,7 @@ import Form from 'react-bootstrap/Form';
 import { api } from '../api/api';
 
 import DeleteUserModal from '../components/users/DeleteUserModal';
+import ResetPasswordModal from '../components/users/ResetPasswordModal';
 
 type User = {
   id: string;
@@ -36,6 +37,8 @@ export default function AdminUserListPage() {
 
   const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<User | null>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   document.title="Users"
 
@@ -216,6 +219,37 @@ export default function AdminUserListPage() {
       );
     } finally {
       setUploadingSignatureId(null);
+    }
+  };
+
+  const resetPassword = async (password: string) => {
+    if (!resetPasswordTarget) return;
+
+    try {
+      setResettingPassword(true);
+      setError(null);
+
+      await api.put(
+        `/users/${resetPasswordTarget.id}/password`,
+        {
+          password
+        }
+      );
+
+      setResetPasswordTarget(null);
+
+    } catch (err: any) {
+      console.error(err);
+
+      setError(
+        err?.response?.data?.message ||
+        'Failed to reset password'
+      );
+
+      throw err;
+
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -414,6 +448,14 @@ export default function AdminUserListPage() {
                             <i className="fas fa-file-signature"></i>
                           )}
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline-warning"
+                            title="Reset Password"
+                            onClick={() => setResetPasswordTarget(user)}
+                          >
+                            <i className="fas fa-key"></i>
+                          </Button>
 
                           <Form.Control
                             id={signatureInputId}
@@ -447,6 +489,13 @@ export default function AdminUserListPage() {
           userEmail={deleteUserTarget?.email || ''}
           onDeleted={deleteUser}
           deleting={deleteLoading}
+        />
+        <ResetPasswordModal
+          show={resetPasswordTarget !== null}
+          onHide={() => setResetPasswordTarget(null)}
+          userName={resetPasswordTarget?.name || ''}
+          onReset={resetPassword}
+          resetting={resettingPassword}
         />
       </Card.Body>
     </Card>

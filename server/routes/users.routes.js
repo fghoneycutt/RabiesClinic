@@ -16,6 +16,13 @@ router.post('/', authenticate, requireRole('admin'), controller.createUser);
 
 router.put('/:id', authenticate, requireRole('admin'), controller.editUser);
 
+router.put(
+  '/:id/password',
+  authenticate,
+  requireRole('admin'),
+  controller.resetPassword
+);
+
 router.post(
   '/:id/signature',
   authenticate,
