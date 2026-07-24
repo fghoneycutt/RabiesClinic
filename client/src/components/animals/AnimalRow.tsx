@@ -315,7 +315,15 @@ export default function AnimalRow({
 
         {/* ACTIONS */}
 
-        <td>
+        <td
+          className="text-center"
+          style={{
+            position: 'sticky',
+            right: 0,
+            background: 'white',
+            zIndex: 2
+          }}
+        >
           <div
             className="d-flex flex-column gap-1"
             style={{
