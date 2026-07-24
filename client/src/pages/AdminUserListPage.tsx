@@ -32,18 +32,53 @@ export default function AdminUserListPage() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [uploadingSignatureId, setUploadingSignatureId] = useState<string | null>(null);
   const [signatureSuccessId, setSignatureSuccessId] = useState<string | null>(null);
+  const [signatureUrls, setSignatureUrls] = useState<Record<string, string>>({});
 
   const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
-  const signatureUrl = (id: string) =>
-  `${api.defaults.baseURL}/users/${id}/signature`;
 
   document.title="Users"
 
   useEffect(() => {
     loadUsers();
   }, []);
+  useEffect(() => {
+    return () => {
+      Object.values(signatureUrls).forEach(URL.revokeObjectURL);
+    };
+  }, [signatureUrls]);
+
+  const loadSignatures = async (users: User[]) => {
+    const urls: Record<string, string> = {};
+
+    await Promise.all(
+      users.map(async user => {
+        if (!user.signature) return;
+
+        try {
+          const res = await api.get(
+            `/users/${user.id}/signature`,
+            {
+              responseType: 'blob'
+            }
+          );
+
+          urls[user.id] = URL.createObjectURL(res.data);
+
+        } catch (err) {
+          console.error(
+            `Failed loading signature for ${user.name}`,
+            err
+          );
+        }
+      })
+    );
+
+    setSignatureUrls(prev => {
+      Object.values(prev).forEach(URL.revokeObjectURL);
+      return urls;
+    });
+  };
 
   const loadUsers = async () => {
     try {
@@ -51,6 +86,7 @@ export default function AdminUserListPage() {
       setError(null);
       const res = await api.get('/users');
       setUsers(res.data);
+      await loadSignatures(res.data);
     } catch (err: any) {
       console.error(err);
       setError(err?.response?.data?.message || 'Failed to load users');
@@ -149,6 +185,23 @@ export default function AdminUserListPage() {
         `/users/${id}/signature`,
         formData
       );
+      const res = await api.get(
+        `/users/${id}/signature`,
+        {
+          responseType: 'blob'
+        }
+      );
+
+      setSignatureUrls(prev => {
+        if (prev[id]) {
+          URL.revokeObjectURL(prev[id]);
+        }
+
+        return {
+          ...prev,
+          [id]: URL.createObjectURL(res.data)
+        };
+      });
 
       setSignatureSuccessId(id);
 
@@ -273,7 +326,7 @@ export default function AdminUserListPage() {
                     <td className="text-center">
                       {user.signature ? (
                         <img
-                          src={signatureUrl(user.id)}
+                          src={signatureUrls[user.id]}
                           alt={`${user.name || 'User'} signature`}
                           style={{
                             maxWidth: '120px',

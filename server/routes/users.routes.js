@@ -27,7 +27,6 @@ router.post(
 router.get(
   '/:id/signature',
   authenticate,
-  requireRole('admin'),
   controller.getSignature
 );
 
