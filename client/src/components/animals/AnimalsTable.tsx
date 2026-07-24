@@ -102,6 +102,18 @@ export default function AnimalsTable({
               <th>Pattern</th>
               <th>Rabies</th>
               {clinic.offerings?.microchip?.enabled && <th>Microchip Number</th>}
+              <th
+                className="text-center"
+                style={{
+                  width: 120,
+                  position: 'sticky',
+                  right: 0,
+                  background: 'white',
+                  zIndex: 3
+                }}
+              >
+                Actions
+              </th>
             </tr>
           </thead>
 
