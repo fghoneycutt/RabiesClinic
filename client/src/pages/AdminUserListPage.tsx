@@ -426,38 +426,30 @@ export default function AdminUserListPage() {
                             <i className="fas fa-edit"></i>
                           </Button>
 
-                          <Button
-                            size="sm"
-                            variant="outline-success"
-                            disabled={uploadingSignatureId === user.id}
-                            title="Upload Signature"
-                            onClick={() =>
-                              document
-                                .getElementById(signatureInputId)
-                                ?.click()
-                            }
-                          >
-                            {uploadingSignatureId === user.id ? (
-                            <Spinner
-                              animation="border"
+                          <div className="d-none d-lg-block">
+                            <Button
                               size="sm"
-                            />
-                          ) : signatureSuccessId === user.id ? (
-                            <i className="fas fa-check"></i>
-                          ) : (
-                            <i className="fas fa-file-signature"></i>
-                          )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline-warning"
-                            title="Reset Password"
-                            onClick={() => setResetPasswordTarget(user)}
-                          >
-                            <i className="fas fa-key"></i>
-                          </Button>
-
-                          <Form.Control
+                              variant="outline-success"
+                              disabled={uploadingSignatureId === user.id}
+                              title="Upload Signature"
+                              onClick={() =>
+                                document
+                                  .getElementById(signatureInputId)
+                                  ?.click()
+                              }
+                            >
+                              {uploadingSignatureId === user.id ? (
+                                <Spinner
+                                  animation="border"
+                                  size="sm"
+                                />
+                              ) : signatureSuccessId === user.id ? (
+                                <i className="fas fa-check"></i>
+                              ) : (
+                                <i className="fas fa-file-signature"></i>
+                              )}
+                            </Button>
+                                                      <Form.Control
                             id={signatureInputId}
                             type="file"
                             accept="image/png,image/jpeg"
@@ -472,7 +464,15 @@ export default function AdminUserListPage() {
                               }
                             }}
                           />
-
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline-warning"
+                            title="Reset Password"
+                            onClick={() => setResetPasswordTarget(user)}
+                          >
+                            <i className="fas fa-key"></i>
+                          </Button>
                         </div>
                       )}
                     </td>
