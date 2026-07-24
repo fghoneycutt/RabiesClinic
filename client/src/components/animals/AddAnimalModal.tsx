@@ -170,22 +170,33 @@ export default function AddAnimalModal({
       </Modal.Body>
 
       <Modal.Footer>
-        <div className="d-flex justify-content-between w-100">
-          
-          {/* Layout Controls identical to WalkinIntake workspace layout */}
-          <div className="d-flex gap-2">
-            <Button variant="secondary" onClick={addAnimal} disabled={loading}>
+        <div className="d-flex flex-column flex-md-row justify-content-between gap-3 w-100">
+
+          <div className="d-flex flex-column flex-sm-row gap-2">
+            <Button
+              variant="secondary"
+              onClick={addAnimal}
+              disabled={loading}
+            >
               + Add Another Animal
             </Button>
 
-            <Button variant="outline-secondary" onClick={cloneLastAnimal} disabled={loading}>
+            <Button
+              variant="outline-secondary"
+              onClick={cloneLastAnimal}
+              disabled={loading}
+            >
               + Clone Animal
             </Button>
           </div>
-          
-          {/* Modal Commit State Actions */}
-          <div className="d-flex gap-2">
-            <Button variant="secondary" onClick={onHide} disabled={loading}>
+
+
+          <div className="d-flex flex-column flex-sm-row gap-2">
+            <Button
+              variant="secondary"
+              onClick={onHide}
+              disabled={loading}
+            >
               Cancel
             </Button>
 
@@ -194,9 +205,13 @@ export default function AddAnimalModal({
               onClick={submit}
               disabled={loading || !canSubmit}
             >
-              {loading ? 'Saving Records...' : `Add ${animals.length} Animal${animals.length > 1 ? 's' : ''}`}
+              {loading
+                ? 'Saving Records...'
+                : `Add ${animals.length} Animal${animals.length > 1 ? 's' : ''}`
+              }
             </Button>
           </div>
+
         </div>
       </Modal.Footer>
     </Modal>
