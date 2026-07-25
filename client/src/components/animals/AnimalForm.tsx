@@ -5,8 +5,10 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Select from 'react-select';
 import Button from 'react-bootstrap/Button';
+import Alert from 'react-bootstrap/Alert';
 
 import type { AnimalDraft } from '../../types/intake';
+import type { ClinicOfferings } from '../../types/intake';
 
 import {
   DOG_BREEDS,
@@ -21,6 +23,7 @@ type BaseProps = {
   animal: AnimalDraft;
   updateAnimal: (field: keyof AnimalDraft, value: any) => void;
   showClinicFields?: boolean;
+  clinicOfferings?: ClinicOfferings;
 };
 
 type MultiProps = BaseProps & {
@@ -47,7 +50,11 @@ const Req = ({ children }: { children: React.ReactNode }) => (
 );
 
 export default function AnimalForm(props: Props) {
-  const { animal, updateAnimal } = props;
+  const {
+    animal,
+    updateAnimal,
+    clinicOfferings
+  } = props;
 
   // Local state for tracking touched elements for visual validation
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -174,6 +181,31 @@ export default function AnimalForm(props: Props) {
       updateAnimal('age_months', targetMonths);
     }
   };
+
+  const totalMonths =
+    (animal.age_years ?? 0) * 12 +
+    (animal.age_months ?? 0);
+
+  const offersOneYear =
+    clinicOfferings?.rabies_1_year?.enabled === true;
+
+  const offersThreeYear =
+    clinicOfferings?.rabies_3_year?.enabled === true;
+
+  const offersMicrochip =
+    clinicOfferings?.microchip?.enabled === true;
+
+  let vaccineWarning: string | null = null;
+
+  if (totalMonths > 0) {
+    if (offersThreeYear && totalMonths < 3) {
+      vaccineWarning =
+        'This animal is too young to receive a 3-year rabies vaccine.';
+    } else if (!offersThreeYear && offersOneYear && totalMonths < 4) {
+      vaccineWarning =
+        'This animal is too young to receive a 1-year rabies vaccine.';
+    }
+  }
 
   return (
     <Card className="mb-3">
@@ -433,6 +465,22 @@ export default function AnimalForm(props: Props) {
             </Form.Group>
           </Col>
         </Row>
+
+        {vaccineWarning && (
+          <Alert variant="warning" className="mb-3">
+            <strong>Age Restriction</strong>
+            <br />
+
+            {vaccineWarning}
+
+            {offersMicrochip && (
+              <>
+                {' '}
+                The animal is still eligible for microchipping.
+              </>
+            )}
+          </Alert>
+        )}
 
         {/* COLORS */}
         <Row className="mb-3">

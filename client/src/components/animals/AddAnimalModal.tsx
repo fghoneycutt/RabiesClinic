@@ -3,7 +3,7 @@ import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 
 import { api } from '../../api/api';
-import type { Animal } from '../../types/intake';
+import type { Animal, ClinicOfferings } from '../../types/intake';
 
 import AnimalForm from './AnimalForm';
 
@@ -12,6 +12,7 @@ type Props = {
   onHide: () => void;
   ownerId: string;
   clinicId: string;
+  clinicOfferings?: ClinicOfferings;
   onAnimalCreated: (animal: Animal) => void;
 };
 
@@ -39,6 +40,7 @@ export default function AddAnimalModal({
   onHide,
   ownerId,
   clinicId,
+  clinicOfferings,
   onAnimalCreated
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -162,6 +164,7 @@ export default function AddAnimalModal({
               mode="multi"
               index={i}
               showClinicFields={true}
+              clinicOfferings={clinicOfferings}
               removeAnimal={removeAnimal}
               updateAnimal={(field, value) => updateAnimal(i, field, value)}
             />

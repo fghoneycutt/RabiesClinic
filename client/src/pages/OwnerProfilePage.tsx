@@ -295,6 +295,7 @@ export default function OwnerProfilePage() {
         onHide={() => setShowAddAnimalModal(false)}
         ownerId={owner.id}
         clinicId={clinicId!}
+        clinicOfferings={clinic.offerings}
         onAnimalCreated={(animal) => {
           setAnimals(prev => [
             normalizeAnimal(animal),

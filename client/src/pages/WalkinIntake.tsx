@@ -313,6 +313,9 @@ export default function WalkinIntake() {
           showClinicFields={
             isStaffMode
           }
+          clinicOfferings={
+            clinic.offerings
+          }
           removeAnimal={
             removeAnimal
           }

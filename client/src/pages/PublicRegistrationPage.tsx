@@ -45,6 +45,7 @@ const EMPTY_ANIMAL: AnimalDraft = {
   age_years: null,
   age_months: null,
 
+
   primary_color: '',
   secondary_color: '',
 
@@ -419,6 +420,7 @@ export default function PublicRegistrationPage() {
           index={i}
           animal={animal}
           showClinicFields={false}
+          clinicOfferings={clinic.offerings}
           removeAnimal={removeAnimal}
           updateAnimal={(field, value) =>
             updateAnimal(i, field, value)
