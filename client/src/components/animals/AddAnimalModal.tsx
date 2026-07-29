@@ -32,7 +32,8 @@ const EMPTY_ANIMAL: Omit<Animal, 'id'> = {
   secondary_color: '',
   pattern: '',
   rabies_tag_number: null,
-  microchip_number: null
+  microchip_number: null,
+  microchip_issuer: null
 };
 
 export default function AddAnimalModal({
@@ -76,7 +77,8 @@ export default function AddAnimalModal({
         ...lastAnimal,
         name: '',
         rabies_tag_number: null,
-        microchip_number: null
+        microchip_number: null,
+        microchip_issuer: null
       };
       return [...prev, cloned];
     });
@@ -104,14 +106,41 @@ export default function AddAnimalModal({
   // VALIDATION
   // ----------------------
   const isAnimalValid = (ani: Omit<Animal, 'id'>) => {
-    const hasAge = ani.age_years !== null || ani.age_months !== null;
+
+    const hasAge =
+      ani.age_years !== null ||
+      ani.age_months !== null;
+
+
+    const microchipNumber =
+      ani.microchip_number?.trim() || '';
+
+    const microchipIssuer =
+      ani.microchip_issuer?.trim() || '';
+
+
+    const microchipValid =
+      (!microchipNumber && !microchipIssuer) ||
+      (microchipNumber && microchipIssuer);
+
+
     return (
       ani.name.trim() !== '' &&
       ani.species.trim() !== '' &&
       ani.sex.trim() !== '' &&
       ani.primary_breed?.trim() !== '' &&
       ani.primary_color?.trim() !== '' &&
-      hasAge
+      hasAge &&
+      microchipValid
+    );
+  };
+
+  const isMicrochipIssuerRequired = (
+    ani: Omit<Animal, 'id'>
+  ) => {
+    return (
+      !!ani.microchip_number?.trim() &&
+      !ani.microchip_issuer?.trim()
     );
   };
 
@@ -167,6 +196,7 @@ export default function AddAnimalModal({
               clinicOfferings={clinicOfferings}
               removeAnimal={removeAnimal}
               updateAnimal={(field, value) => updateAnimal(i, field, value)}
+              microchipIssuerRequired={isMicrochipIssuerRequired(animal)}
             />
           </div>
         ))}

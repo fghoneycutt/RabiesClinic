@@ -14,6 +14,8 @@ import type {
   Clinic
 } from '../../types/intake';
 
+import { MICROCHIP_ISSUERS } from '../../constants/animalOptions';
+
 type AnimalField = keyof Animal;
 
 type UserOption = {
@@ -88,6 +90,11 @@ export default function AnimalRow({
     setVaccineExpanded
   ] = useState(false);
 
+  const [
+    microchipError,
+    setMicrochipError
+  ] = useState('');
+
 
   useEffect(() => {
     if (!editing) {
@@ -109,6 +116,26 @@ export default function AnimalRow({
 
 
   const saveEdit = async () => {
+    const microchipNumber =
+      draftAnimal.microchip_number?.trim() || '';
+
+    const microchipIssuer =
+      draftAnimal.microchip_issuer?.trim() || '';
+
+
+    if (
+      (microchipNumber && !microchipIssuer) ||
+      (!microchipNumber && microchipIssuer)
+    ) {
+      setMicrochipError(
+        'Microchip issuer required'
+      );
+      return;
+    }
+
+
+    setMicrochipError('');
+
 
     const changedFields =
       Object.keys(draftAnimal).filter(
@@ -271,30 +298,62 @@ export default function AnimalRow({
 
         </td>
 
+        {/* MICROCHIP NUMBER */}
 
-        {/* MICROCHIP */}
+        <td
+          style={{
+            whiteSpace: 'nowrap',
+            minWidth: editing ? '260px' : '180px'
+          }}
+        >
 
-        {clinic.offerings?.microchip?.enabled && (
-
-          <td>
+          {editing ? (
 
             <Form.Control
               size="sm"
+              maxLength={19}
+              style={{
+                width: '250px'
+              }}
+
               value={
                 formatMicrochip(
                   displayedAnimal.microchip_number || ''
                 )
               }
 
-              onChange={(e) =>
-                updateDraftAnimal(
-                  animal.id,
-                  'microchip_number',
+              placeholder="None"
+
+              onChange={(e) => {
+
+                const value =
                   unformatMicrochip(
                     e.target.value
                   )
-                )
-              }
+                  .slice(0, 15);
+
+
+                updateDraftAnimal(
+                  animal.id,
+                  'microchip_number',
+                  value
+                );
+
+
+                setMicrochipError('');
+
+
+                if (!value) {
+
+                  updateDraftAnimal(
+                    animal.id,
+                    'microchip_issuer',
+                    null
+                  );
+
+                }
+
+              }}
 
               onCopy={(e) => {
 
@@ -308,10 +367,101 @@ export default function AnimalRow({
 
             />
 
-          </td>
+          ) : (
 
-        )}
+            displayedAnimal.microchip_number
+              ? formatMicrochip(displayedAnimal.microchip_number)
+              : '-'
 
+          )}
+
+        </td>
+
+
+        {/* MICROCHIP ISSUER */}
+
+        <td
+          style={{
+            whiteSpace: 'nowrap',
+            minWidth: editing ? '220px' : '180px'
+          }}
+        >
+
+          {editing ? (
+
+            <>
+
+              <Form.Select
+                size="sm"
+
+                style={{
+                  width: '210px'
+                }}
+
+                disabled={
+                  !displayedAnimal.microchip_number
+                }
+
+                value={
+                  displayedAnimal.microchip_issuer || ''
+                }
+
+                onChange={(e) => {
+
+                  setMicrochipError('');
+
+                  updateDraftAnimal(
+                    animal.id,
+                    'microchip_issuer',
+                    e.target.value || null
+                  );
+
+                }}
+
+              >
+
+                <option value="">
+                  {displayedAnimal.microchip_number
+                    ? 'Select issuer'
+                    : 'Enter chip first'}
+                </option>
+
+
+                {MICROCHIP_ISSUERS.map(
+                  issuer => (
+
+                    <option
+                      key={issuer}
+                      value={issuer}
+                    >
+                      {issuer}
+                    </option>
+
+                  )
+                )}
+
+              </Form.Select>
+
+
+              {microchipError && (
+
+                <div
+                  className="text-danger small mt-1"
+                >
+                  {microchipError}
+                </div>
+
+              )}
+
+            </>
+
+          ) : (
+
+            displayedAnimal.microchip_issuer || '-'
+
+          )}
+
+        </td>
 
         {/* ACTIONS */}
 
@@ -321,7 +471,8 @@ export default function AnimalRow({
             position: 'sticky',
             right: 0,
             background: 'white',
-            zIndex: 2
+            zIndex: 5,
+            minWidth: '120px'
           }}
         >
           <div

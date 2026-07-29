@@ -45,6 +45,7 @@ export type Animal = {
 
   rabies_tag_number: string | null;
   microchip_number: string | null;
+  microchip_issuer: string | null;
 
   vaccinations?: Vaccination[];
 };

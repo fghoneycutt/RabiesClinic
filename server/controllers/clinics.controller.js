@@ -524,6 +524,7 @@ exports.exportClinicData = async (req, res) => {
         a.secondary_color,
         a.pattern,
         a.microchip_number,
+        a.microchip_issuer,
 
         -- AGE
         a.age_years,

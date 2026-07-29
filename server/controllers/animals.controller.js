@@ -1,7 +1,7 @@
 const pool = require('../db');
 
 // -----------------------------
-// CREATE ANIMAL (LEGACY)
+// CREATE ANIMAL (LEGACY / MODAL FLOW)
 // -----------------------------
 exports.createAnimal = async (req, res) => {
   try {
@@ -20,8 +20,10 @@ exports.createAnimal = async (req, res) => {
       age_years,
       age_months,
       microchip_number,
+      microchip_issuer,
       rabies_tag_number
     } = req.body;
+
 
     const result = await pool.query(
       `
@@ -40,11 +42,12 @@ exports.createAnimal = async (req, res) => {
         age_years,
         age_months,
         microchip_number,
+        microchip_issuer,
         rabies_tag_number
       )
       VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,
-        $9,$10,$11,$12,$13,$14,$15
+        $9,$10,$11,$12,$13,$14,$15,$16
       )
       RETURNING *
       `,
@@ -63,14 +66,17 @@ exports.createAnimal = async (req, res) => {
         age_years,
         age_months,
         microchip_number || null,
+        microchip_issuer || null,
         rabies_tag_number || null
       ]
     );
 
-    res.json({
+
+    res.status(201).json({
       success: true,
       animal: result.rows[0]
     });
+
 
   } catch (err) {
 
@@ -187,7 +193,8 @@ async function createAnimalForOwner(req, res) {
     secondary_color,
     pattern,
     rabies_tag_number,
-    microchip_number
+    microchip_number,
+    microchip_issuer
   } = req.body;
 
   try {
@@ -208,11 +215,12 @@ async function createAnimalForOwner(req, res) {
         secondary_color,
         pattern,
         rabies_tag_number,
-        microchip_number
+        microchip_number,
+        microchip_issuer
       )
       VALUES (
         $1,$2,$3,$4,$5,$6,$7,
-        $8,$9,$10,$11,$12,$13,$14
+        $8,$9,$10,$11,$12,$13,$14,$15
       )
       RETURNING *
       `,
@@ -230,7 +238,8 @@ async function createAnimalForOwner(req, res) {
         secondary_color || null,
         pattern || null,
         rabies_tag_number || null,
-        microchip_number || null
+        microchip_number || null,
+        microchip_issuer || null
       ]
     );
 

@@ -10,6 +10,11 @@ exports.createIntake = async (req, res) => {
 
   const client = await pool.connect();
 
+  const clean = (value) =>
+    value === '' || value === undefined
+      ? null
+      : value;
+
   try {
     await client.query('BEGIN');
 
@@ -65,15 +70,27 @@ exports.createIntake = async (req, res) => {
       }
 
       if (existingOwner.rows.length > 0) {
+
         finalOwnerId = existingOwner.rows[0].id;
+
       } else {
+
         const ownerResult = await client.query(
           `
           INSERT INTO owners (
-            first_name, last_name, email, phone, address, 
-            city, county, state, zip_code
+            first_name,
+            last_name,
+            email,
+            phone,
+            address,
+            city,
+            county,
+            state,
+            zip_code
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9
+          )
           RETURNING id
           `,
           [
@@ -93,111 +110,192 @@ exports.createIntake = async (req, res) => {
       }
     }
 
+
     // ------------------------------------------------------------
-    // FETCH ALL HISTORICAL ANIMALS FOR THIS OWNER (ANY CLINIC)
+    // FETCH ALL HISTORICAL ANIMALS FOR THIS OWNER
     // ------------------------------------------------------------
     let existingAnimals = [];
+
     if (finalOwnerId) {
+
       const existingAnimalsResult = await client.query(
         `
-        SELECT id, name, species 
-        FROM animals 
+        SELECT
+          id,
+          name,
+          species
+        FROM animals
         WHERE owner_id = $1
         `,
         [finalOwnerId]
       );
+
       existingAnimals = existingAnimalsResult.rows;
     }
+
 
     // ------------------------
     // CASE 2: PROCESS ANIMALS
     // ------------------------
     for (const animal of animals) {
+
       if (!animal.name) continue;
 
-      // Match more resiliently on Name + Species (ignoring shifting fields like breed/sex)
-      const matchedAnimal = existingAnimals.find(ea => 
-        ea.name?.trim().toLowerCase() === animal.name?.trim().toLowerCase() &&
-        ea.species?.trim().toLowerCase() === animal.species?.trim().toLowerCase()
+
+      const matchedAnimal = existingAnimals.find(ea =>
+        ea.name?.trim().toLowerCase() ===
+          animal.name?.trim().toLowerCase()
+        &&
+        ea.species?.trim().toLowerCase() ===
+          animal.species?.trim().toLowerCase()
       );
 
+
       if (matchedAnimal) {
-        // 🔥 FIX: Overwrite clinic_id to current clinic context + update all changing traits
+
+        // ------------------------
+        // UPDATE EXISTING ANIMAL
+        // ------------------------
         await client.query(
           `
           UPDATE animals
-          SET 
+          SET
             clinic_id = $1,
+
             sex = $2,
             primary_breed = $3,
             secondary_breed = $4,
+
             altered_status = $5,
+
             age_years = $6,
             age_months = $7,
+
             primary_color = $8,
             secondary_color = $9,
-            pattern = $10
-          WHERE id = $11
+            pattern = $10,
+
+            microchip_number = $11,
+            microchip_issuer = $12
+
+          WHERE id = $13
           `,
           [
             clinic_id,
-            animal.sex,
-            animal.primary_breed,
-            animal.secondary_breed || null,
+
+            clean(animal.sex),
+            clean(animal.primary_breed),
+            clean(animal.secondary_breed),
+
             animal.altered_status,
+
             animal.age_years,
             animal.age_months,
-            animal.primary_color,
-            animal.secondary_color || null,
-            animal.pattern || null,
+
+            clean(animal.primary_color),
+            clean(animal.secondary_color),
+            clean(animal.pattern),
+
+            clean(animal.microchip_number),
+            clean(animal.microchip_issuer),
+
             matchedAnimal.id
           ]
         );
+
+
       } else {
-        // Truly a new pet profile for this owner
+
+        // ------------------------
+        // INSERT NEW ANIMAL
+        // ------------------------
         await client.query(
           `
           INSERT INTO animals (
-            owner_id, clinic_id, name, species, sex, altered_status,
-            primary_breed, secondary_breed, age_years, age_months,
-            primary_color, secondary_color, pattern
+
+            owner_id,
+            clinic_id,
+
+            name,
+            species,
+            sex,
+
+            altered_status,
+
+            primary_breed,
+            secondary_breed,
+
+            age_years,
+            age_months,
+
+            primary_color,
+            secondary_color,
+
+            pattern,
+
+            microchip_number,
+            microchip_issuer
+
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+
+          VALUES (
+            $1,$2,$3,$4,$5,
+            $6,$7,$8,$9,$10,
+            $11,$12,$13,$14,$15
+          )
           `,
           [
             finalOwnerId,
             clinic_id,
+
             animal.name,
-            animal.species,
-            animal.sex,
+            clean(animal.species),
+            clean(animal.sex),
+
             animal.altered_status,
-            animal.primary_breed,
-            animal.secondary_breed || null,
+
+            clean(animal.primary_breed),
+            clean(animal.secondary_breed),
+
             animal.age_years,
             animal.age_months,
-            animal.primary_color,
-            animal.secondary_color || null,
-            animal.pattern || null
+
+            clean(animal.primary_color),
+            clean(animal.secondary_color),
+
+            clean(animal.pattern),
+
+            clean(animal.microchip_number),
+            clean(animal.microchip_issuer)
           ]
         );
       }
     }
 
+
     await client.query('COMMIT');
+
 
     res.json({
       success: true,
       owner_id: finalOwnerId
     });
 
+
   } catch (err) {
+
     await client.query('ROLLBACK');
+
     console.error(err);
+
     res.status(500).json({
       success: false,
       message: 'Failed to process intake'
     });
+
   } finally {
+
     client.release();
+
   }
 };

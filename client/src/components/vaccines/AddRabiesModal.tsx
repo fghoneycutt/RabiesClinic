@@ -221,6 +221,7 @@ export default function AddRabiesModal({
       alert(err?.response?.data?.message || 'Failed to save vaccination');
     }
   };
+  const maxDateTime = formatDateTimeLocal(new Date());
 
   return (
     <Modal show={show} onHide={onHide} centered>
@@ -335,21 +336,52 @@ export default function AddRabiesModal({
           <Form.Label>Date / Time Administered</Form.Label>
           <Form.Control
             type="datetime-local"
+            max={maxDateTime}
             value={form.date_time_administered}
-            onChange={e => {
-              const newAdministeredDate = e.target.value;
-              
-              // Calculate new expiration bounds if a type has been locked in
+            onChange={e =>
+              update('date_time_administered', e.target.value)
+            }
+            onBlur={e => {
+              let value = e.target.value;
+
+              // If only a date was entered, default to 12:00 AM
+              if (value && !value.includes('T')) {
+                value = `${value}T00:00`;
+              }
+
+              if (!value) {
+                setForm(prev => ({
+                  ...prev,
+                  date_time_administered: '',
+                  date_time_due: ''
+                }));
+                return;
+              }
+
+              const administered = new Date(value);
+              const now = new Date();
+
+              // Clear future dates
+              if (administered > now) {
+                setForm(prev => ({
+                  ...prev,
+                  date_time_administered: '',
+                  date_time_due: ''
+                }));
+                return;
+              }
+
               let newDueDate = form.date_time_due;
+
               if (form.vaccine_type === 'rabies_1_year') {
-                newDueDate = buildDueDate(1, newAdministeredDate);
+                newDueDate = buildDueDate(1, value);
               } else if (form.vaccine_type === 'rabies_3_year') {
-                newDueDate = buildDueDate(3, newAdministeredDate);
+                newDueDate = buildDueDate(3, value);
               }
 
               setForm(prev => ({
                 ...prev,
-                date_time_administered: newAdministeredDate,
+                date_time_administered: value,
                 date_time_due: newDueDate
               }));
             }}

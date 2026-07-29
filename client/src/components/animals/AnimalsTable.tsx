@@ -81,13 +81,15 @@ export default function AnimalsTable({
           </Button>
 
         </div>
-
+        <div style={{ overflowX: 'auto' }}>
         {/* TABLE */}
         <Table
           striped
           bordered
           hover
-          responsive
+          style={{
+            minWidth: '1500px'
+          }}
         >
 
           <thead>
@@ -101,15 +103,17 @@ export default function AnimalsTable({
               <th>Color</th>
               <th>Pattern</th>
               <th>Rabies</th>
-              {clinic.offerings?.microchip?.enabled && <th>Microchip Number</th>}
+              <th>Microchip Number</th>
+              <th>Microchip Issuer</th>
               <th
                 className="text-center"
                 style={{
                   width: 120,
+                  minWidth: 120,
                   position: 'sticky',
                   right: 0,
                   background: 'white',
-                  zIndex: 3
+                  zIndex: 6
                 }}
               >
                 Actions
@@ -136,7 +140,8 @@ export default function AnimalsTable({
           </tbody>
 
         </Table>
-
+      </div>
+  
       </Card.Body>
 
     </Card>

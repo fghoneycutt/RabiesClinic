@@ -473,3 +473,28 @@ export const RABIES_PRODUCT_MANUFACTURER: {
 
   { product: 'IMRAB + Potomavac', manufacturer: 'Boehringer Ingelheim' }
 ];
+
+export const MICROCHIP_ISSUERS = [
+  'Adopterluv Microchip Registry',
+  'BuddyID',
+  '24Petwatch / Pethealth',
+  '911 Pet',
+  'AKC Reunite',
+  'AVID',
+  'Banfield',
+  'Crystal Tag / ResQ / Petlink',
+  'EIDAP',
+  'Fi Nano',
+  'Found Animals',
+  'Home Again',
+  'Microchips4Solutions (M4S)',
+  'NanoCHIP',
+  'PetNet',
+  'Petkey',
+  'Petlink / Datamars',
+  'Save This Life',
+  'Smart Tag',
+  'Trovan',
+  'USDA',
+  'Other'
+];

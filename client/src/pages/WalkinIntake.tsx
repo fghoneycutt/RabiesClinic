@@ -58,7 +58,8 @@ const EMPTY_ANIMAL: AnimalDraft = {
   pattern: '',
 
   rabies_tag_number: '',
-  microchip_number: ''
+  microchip_number: '',
+  microchip_issuer: ''
 };
 
 export default function WalkinIntake() {
@@ -134,7 +135,9 @@ export default function WalkinIntake() {
 
       const cloned: AnimalDraft = {
         ...lastAnimal,
-        name: ''
+        name: '',
+        microchip_number: '',
+        microchip_issuer: ''
       };
 
       return [...prev, cloned];
@@ -182,20 +185,33 @@ export default function WalkinIntake() {
   const isAnimalValid = (
     animal: AnimalDraft
   ) => {
+
     const hasAge =
       animal.age_years !== null ||
       animal.age_months !== null;
 
+
+    const hasMicrochipNumber =
+      !!animal.microchip_number?.trim();
+
+
+    const hasMicrochipIssuer =
+      Boolean(animal.microchip_issuer?.trim());
+
+
+    const microchipValid =
+      !hasMicrochipNumber ||
+      hasMicrochipIssuer;
+
+
     return (
       animal.name.trim() !== '' &&
-      animal.species.trim() !==
-        '' &&
+      animal.species.trim() !== '' &&
       animal.sex.trim() !== '' &&
-      animal.primary_breed?.trim() !==
-        '' &&
-      animal.primary_color?.trim() !==
-        '' &&
-      hasAge
+      animal.primary_breed?.trim() !== '' &&
+      animal.primary_color?.trim() !== '' &&
+      hasAge &&
+      microchipValid
     );
   };
 
@@ -218,12 +234,23 @@ export default function WalkinIntake() {
     try {
       setSubmitting(true);
 
+      const cleanedAnimals = animals.map(animal => ({
+        ...animal,
+        microchip_number:
+          animal.microchip_number?.trim() || null,
+
+        microchip_issuer:
+          animal.microchip_number?.trim()
+            ? animal.microchip_issuer || null
+            : null
+      }));
+
       const res = await api.post(
         '/intake',
         {
           owner,
           owner_id: null,
-          animals,
+          animals: cleanedAnimals,
           clinic_id: id
         }
       );
@@ -310,24 +337,15 @@ export default function WalkinIntake() {
           mode="multi"
           index={i}
           animal={animal}
-          showClinicFields={
-            isStaffMode
+          microchipIssuerRequired={
+            !!animal.microchip_number?.trim() &&
+            !animal.microchip_issuer?.trim()
           }
-          clinicOfferings={
-            clinic.offerings
-          }
-          removeAnimal={
-            removeAnimal
-          }
-          updateAnimal={(
-            field,
-            value
-          ) =>
-            updateAnimal(
-              i,
-              field,
-              value
-            )
+          showClinicFields={isStaffMode}
+          clinicOfferings={clinic.offerings}
+          removeAnimal={removeAnimal}
+          updateAnimal={(field, value) =>
+            updateAnimal(i, field, value)
           }
         />
       ))}

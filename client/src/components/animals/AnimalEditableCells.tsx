@@ -155,17 +155,48 @@ export default function AnimalEditableCells({
             value={animal.species ?? ''}
             onChange={(e) => {
 
-              const value =
-                e.target.value as
-                '' | 'dog' | 'cat';
+            const value =
+              e.target.value as
+              '' | 'dog' | 'cat';
 
-              updateAnimalLocal(
-                animal.id,
-                'species',
-                value
-              );
+            updateAnimalLocal(
+              animal.id,
+              'species',
+              value
+            );
 
-            }}
+            // Clear incompatible animal traits
+            updateAnimalLocal(
+              animal.id,
+              'primary_breed',
+              ''
+            );
+
+            updateAnimalLocal(
+              animal.id,
+              'secondary_breed',
+              ''
+            );
+
+            updateAnimalLocal(
+              animal.id,
+              'primary_color',
+              ''
+            );
+
+            updateAnimalLocal(
+              animal.id,
+              'secondary_color',
+              ''
+            );
+
+            updateAnimalLocal(
+              animal.id,
+              'pattern',
+              ''
+            );
+
+          }}
           >
 
             <option value="">

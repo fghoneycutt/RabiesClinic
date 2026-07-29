@@ -52,7 +52,8 @@ const EMPTY_ANIMAL: AnimalDraft = {
   pattern: '',
 
   rabies_tag_number: '',
-  microchip_number: ''
+  microchip_number: '',
+  microchip_issuer: ''
 };
 
 export default function PublicRegistrationPage() {
@@ -132,9 +133,20 @@ export default function PublicRegistrationPage() {
   const isAnimalValid = (
     animal: AnimalDraft
   ) => {
+
     const hasAge =
       animal.age_years !== null ||
       animal.age_months !== null;
+
+    const hasMicrochipNumber =
+      !!animal.microchip_number?.trim();
+
+    const hasMicrochipIssuer =
+      !!animal.microchip_issuer?.trim();
+
+    const microchipValid =
+      !hasMicrochipNumber ||
+      hasMicrochipIssuer;
 
     return (
       animal.name.trim() !== '' &&
@@ -142,7 +154,8 @@ export default function PublicRegistrationPage() {
       animal.sex.trim() !== '' &&
       animal.primary_breed?.trim() !== '' &&
       animal.primary_color?.trim() !== '' &&
-      hasAge
+      hasAge &&
+      microchipValid
     );
   };
 
@@ -165,10 +178,22 @@ export default function PublicRegistrationPage() {
     setSubmitting(true);
 
     try {
+      const cleanedAnimals = animals.map(animal => ({
+        ...animal,
+
+        microchip_number:
+          animal.microchip_number?.trim() || null,
+
+        microchip_issuer:
+          animal.microchip_number?.trim()
+            ? animal.microchip_issuer || null
+            : null
+      }));
+
       await api.post('/intake', {
         owner,
         owner_id: null,
-        animals,
+        animals: cleanedAnimals,
         clinic_id: id
       });
 
@@ -419,6 +444,10 @@ export default function PublicRegistrationPage() {
           mode="multi"
           index={i}
           animal={animal}
+          microchipIssuerRequired={
+            !!animal.microchip_number?.trim() &&
+            !animal.microchip_issuer?.trim()
+          }
           showClinicFields={false}
           clinicOfferings={clinic.offerings}
           removeAnimal={removeAnimal}

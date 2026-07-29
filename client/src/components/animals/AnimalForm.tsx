@@ -16,7 +16,8 @@ import {
   DOG_COLORS,
   CAT_COLORS,
   DOG_PATTERNS,
-  CAT_PATTERNS
+  CAT_PATTERNS,
+  MICROCHIP_ISSUERS
 } from '../../constants/animalOptions';
 
 type BaseProps = {
@@ -24,6 +25,7 @@ type BaseProps = {
   updateAnimal: (field: keyof AnimalDraft, value: any) => void;
   showClinicFields?: boolean;
   clinicOfferings?: ClinicOfferings;
+  microchipIssuerRequired?: boolean;
 };
 
 type MultiProps = BaseProps & {
@@ -49,11 +51,21 @@ const Req = ({ children }: { children: React.ReactNode }) => (
   </>
 );
 
+const formatMicrochip = (value: string) =>
+  value
+    .replace(/\D/g, '')
+    .match(/.{1,3}/g)
+    ?.join(' ') ?? '';
+
+const unformatMicrochip = (value: string) =>
+  value.replace(/\s+/g, '');
+
 export default function AnimalForm(props: Props) {
   const {
     animal,
     updateAnimal,
-    clinicOfferings
+    clinicOfferings,
+    microchipIssuerRequired
   } = props;
 
   // Local state for tracking touched elements for visual validation
@@ -552,6 +564,79 @@ export default function AnimalForm(props: Props) {
             }
           />
         </Form.Group>
+
+        {/* MICROCHIP */}
+        <Row className="mb-3">
+          <Col md={6}>
+            <Form.Group>
+              <Form.Label>
+                Current Microchip Number{' '}
+                <span className="text-muted fw-normal">(Optional)</span>
+              </Form.Label>
+
+              <Form.Control
+                type="text"
+                inputMode="numeric"
+                value={formatMicrochip(animal.microchip_number || '')}
+                onChange={e => {
+                  const number = unformatMicrochip(e.target.value).slice(0, 15);
+
+                  updateAnimal('microchip_number', number);
+
+                  if (!number) {
+                    updateAnimal('microchip_issuer', null);
+                  }
+                }}
+                onCopy={e => {
+                  e.preventDefault();
+
+                  navigator.clipboard.writeText(
+                    animal.microchip_number || ''
+                  );
+                }}
+              />
+            </Form.Group>
+          </Col>
+
+          <Col md={6}>
+            <Form.Group>
+              <Form.Label>Microchip Issuer{' '}
+              </Form.Label>
+
+              <Form.Select
+                size="sm"
+                disabled={!animal.microchip_number?.trim()}
+                isInvalid={
+                  !!animal.microchip_number?.trim() &&
+                  !animal.microchip_issuer?.trim()
+                }
+                value={animal.microchip_issuer || ''}
+                onChange={(e) =>
+                  updateAnimal(
+                    'microchip_issuer',
+                    e.target.value || null
+                  )
+                }
+              >
+                <option value="">
+                  {animal.microchip_number?.trim()
+                    ? 'Select issuer...'
+                    : 'Enter microchip first'}
+                </option>
+
+                {MICROCHIP_ISSUERS.map(issuer => (
+                  <option key={issuer} value={issuer}>
+                    {issuer}
+                  </option>
+                ))}
+              </Form.Select>
+
+              <Form.Control.Feedback type="invalid">
+                Microchip Issuer required
+              </Form.Control.Feedback>
+            </Form.Group>
+          </Col>
+</Row>
       </Card.Body>
     </Card>
   );
