@@ -65,7 +65,6 @@ export default function AnimalForm(props: Props) {
     animal,
     updateAnimal,
     clinicOfferings,
-    microchipIssuerRequired
   } = props;
 
   // Local state for tracking touched elements for visual validation
