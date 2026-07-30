@@ -2,6 +2,11 @@ import Table from 'react-bootstrap/Table';
 import Button from 'react-bootstrap/Button';
 import Card from 'react-bootstrap/Card';
 
+import {
+  faPlus
+} from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+
 import type {
   Animal,
   Clinic
@@ -105,6 +110,10 @@ export default function AnimalsTable({
                 onAddAnimal?.()
               }
             >
+              <FontAwesomeIcon
+                icon={faPlus}
+                className="me-2"
+              />
               Add Animal
             </Button>
 

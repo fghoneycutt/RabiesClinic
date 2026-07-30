@@ -5,6 +5,15 @@ import Table from 'react-bootstrap/Table';
 import Card from 'react-bootstrap/Card';
 import Button from 'react-bootstrap/Button';
 
+import {
+  faEdit,
+  faSave,
+  faTimes,
+  faTrashAlt
+} from '@fortawesome/free-solid-svg-icons';
+
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+
 import { api } from '../../api/api';
 import { RABIES_PRODUCT_MANUFACTURER } from '../../constants/animalOptions';
 
@@ -222,37 +231,59 @@ export default function VaccineSection({
               <Card.Body>
 
                 <div className="d-flex justify-content-end mb-2 gap-2">
-                  {editing && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline-secondary"
-                        onClick={cancelEdit}
-                      >
-                        Cancel
-                      </Button>
 
-                      <Button
-                        size="sm"
-                        variant="outline-danger"
-                        onClick={() => setShowDeleteModal(true)}
-                      >
-                        Delete
-                      </Button>
+                {editing && (
+                  <>
+
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      onClick={cancelEdit}
+                      className="text-nowrap"
+                    >
+                      <FontAwesomeIcon icon={faTimes} /> Cancel
+                    </Button>
+
+
+                    <Button
+                      size="sm"
+                      variant="outline-danger"
+                      onClick={() => setShowDeleteModal(true)}
+                      className="text-nowrap"
+                    >
+                      <FontAwesomeIcon icon={faTrashAlt} /> Delete
+                    </Button>
+
+                  </>
+                )}
+
+
+                <Button
+                  size="sm"
+                  variant={editing ? 'success' : 'outline-primary'}
+                  onClick={() => {
+                    if (editing) {
+                      saveVaccination();
+                    } else {
+                      startEdit();
+                    }
+                  }}
+                  className="text-nowrap"
+                >
+
+                  {editing ? (
+                    <>
+                      <FontAwesomeIcon icon={faSave} /> Save
+                    </>
+                  ) : (
+                    <>
+                      <FontAwesomeIcon icon={faEdit} /> Edit Vaccine
                     </>
                   )}
 
-                  <Button
-                    size="sm"
-                    variant={editing ? 'success' : 'outline-primary'}
-                    onClick={() => {
-                      if (editing) saveVaccination();
-                      else startEdit();
-                    }}
-                  >
-                    {editing ? 'Save' : 'Edit Vaccine'}
-                  </Button>
-                </div>
+                </Button>
+
+              </div>
 
                 {/* KEY FIX: table no longer forced to w-100 */}
                 <Table
