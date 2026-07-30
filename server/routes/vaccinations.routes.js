@@ -12,10 +12,19 @@ router.put('/:id', vaccinationsController.updateVaccination);
 // DELETE vaccination
 router.delete('/:id', vaccinationsController.deleteVaccination);
 
-// GENERATE RABIES CERTIFICATE
+
+// GENERATE ALL RABIES CERTIFICATES FOR OWNER
+router.get(
+  '/owner/:ownerId/certificates',
+  vaccinationsController.generateOwnerRabiesCertificates
+);
+
+
+// GENERATE SINGLE RABIES CERTIFICATE
 router.get(
   '/:id/certificate',
   vaccinationsController.generateRabiesCertificate
 );
+
 
 module.exports = router;

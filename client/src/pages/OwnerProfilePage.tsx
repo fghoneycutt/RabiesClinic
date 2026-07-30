@@ -280,6 +280,7 @@ export default function OwnerProfilePage() {
 
       <AnimalsTable
         animals={animals}
+        ownerId={owner.id}
         clinic={clinic}
         users={users}
         editingAnimals={editingAnimals}

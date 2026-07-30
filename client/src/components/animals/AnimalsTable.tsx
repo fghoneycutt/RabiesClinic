@@ -16,11 +16,9 @@ type UserOption = {
 
 type Props = {
   animals: Animal[];
-
+  ownerId: string;
   clinic: Clinic;
-
   users: UserOption[];
-
   editingAnimals: Set<string>;
 
   toggleAnimalEdit: (
@@ -48,6 +46,7 @@ type Props = {
 
 export default function AnimalsTable({
   animals,
+  ownerId,
   clinic,
   users,
   editingAnimals,
@@ -57,6 +56,21 @@ export default function AnimalsTable({
   onDeleteAnimal,
   onAddAnimal
 }: Props) {
+
+  const hasRabiesCertificates = animals.some(
+    animal =>
+      animal.vaccinations &&
+      animal.vaccinations.length > 0
+  );
+  const printAllCertificates = () => {
+
+    window.open(
+      `${import.meta.env.VITE_API_URL}/api/vaccinations/owner/${ownerId}/certificates`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+
+  };
 
   return (
     <Card>
@@ -70,15 +84,31 @@ export default function AnimalsTable({
             Animals
           </h5>
 
-          <Button
-            size="sm"
-            variant="success"
-            onClick={() =>
-              onAddAnimal?.()
-            }
-          >
-            Add Animal
-          </Button>
+
+          <div className="d-flex gap-2">
+
+            {hasRabiesCertificates && (
+              <Button
+                size="sm"
+                variant="outline-secondary"
+                onClick={printAllCertificates}
+              >
+                <i className="fas fa-file-pdf text-danger"></i> Print All Rabies
+              </Button>
+            )}
+
+
+            <Button
+              size="sm"
+              variant="success"
+              onClick={() =>
+                onAddAnimal?.()
+              }
+            >
+              Add Animal
+            </Button>
+
+          </div>
 
         </div>
         <div style={{ overflowX: 'auto' }}>

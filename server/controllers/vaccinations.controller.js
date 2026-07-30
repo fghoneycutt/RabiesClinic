@@ -1,5 +1,6 @@
 const pool = require('../db');
 const { generateRabiesForm } = require('../utils/generateRabiesForm');
+const { PDFDocument } = require('pdf-lib');
 
 const ALLOWED_FIELDS = new Set([
   'animal_id',
@@ -218,154 +219,348 @@ async function deleteVaccination(req, res) {
   }
 }
 
+async function generateRabiesCertificatePdf(vaccinationId) {
+
+  if (!vaccinationId) {
+    throw new Error('Vaccination ID parameter is required');
+  }
+
+  const query = `
+    SELECT
+      v.id AS vac_id,
+      v.vaccine_type,
+      v.product,
+      v.lot_number,
+      v.product_expiration_date,
+      v.manufacturer,
+      v.vaccinated_by,
+      v.supervising_veterinarian,
+      v.date_time_administered,
+      v.date_time_due,
+      v.rabies_tag_number AS vac_tag,
+
+      u.signature AS vaccinated_by_signature,
+      u.license_number AS vaccinated_by_license_number,
+
+      a.name AS animal_name,
+      a.species,
+      a.sex,
+      a.altered_status,
+      a.primary_breed,
+      a.secondary_breed,
+      a.age_years,
+      a.age_months,
+      a.primary_color,
+      a.secondary_color,
+      a.pattern,
+      a.microchip_number,
+      a.microchip_issuer,
+      a.size_category,
+
+      o.first_name,
+      o.last_name,
+      o.email,
+      o.phone,
+      o.address AS owner_address,
+      o.city AS owner_city,
+      o.state AS owner_state,
+      o.zip_code AS owner_zip,
+
+      c.name AS clinic_name,
+      c.address AS clinic_address,
+      c.city AS clinic_city,
+      c.state AS clinic_state,
+      c.zip_code AS clinic_zip
+
+    FROM public.vaccinations v
+    INNER JOIN public.animals a
+      ON v.animal_id = a.id
+    INNER JOIN public.owners o
+      ON a.owner_id = o.id
+    LEFT JOIN public.clinics c
+      ON a.clinic_id = c.id
+    LEFT JOIN public.users u
+      ON v.vaccinated_by = u.name
+
+    WHERE
+      v.id = $1
+      AND v.is_active = true
+
+    LIMIT 1;
+  `;
+
+  const result = await pool.query(query, [vaccinationId]);
+
+  if (result.rows.length === 0) {
+    throw new Error(
+      'No active rabies vaccination record found matching that ID.'
+    );
+  }
+
+  const row = result.rows[0];
+
+  const data = {
+    owner: {
+      firstName: row.first_name,
+      lastName: row.last_name,
+      address: row.owner_address || '—',
+      city: row.owner_city || '—',
+      state: row.owner_state || '—',
+      zip: row.owner_zip || '—',
+      phone: row.phone || '—'
+    },
+
+    animal: {
+      name: row.animal_name,
+      species: row.species || '—',
+      colors: [
+        row.primary_color,
+        row.secondary_color,
+        row.pattern
+      ]
+        .filter(Boolean)
+        .join(' / ') || '—',
+
+      breed: [
+        row.primary_breed,
+        row.secondary_breed
+      ]
+        .filter(Boolean)
+        .join(' x ') || 'Mixed Breed',
+
+      sex: row.sex || '—',
+      neutered: !!row.altered_status,
+
+      age: row.age_years
+        ? String(row.age_years)
+        : row.age_months
+        ? String(row.age_months)
+        : '0',
+
+      ageUnit: row.age_years
+        ? 'Years'
+        : 'Months',
+
+      size: row.size_category || '—',
+
+      microchip: row.microchip_number || '—',
+
+      microchipManufacturer:
+        row.microchip_issuer || ''
+    },
+
+    vaccine: {
+      product: row.product,
+      manufacturer: row.manufacturer || '—',
+      lotNumber: row.lot_number || '—',
+      serialNumber: '—',
+
+      expirationDate:
+        row.product_expiration_date
+          ? new Date(row.product_expiration_date)
+              .toISOString()
+              .split('T')[0]
+          : '—',
+
+      dateVaccinated:
+        new Date(row.date_time_administered)
+          .toISOString()
+          .split('T')[0],
+
+      nextDueDate:
+        row.date_time_due
+          ? new Date(row.date_time_due)
+              .toISOString()
+              .split('T')[0]
+          : '—',
+
+      doseType:
+        row.vaccine_type === 'rabies_3_year'
+          ? '3 Year'
+          : '1 Year',
+
+      isBooster:
+        row.vaccine_type === 'rabies_3_year'
+    },
+
+    vet: {
+      name: row.vaccinated_by || '—',
+      licenseNumber:
+        row.vaccinated_by_license_number || '—',
+
+      address:
+        'Person County Animal Services - 2103 Chub Lake Rd, Roxboro, NC 27574',
+
+      administeredBy:
+        row.vaccinated_by || '—',
+
+      signature:
+        row.vaccinated_by_signature || null
+    },
+
+    clinic: {
+      rabiesTagNumber:
+        row.vac_tag || '—'
+    }
+  };
+
+  return await generateRabiesForm(data);
+}
+
 async function generateRabiesCertificate(req, res) {
   try {
+
     const vaccinationId = req.params.id;
 
     if (!vaccinationId) {
-      return res.status(400).json({ message: 'Vaccination ID parameter is required' });
-    }
-
-    const query = `
-      SELECT 
-        v.id AS vac_id,
-        v.vaccine_type,
-        v.product,
-        v.lot_number,
-        v.product_expiration_date,
-        v.manufacturer,
-        v.vaccinated_by,
-        v.supervising_veterinarian,
-        v.date_time_administered,
-        v.date_time_due,
-        v.rabies_tag_number AS vac_tag,
-
-        u.signature AS vaccinated_by_signature,
-        u.license_number AS vaccinated_by_license_number,
-        
-        a.name AS animal_name,
-        a.species,
-        a.sex,
-        a.altered_status,
-        a.primary_breed,
-        a.secondary_breed,
-        a.age_years,
-        a.age_months,
-        a.primary_color,
-        a.secondary_color,
-        a.pattern,
-        a.microchip_number,
-        a.microchip_issuer,
-        a.size_category,
-        
-        o.first_name,
-        o.last_name,
-        o.email,
-        o.phone,
-        o.address AS owner_address,
-        o.city AS owner_city,
-        o.state AS owner_state,
-        o.zip_code AS owner_zip,
-        
-        c.name AS clinic_name,
-        c.address AS clinic_address,
-        c.city AS clinic_city,
-        c.state AS clinic_state,
-        c.zip_code AS clinic_zip
-
-      FROM public.vaccinations v
-      INNER JOIN public.animals a ON v.animal_id = a.id
-      INNER JOIN public.owners o ON a.owner_id = o.id
-      LEFT JOIN public.clinics c ON a.clinic_id = c.id
-      LEFT JOIN public.users u ON v.vaccinated_by = u.name
-
-      WHERE v.id = $1 AND v.is_active = true
-      LIMIT 1;
-    `;
-
-    const result = await pool.query(query, [vaccinationId]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ 
-        message: 'No active rabies vaccination record found matching that ID.' 
+      return res.status(400).json({
+        message: 'Vaccination ID parameter is required'
       });
     }
 
-    const row = result.rows[0];
+    const pdfBytes =
+      await generateRabiesCertificatePdf(vaccinationId);
 
-    const data = {
-      owner: {
-        firstName: row.first_name,
-        lastName: row.last_name,
-        address: row.owner_address || '—',
-        city: row.owner_city || '—',
-        state: row.owner_state || '—',
-        zip: row.owner_zip || '—',
-        phone: row.phone || '—'
-      },
 
-      animal: {
-        name: row.animal_name,
-        species: row.species || '—',
-        colors: [row.primary_color, row.secondary_color, row.pattern]
-          .filter(Boolean)
-          .join(' / ') || '—',
-        breed: [row.primary_breed, row.secondary_breed]
-          .filter(Boolean)
-          .join(' x ') || 'Mixed Breed',
-        sex: row.sex || '—',
-        neutered: !!row.altered_status,
-        age: row.age_years ? String(row.age_years) : row.age_months ? String(row.age_months) : '0',
-        ageUnit: row.age_years ? 'Years' : 'Months',
-        size: row.size_category || '—',
-        microchip: row.microchip_number || '—',
-        microchipManufacturer: row.microchip_issuer || ''
-      },
+    res.setHeader(
+      'Content-Type',
+      'application/pdf'
+    );
 
-      vaccine: {
-        product: row.product,
-        manufacturer: row.manufacturer || '—',
-        lotNumber: row.lot_number || '—',
-        serialNumber: '—',
-        expirationDate: row.product_expiration_date
-          ? new Date(row.product_expiration_date).toISOString().split('T')[0]
-          : '—',
-        dateVaccinated: new Date(row.date_time_administered).toISOString().split('T')[0],
-        nextDueDate: row.date_time_due
-          ? new Date(row.date_time_due).toISOString().split('T')[0]
-          : '—',
-        doseType: row.vaccine_type === 'rabies_3_year' ? '3 Year' : '1 Year',
-        isBooster: row.vaccine_type === 'rabies_3_year'
-      },
-
-      vet: {
-        name: row.vaccinated_by || '—',
-        licenseNumber: row.vaccinated_by_license_number || '—',
-        address: 'Person County Animal Services - 2103 Chub Lake Rd, Roxboro, NC 27574',
-        administeredBy: row.vaccinated_by || '—',
-        signature: row.vaccinated_by_signature || null
-      },
-
-      clinic: {
-        rabiesTagNumber: row.vac_tag || '—'
-      }
-    };
-
-    const pdfBytes = await generateRabiesForm(data);
-
-    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `inline; filename=rabies_cert_${row.last_name}_${row.animal_name}.pdf`
+      'inline; filename=rabies_certificate.pdf'
     );
 
     res.send(Buffer.from(pdfBytes));
 
+
   } catch (error) {
-    console.error('Critical generation routine fault:', error);
+
+    console.error(
+      'Critical generation routine fault:',
+      error
+    );
+
     res.status(500).json({
       message: 'Failed to generate rabies certificate'
     });
+
+  }
+}
+
+async function generateOwnerRabiesCertificates(req, res) {
+  try {
+
+    const ownerId = req.params.ownerId;
+
+    if (!ownerId) {
+      return res.status(400).json({
+        message: 'Owner ID parameter is required'
+      });
+    }
+
+
+    // Find every active rabies vaccination belonging to this owner
+    const query = `
+      SELECT
+        v.id
+
+      FROM public.vaccinations v
+
+      INNER JOIN public.animals a
+        ON v.animal_id = a.id
+
+      WHERE
+        a.owner_id = $1
+        AND v.is_active = true
+        AND v.vaccine_type IN (
+          'rabies_1_year',
+          'rabies_3_year'
+        )
+
+      ORDER BY
+        a.name,
+        v.date_time_administered DESC;
+    `;
+
+
+    const result = await pool.query(
+      query,
+      [ownerId]
+    );
+
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: 'No rabies certificates found for this owner.'
+      });
+    }
+
+
+    // Create blank PDF to merge into
+    const mergedPdf =
+      await PDFDocument.create();
+
+
+    // Generate and append each certificate
+    for (const row of result.rows) {
+
+      const pdfBytes =
+        await generateRabiesCertificatePdf(row.id);
+
+
+      const pdf =
+        await PDFDocument.load(pdfBytes);
+
+
+      const copiedPages =
+        await mergedPdf.copyPages(
+          pdf,
+          pdf.getPageIndices()
+        );
+
+
+      copiedPages.forEach(page => {
+        mergedPdf.addPage(page);
+      });
+
+    }
+
+
+    const mergedBytes =
+      await mergedPdf.save();
+
+
+    res.setHeader(
+      'Content-Type',
+      'application/pdf'
+    );
+
+
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename=rabies_certificates_owner_${ownerId}.pdf`
+    );
+
+
+    res.send(
+      Buffer.from(mergedBytes)
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      'Critical multi-certificate generation fault:',
+      error
+    );
+
+
+    res.status(500).json({
+      message: 'Failed to generate owner rabies certificates'
+    });
+
   }
 }
 
@@ -373,5 +568,7 @@ module.exports = {
   createVaccination,
   updateVaccination,
   deleteVaccination,
-  generateRabiesCertificate
+  generateRabiesCertificate,
+  generateRabiesCertificatePdf,
+  generateOwnerRabiesCertificates
 };
