@@ -7,6 +7,9 @@ import Select from 'react-select';
 import Button from 'react-bootstrap/Button';
 import Alert from 'react-bootstrap/Alert';
 
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrash } from '@fortawesome/free-solid-svg-icons';
+
 import type { AnimalDraft } from '../../types/intake';
 import type { ClinicOfferings } from '../../types/intake';
 
@@ -230,14 +233,14 @@ export default function AnimalForm(props: Props) {
             </h5>
 
             {props.index > 0 && (
-              <Button
-                variant="outline-danger"
-                size="sm"
-                onClick={() => props.removeAnimal(props.index)}
-              >
-                ✕ Remove
-              </Button>
-            )}
+            <Button
+              variant="outline-danger"
+              size="sm"
+              onClick={() => props.removeAnimal(props.index)}
+            >
+              <FontAwesomeIcon icon={faTrash} />
+            </Button>
+          )}
           </div>
         )}
 
