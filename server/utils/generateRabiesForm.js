@@ -391,7 +391,12 @@ async function generateRabiesForm(data) {
   setField('Age', data.animal.age);
   setField('Predominent Breed', data.animal.breed);
   setField('Predominemt Colors/Markings', data.animal.colors);
-  setField('Microchip #', data.animal.microchip);
+  const microchipDisplay =
+  data.animal.microchipManufacturer
+    ? `${data.animal.microchip} (${data.animal.microchipManufacturer})`
+    : data.animal.microchip;
+
+  setField('Microchip #', microchipDisplay);
   setField('Neutered', data.animal.neutered);
 
 

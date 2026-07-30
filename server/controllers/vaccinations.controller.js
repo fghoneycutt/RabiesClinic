@@ -255,6 +255,7 @@ async function generateRabiesCertificate(req, res) {
         a.secondary_color,
         a.pattern,
         a.microchip_number,
+        a.microchip_issuer,
         a.size_category,
         
         o.first_name,
@@ -317,7 +318,8 @@ async function generateRabiesCertificate(req, res) {
         age: row.age_years ? String(row.age_years) : row.age_months ? String(row.age_months) : '0',
         ageUnit: row.age_years ? 'Years' : 'Months',
         size: row.size_category || '—',
-        microchip: row.microchip_number || '—'
+        microchip: row.microchip_number || '—',
+        microchipManufacturer: row.microchip_issuer || ''
       },
 
       vaccine: {
