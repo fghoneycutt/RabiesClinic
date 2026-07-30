@@ -65,7 +65,7 @@ export default function AnimalsTable({
   const printAllCertificates = () => {
 
     window.open(
-      `${import.meta.env.VITE_API_URL}/api/vaccinations/owner/${ownerId}/certificates`,
+      `${import.meta.env.VITE_API_URL}/api/vaccinations/owner/${ownerId}/clinic/${clinic.id}/certificates`,
       '_blank',
       'noopener,noreferrer'
     );

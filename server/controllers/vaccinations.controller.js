@@ -453,6 +453,8 @@ async function generateOwnerRabiesCertificates(req, res) {
   try {
 
     const ownerId = req.params.ownerId;
+    const clinicId = req.params.clinicId;
+
 
     if (!ownerId) {
       return res.status(400).json({
@@ -461,7 +463,16 @@ async function generateOwnerRabiesCertificates(req, res) {
     }
 
 
-    // Find every active rabies vaccination belonging to this owner
+    if (!clinicId) {
+      return res.status(400).json({
+        message: 'Clinic ID parameter is required'
+      });
+    }
+
+
+
+    // Find active rabies vaccinations ONLY for this owner's animals
+    // registered to THIS clinic
     const query = `
       SELECT
         v.id
@@ -473,6 +484,7 @@ async function generateOwnerRabiesCertificates(req, res) {
 
       WHERE
         a.owner_id = $1
+        AND a.clinic_id = $2
         AND v.is_active = true
         AND v.vaccine_type IN (
           'rabies_1_year',
@@ -487,31 +499,39 @@ async function generateOwnerRabiesCertificates(req, res) {
 
     const result = await pool.query(
       query,
-      [ownerId]
+      [
+        ownerId,
+        clinicId
+      ]
     );
+
 
 
     if (result.rows.length === 0) {
       return res.status(404).json({
-        message: 'No rabies certificates found for this owner.'
+        message: 'No rabies certificates found for this owner at this clinic.'
       });
     }
 
 
-    // Create blank PDF to merge into
+
+    // Create blank PDF container
     const mergedPdf =
       await PDFDocument.create();
 
 
-    // Generate and append each certificate
+
+    // Generate each certificate and append pages
     for (const row of result.rows) {
 
       const pdfBytes =
         await generateRabiesCertificatePdf(row.id);
 
 
+
       const pdf =
         await PDFDocument.load(pdfBytes);
+
 
 
       const copiedPages =
@@ -521,6 +541,7 @@ async function generateOwnerRabiesCertificates(req, res) {
         );
 
 
+
       copiedPages.forEach(page => {
         mergedPdf.addPage(page);
       });
@@ -528,8 +549,10 @@ async function generateOwnerRabiesCertificates(req, res) {
     }
 
 
+
     const mergedBytes =
       await mergedPdf.save();
+
 
 
     res.setHeader(
@@ -540,13 +563,14 @@ async function generateOwnerRabiesCertificates(req, res) {
 
     res.setHeader(
       'Content-Disposition',
-      `inline; filename=rabies_certificates_owner_${ownerId}.pdf`
+      `inline; filename=rabies_certificates_owner_${ownerId}_clinic_${clinicId}.pdf`
     );
 
 
     res.send(
       Buffer.from(mergedBytes)
     );
+
 
 
   } catch (error) {

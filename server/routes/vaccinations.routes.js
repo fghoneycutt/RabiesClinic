@@ -15,7 +15,7 @@ router.delete('/:id', vaccinationsController.deleteVaccination);
 
 // GENERATE ALL RABIES CERTIFICATES FOR OWNER
 router.get(
-  '/owner/:ownerId/certificates',
+  '/owner/:ownerId/clinic/:clinicId/certificates',
   vaccinationsController.generateOwnerRabiesCertificates
 );
 
