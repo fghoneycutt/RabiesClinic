@@ -188,12 +188,15 @@ export default function AdminUserListPage() {
         `/users/${id}/signature`,
         formData
       );
+
       const res = await api.get(
         `/users/${id}/signature`,
         {
           responseType: 'blob'
         }
       );
+
+      const newSignatureUrl = URL.createObjectURL(res.data);
 
       setSignatureUrls(prev => {
         if (prev[id]) {
@@ -202,9 +205,23 @@ export default function AdminUserListPage() {
 
         return {
           ...prev,
-          [id]: URL.createObjectURL(res.data)
+          [id]: newSignatureUrl
         };
       });
+
+      // IMPORTANT:
+      // Update the user's signature status immediately so
+      // the image is rendered without requiring a page reload.
+      setUsers(prev =>
+        prev.map(user =>
+          user.id === id
+            ? {
+                ...user,
+                signature: true
+              }
+            : user
+        )
+      );
 
       setSignatureSuccessId(id);
 
@@ -214,9 +231,12 @@ export default function AdminUserListPage() {
 
     } catch (err: any) {
       console.error(err);
+
       setError(
-        err?.response?.data?.message || 'Failed to upload signature'
+        err?.response?.data?.message ||
+        'Failed to upload signature'
       );
+
     } finally {
       setUploadingSignatureId(null);
     }

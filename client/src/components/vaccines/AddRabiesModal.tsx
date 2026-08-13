@@ -39,6 +39,7 @@ export default function AddRabiesModal({
   onSave
 }: Props) {
   const { user } = useAuth();
+  console.log(user)
   const [users, setUsers] = useState<UserOption[]>([]);
 
   // -----------------------------
@@ -89,6 +90,8 @@ export default function AddRabiesModal({
     const savedVetId = clinic?.default_veterinarian;
     const matchingVet = users.find(u => u.id === savedVetId);
 
+    const vaccinatedBy = user?.name || '';
+
     return {
       id: crypto.randomUUID(),
       animal_id: animalId,
@@ -99,8 +102,11 @@ export default function AddRabiesModal({
       lot_number: '',
       product_expiration_date: '',
       notes: '',
-      vaccinated_by: user?.name || '',
-      supervising_veterinarian: matchingVet?.name || '',
+      vaccinated_by: vaccinatedBy,
+
+      supervising_veterinarian:
+        matchingVet?.name || vaccinatedBy,
+
       date_time_administered: formatDateTimeLocal(new Date()),
       date_time_due: ''
     };
@@ -141,24 +147,33 @@ export default function AddRabiesModal({
         ? buildDueDate(3, form.date_time_administered)
         : '';
 
-    const savedVetId = clinic?.default_veterinarian;
-    const matchingVet = users.find(u => u.id === savedVetId);
+    setForm(prev => {
+      const hasDefaultVeterinarian =
+        !!clinic?.default_veterinarian;
 
-    setForm(prev => ({
-      ...prev,
-      vaccine_type: type,
-      date_time_due: dueDate,
+      const supervisingVeterinarian = hasDefaultVeterinarian
+        ? prev.supervising_veterinarian
+        : prev.vaccinated_by;
 
-      product: defaults?.default_product ?? '',
-      manufacturer: defaults?.default_manufacturer ?? '',
+      return {
+        ...prev,
 
-      lot_number: defaults?.default_lot_number ?? '',
-      product_expiration_date:
-        defaults?.default_product_expiration_date ?? '',
+        vaccine_type: type,
+        date_time_due: dueDate,
 
-      supervising_veterinarian: matchingVet?.name || prev.supervising_veterinarian || '',
-      vaccinated_by: prev.vaccinated_by || user?.name || ''
-    }));
+        product: defaults?.default_product ?? '',
+        manufacturer: defaults?.default_manufacturer ?? '',
+
+        lot_number:
+          defaults?.default_lot_number ?? '',
+
+        product_expiration_date:
+          defaults?.default_product_expiration_date ?? '',
+
+        supervising_veterinarian:
+          supervisingVeterinarian
+      };
+    });
   };
 
   // -----------------------------
@@ -312,7 +327,19 @@ export default function AddRabiesModal({
           <Form.Select
             value={form.vaccinated_by || ''}
             isInvalid={!form.vaccinated_by?.trim()}
-            onChange={e => update('vaccinated_by', e.target.value)}
+            onChange={e => {
+              const vaccinatedBy = e.target.value;
+
+              setForm(prev => ({
+                ...prev,
+                vaccinated_by: vaccinatedBy,
+
+                supervising_veterinarian:
+                  clinic?.default_veterinarian
+                    ? prev.supervising_veterinarian
+                    : vaccinatedBy
+              }));
+            }}
           >
             <option value="">Select user...</option>
             {users.map(u => (

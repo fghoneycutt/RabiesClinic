@@ -211,7 +211,11 @@ export default function EditClinic() {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="mb-0">Edit Clinic</h2>
 
-        <Button variant="danger" onClick={() => setShowDeleteModal(true)}>
+        <Button
+          variant="danger"
+          onClick={() => setShowDeleteModal(true)}
+        >
+          <i className="fas fa-trash-alt me-1"></i>
           Delete Clinic
         </Button>
       </div>
@@ -521,6 +525,7 @@ export default function EditClinic() {
             onClick={submit}
             disabled={!hasOfferings}
           >
+            <i className="fas fa-save me-1"></i>
             Save Changes
           </Button>
           <Button
