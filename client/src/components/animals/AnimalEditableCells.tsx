@@ -23,7 +23,7 @@ type AnimalField = keyof Animal;
 type Props = {
   animal: Animal;
   editing: boolean;
-
+  breedError?: string;
   updateAnimalLocal: (
     animalId: string,
     field: AnimalField,
@@ -51,6 +51,7 @@ const selectStyles = {
 export default function AnimalEditableCells({
   animal,
   editing,
+  breedError,
   updateAnimalLocal
 }: Props) {
 
@@ -302,6 +303,11 @@ export default function AnimalEditableCells({
               />
 
             </div>
+            {breedError && (
+              <div className="text-danger small">
+                {breedError}
+              </div>
+            )}
 
           </div>
 

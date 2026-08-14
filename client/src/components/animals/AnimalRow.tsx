@@ -95,6 +95,11 @@ export default function AnimalRow({
     setMicrochipError
   ] = useState('');
 
+  const [
+    breedError,
+    setBreedError
+  ] = useState('');
+
 
   useEffect(() => {
     if (!editing) {
@@ -122,7 +127,6 @@ export default function AnimalRow({
     const microchipIssuer =
       draftAnimal.microchip_issuer?.trim() || '';
 
-
     if (
       (microchipNumber && !microchipIssuer) ||
       (!microchipNumber && microchipIssuer)
@@ -133,36 +137,73 @@ export default function AnimalRow({
       return;
     }
 
+    // -----------------------------
+    // BREED VALIDATION / NORMALIZATION
+    // -----------------------------
+
+    const primaryBreed =
+      draftAnimal.primary_breed?.trim() || '';
+
+    const secondaryBreed =
+      draftAnimal.secondary_breed?.trim() || '';
+
+    // No breed at all = cannot save
+    if (!primaryBreed && !secondaryBreed) {
+      setBreedError(
+        'Primary breed is required'
+      );
+      return;
+    }
+
+    // If there is only a secondary breed,
+    // promote it to primary and clear secondary.
+    if (!primaryBreed && secondaryBreed) {
+      setDraftAnimal(prev => ({
+        ...prev,
+        primary_breed: secondaryBreed,
+        secondary_breed: null
+      }));
+    }
+
+    setBreedError('');
 
     setMicrochipError('');
 
+    // IMPORTANT:
+    // Use the normalized breed values when determining changes.
+    const normalizedDraftAnimal = {
+      ...draftAnimal,
+      ...( !primaryBreed && secondaryBreed
+        ? {
+            primary_breed: secondaryBreed,
+            secondary_breed: null
+          }
+        : {}
+      )
+    };
 
     const changedFields =
-      Object.keys(draftAnimal).filter(
+      Object.keys(normalizedDraftAnimal).filter(
         key =>
-          draftAnimal[key as AnimalField] !==
+          normalizedDraftAnimal[key as AnimalField] !==
           animal[key as AnimalField]
       );
 
-
     for (const key of changedFields) {
-
-      const field =
-        key as AnimalField;
+      const field = key as AnimalField;
 
       await saveAnimalField(
         animal.id,
         field,
-        draftAnimal[field]
+        normalizedDraftAnimal[field]
       );
 
       updateAnimalLocal(
         animal.id,
         field,
-        draftAnimal[field]
+        normalizedDraftAnimal[field]
       );
     }
-
 
     toggleAnimalEdit(animal.id);
   };
@@ -214,9 +255,9 @@ export default function AnimalRow({
         <AnimalEditableCells
           animal={displayedAnimal}
           editing={editing}
+          breedError={breedError}
           updateAnimalLocal={updateDraftAnimal}
         />
-
 
         {/* RABIES */}
 
