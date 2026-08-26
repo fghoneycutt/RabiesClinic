@@ -410,7 +410,7 @@ export default function EditClinic() {
                   </Form.Group>
 
                   <Form.Group>
-                    <Form.Label>Expiration Date</Form.Label>
+                    <Form.Label>Product Expiration Date</Form.Label>
                     <Form.Control
                       type="date"
                       value={form.rabies_1_year_product_expiration_date}
@@ -464,7 +464,7 @@ export default function EditClinic() {
                   </Form.Group>
 
                   <Form.Group>
-                    <Form.Label>Expiration Date</Form.Label>
+                    <Form.Label>Product Expiration Date</Form.Label>
                     <Form.Control
                       type="date"
                       value={form.rabies_3_year_product_expiration_date}

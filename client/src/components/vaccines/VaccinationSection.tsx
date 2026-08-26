@@ -303,7 +303,7 @@ export default function VaccineSection({
                       <th style={colStyle.date}>Administered</th>
                       <th style={colStyle.date}>Next Due</th>
                       <th style={colStyle.vet}>Vaccinated By</th>
-                      <th style={colStyle.exp}>Expiration</th>
+                      <th style={colStyle.exp}>Product Expiration</th>
                     </tr>
                   </thead>
 
