@@ -458,7 +458,7 @@ export default function PublicRegistrationPage() {
       ))}
 
       {/* ACTIONS */}
-      <div className="d-flex gap-3 mt-4">
+      <div className="d-flex flex-column flex-sm-row justify-content-sm-end gap-3 mt-4">
         <Button
           onClick={addAnimal}
           variant="secondary"
