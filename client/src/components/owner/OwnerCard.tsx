@@ -57,10 +57,19 @@ export default function OwnerCard({
       return;
     }
 
-    await saveOwner(draftOwner);
+    const cleanedOwner = Object.fromEntries(
+      Object.entries(draftOwner).map(([key, value]) => [
+        key,
+        typeof value === 'string'
+          ? value.trim()
+          : value
+      ])
+    ) as Owner;
+
+    await saveOwner(cleanedOwner);
     setEditing(false);
   };
-
+  
   const handleCancel = () => {
     setDraftOwner(owner);
     setEditing(false);

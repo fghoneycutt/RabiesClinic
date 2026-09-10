@@ -178,20 +178,28 @@ export default function PublicRegistrationPage() {
     setSubmitting(true);
 
     try {
-      const cleanedAnimals = animals.map(animal => ({
-        ...animal,
+      const cleanedOwner = Object.fromEntries(
+        Object.entries(owner).map(([key, value]) => [
+          key,
+          typeof value === 'string'
+            ? value.trim()
+            : value
+        ])
+      );
 
-        microchip_number:
-          animal.microchip_number?.trim() || null,
-
-        microchip_issuer:
-          animal.microchip_number?.trim()
-            ? animal.microchip_issuer || null
-            : null
-      }));
+      const cleanedAnimals = animals.map(animal =>
+        Object.fromEntries(
+          Object.entries(animal).map(([key, value]) => [
+            key,
+            typeof value === 'string'
+              ? value.trim()
+              : value
+          ])
+        )
+      );
 
       await api.post('/intake', {
-        owner,
+        owner: cleanedOwner,
         owner_id: null,
         animals: cleanedAnimals,
         clinic_id: id
