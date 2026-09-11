@@ -102,12 +102,55 @@ export default function CreateClinic() {
     form.rabies_1_year_enabled ||
     form.rabies_3_year_enabled ||
     form.microchip_enabled;
+  
+  const rabies1YearValid =
+    !form.rabies_1_year_enabled ||
+    (
+      form.rabies_1_year_product.trim() !== '' &&
+      form.rabies_1_year_lot_number.trim() !== '' &&
+      form.rabies_1_year_product_expiration_date.trim() !== ''
+    );
+
+  const rabies3YearValid =
+    !form.rabies_3_year_enabled ||
+    (
+      form.rabies_3_year_product.trim() !== '' &&
+      form.rabies_3_year_lot_number.trim() !== '' &&
+      form.rabies_3_year_product_expiration_date.trim() !== ''
+    );
+
+  const vaccineFieldsValid =
+    rabies1YearValid &&
+    rabies3YearValid;
+
+  const requiredClinicFieldsValid =
+    form.name.trim() !== '' &&
+    form.location_name.trim() !== '' &&
+    form.address.trim() !== '' &&
+    form.city.trim() !== '' &&
+    form.state.trim() !== '' &&
+    form.zip_code.trim() !== '' &&
+    form.clinic_date.trim() !== '' &&
+    form.start_time.trim() !== '' &&
+    form.end_time.trim() !== '';
+
+  const canSubmit =
+    requiredClinicFieldsValid &&
+    hasOfferings &&
+    vaccineFieldsValid;
 
   const submit = async () => {
     try {
       if (!hasOfferings) {
         alert(
           'A clinic must offer at least one service.'
+        );
+        return;
+      }
+
+      if (!vaccineFieldsValid) {
+        alert(
+          'Please complete all required vaccine fields before submitting.'
         );
         return;
       }
@@ -188,7 +231,7 @@ export default function CreateClinic() {
 
       <Form>
         <Form.Group className="mb-3">
-          <Form.Label>Clinic Name</Form.Label>
+          <Form.Label>Clinic Name <span className="text-danger">*</span></Form.Label>
           <Form.Control
             value={form.name}
             onChange={e => update('name', e.target.value)}
@@ -198,7 +241,7 @@ export default function CreateClinic() {
         <Row className="g-3 mb-3">
           <Col xs={12} md={6}>
             <Form.Group>
-              <Form.Label>Location</Form.Label>
+              <Form.Label>Location <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 value={form.location_name}
                 onChange={e => update('location_name', e.target.value)}
@@ -208,7 +251,7 @@ export default function CreateClinic() {
 
           <Col xs={12} md={6}>
             <Form.Group>
-              <Form.Label>Address</Form.Label>
+              <Form.Label>Address <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 value={form.address}
                 onChange={e => update('address', e.target.value)}
@@ -220,7 +263,7 @@ export default function CreateClinic() {
         <Row className="g-3 mb-3">
           <Col xs={12} md={4}>
             <Form.Group>
-              <Form.Label>City</Form.Label>
+              <Form.Label>City <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 value={form.city}
                 onChange={e => update('city', e.target.value)}
@@ -230,7 +273,7 @@ export default function CreateClinic() {
 
           <Col xs={12} md={4}>
             <Form.Group>
-              <Form.Label>State</Form.Label>
+              <Form.Label>State <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 value={form.state}
                 onChange={e => update('state', e.target.value)}
@@ -240,7 +283,7 @@ export default function CreateClinic() {
 
           <Col xs={12} md={4}>
             <Form.Group>
-              <Form.Label>Zip Code</Form.Label>
+              <Form.Label>Zip Code <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 type="text"
                 inputMode="numeric"
@@ -261,7 +304,7 @@ export default function CreateClinic() {
         <Row className="g-3 mb-4">
           <Col xs={12} md={4}>
             <Form.Group>
-              <Form.Label>Clinic Date</Form.Label>
+              <Form.Label>Clinic Date <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 type="date"
                 value={form.clinic_date}
@@ -272,7 +315,7 @@ export default function CreateClinic() {
 
           <Col xs={12} sm={6} md={4}>
             <Form.Group>
-              <Form.Label>Start Time</Form.Label>
+              <Form.Label>Start Time <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 type="time"
                 value={form.start_time}
@@ -283,7 +326,7 @@ export default function CreateClinic() {
 
           <Col xs={12} sm={6} md={4}>
             <Form.Group>
-              <Form.Label>End Time</Form.Label>
+              <Form.Label>End Time <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 type="time"
                 value={form.end_time}
@@ -320,7 +363,7 @@ export default function CreateClinic() {
               <Row className="g-3 mt-2">
                                 <Col xs={12}>
                   <Form.Group>
-                    <Form.Label>Product</Form.Label>
+                    <Form.Label>Product <span className="text-danger">*</span></Form.Label>
                     <Form.Select
                       value={form.rabies_1_year_product}
                       onChange={e => {
@@ -350,7 +393,7 @@ export default function CreateClinic() {
 
                 <Col xs={12} md={6}>
                   <Form.Group>
-                    <Form.Label>Lot Number</Form.Label>
+                    <Form.Label>Lot Number <span className="text-danger">*</span></Form.Label>
                     <Form.Control
                       inputMode="numeric"
                       pattern="[0-9]*"
@@ -367,7 +410,7 @@ export default function CreateClinic() {
 
                 <Col xs={12} md={6}>
                   <Form.Group>
-                    <Form.Label>Product Expiration Date</Form.Label>
+                    <Form.Label>Product Expiration Date <span className="text-danger">*</span></Form.Label>
                     <Form.Control
                       type="date"
                       value={form.rabies_1_year_product_expiration_date}
@@ -407,7 +450,7 @@ export default function CreateClinic() {
                 <Row className="g-3 mt-2">
                   <Col xs={12}>
                     <Form.Group>
-                      <Form.Label>Product</Form.Label>
+                      <Form.Label>Product <span className="text-danger">*</span></Form.Label>
                       <Form.Select
                         value={form.rabies_3_year_product}
                         onChange={e => {
@@ -437,7 +480,7 @@ export default function CreateClinic() {
 
                   <Col xs={12} md={6}>
                     <Form.Group>
-                      <Form.Label>Lot Number</Form.Label>
+                      <Form.Label>Lot Number <span className="text-danger">*</span></Form.Label>
                       <Form.Control
                         inputMode="numeric"
                         pattern="[0-9]*"
@@ -454,7 +497,7 @@ export default function CreateClinic() {
 
                   <Col xs={12} md={6}>
                     <Form.Group>
-                      <Form.Label>Product Expiration Date</Form.Label>
+                      <Form.Label>Product Expiration Date <span className="text-danger">*</span></Form.Label>
                       <Form.Control
                         type="date"
                         value={
@@ -540,7 +583,12 @@ export default function CreateClinic() {
           <Button
             size="lg"
             onClick={submit}
-            disabled={!hasOfferings}
+            disabled={!canSubmit}
+            style={{
+              cursor: !canSubmit
+                ? 'not-allowed'
+                : 'pointer'
+            }}
           >
             Create Clinic
           </Button>

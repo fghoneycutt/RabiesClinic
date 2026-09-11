@@ -134,6 +134,43 @@ export default function EditClinic() {
     form?.rabies_3_year ||
     form?.microchip;
 
+  const rabies1YearValid =
+    !form?.rabies_1_year ||
+    (
+      form.rabies_1_year_product.trim() !== '' &&
+      form.rabies_1_year_lot_number.trim() !== '' &&
+      form.rabies_1_year_product_expiration_date.trim() !== ''
+    );
+
+  const rabies3YearValid =
+    !form?.rabies_3_year ||
+    (
+      form.rabies_3_year_product.trim() !== '' &&
+      form.rabies_3_year_lot_number.trim() !== '' &&
+      form.rabies_3_year_product_expiration_date.trim() !== ''
+    );
+
+  const requiredClinicFieldsValid =
+    !!form &&
+    form.name.trim() !== '' &&
+    form.location_name.trim() !== '' &&
+    form.address.trim() !== '' &&
+    form.city.trim() !== '' &&
+    form.state.trim() !== '' &&
+    form.zip_code.trim() !== '' &&
+    form.clinic_date.trim() !== '' &&
+    form.start_time.trim() !== '' &&
+    form.end_time.trim() !== '';
+
+  const vaccineFieldsValid =
+    rabies1YearValid &&
+    rabies3YearValid;
+
+  const canSubmit =
+    requiredClinicFieldsValid &&
+    !!hasOfferings &&
+    vaccineFieldsValid;
+
   const deleteClinic = async () => {
     try {
       await api.delete(`/clinics/${id}`);
@@ -150,6 +187,20 @@ export default function EditClinic() {
     if (!hasOfferings) {
       alert(
         'A clinic must offer at least one service.'
+      );
+      return;
+    }
+
+    if (!vaccineFieldsValid) {
+      alert(
+        'Please complete all required vaccine fields before saving.'
+      );
+      return;
+    }
+
+    if (!requiredClinicFieldsValid) {
+      alert(
+        'Please complete all required clinic fields before saving.'
       );
       return;
     }
@@ -174,20 +225,29 @@ export default function EditClinic() {
           enabled: form.microchip
         }
       };
+      const cleanedForm = Object.fromEntries(
+        Object.entries(form).map(([key, value]) => [
+          key,
+          typeof value === 'string'
+            ? value.trim()
+            : value
+        ])
+      ) as ClinicForm;
 
       await api.put(`/clinics/${id}`, {
-        name: form.name,
-        location_name: form.location_name,
-        address: form.address,
-        city: form.city,
-        state: form.state,
-        zip_code: form.zip_code,
-        clinic_date: form.clinic_date,
-        start_time: form.start_time,
-        end_time: form.end_time,
+        name: cleanedForm.name,
+        location_name: cleanedForm.location_name,
+        address: cleanedForm.address,
+        city: cleanedForm.city,
+        state: cleanedForm.state,
+        zip_code: cleanedForm.zip_code,
+        clinic_date: cleanedForm.clinic_date,
+        start_time: cleanedForm.start_time,
+        end_time: cleanedForm.end_time,
         offerings,
-        default_veterinarian_id: form.default_veterinarian_id,
-        notes: form.notes
+        default_veterinarian_id:
+          cleanedForm.default_veterinarian_id,
+        notes: cleanedForm.notes
       });
 
       navigate(`/clinics/${id}`);
@@ -222,7 +282,7 @@ export default function EditClinic() {
 
       <Form>
         <Form.Group className="mb-3">
-          <Form.Label>Clinic Name</Form.Label>
+          <Form.Label>Clinic Name <span className="text-danger">*</span></Form.Label>
           <Form.Control
             value={form.name}
             onChange={e => update('name', e.target.value)}
@@ -231,7 +291,7 @@ export default function EditClinic() {
 
         <Row className="mb-3">
           <Col>
-            <Form.Label>Location Name</Form.Label>
+            <Form.Label>Location Name <span className="text-danger">*</span></Form.Label>
             <Form.Control
               value={form.location_name}
               onChange={e => update('location_name', e.target.value)}
@@ -239,7 +299,7 @@ export default function EditClinic() {
           </Col>
 
           <Col>
-            <Form.Label>Address</Form.Label>
+            <Form.Label>Address <span className="text-danger">*</span></Form.Label>
             <Form.Control
               value={form.address}
               onChange={e => update('address', e.target.value)}
@@ -249,7 +309,7 @@ export default function EditClinic() {
 
         <Row className="mb-3">
           <Col>
-            <Form.Label>City</Form.Label>
+            <Form.Label>City <span className="text-danger">*</span></Form.Label>
             <Form.Control
               value={form.city}
               onChange={e => update('city', e.target.value)}
@@ -257,7 +317,7 @@ export default function EditClinic() {
           </Col>
 
           <Col>
-            <Form.Label>State</Form.Label>
+            <Form.Label>State <span className="text-danger">*</span></Form.Label>
             <Form.Control
               value={form.state}
               onChange={e => update('state', e.target.value)}
@@ -265,7 +325,7 @@ export default function EditClinic() {
           </Col>
 
           <Col>
-            <Form.Label>Zip</Form.Label>
+            <Form.Label>Zip <span className="text-danger">*</span></Form.Label>
             <Form.Control
               inputMode="numeric"
               pattern="[0-9]*"
@@ -282,7 +342,7 @@ export default function EditClinic() {
         </Row>
 
         <Form.Group className="mb-3">
-          <Form.Label>Clinic Date</Form.Label>
+          <Form.Label>Clinic Date <span className="text-danger">*</span></Form.Label>
           <Form.Control
             type="date"
             value={form.clinic_date}
@@ -292,7 +352,7 @@ export default function EditClinic() {
 
         <Row className="mb-4">
           <Col>
-            <Form.Label>Start Time</Form.Label>
+            <Form.Label>Start Time <span className="text-danger">*</span></Form.Label>
             <Form.Control
               type="time"
               value={form.start_time}
@@ -301,7 +361,7 @@ export default function EditClinic() {
           </Col>
 
           <Col>
-            <Form.Label>End Time</Form.Label>
+            <Form.Label>End Time <span className="text-danger">*</span></Form.Label>
             <Form.Control
               type="time"
               value={form.end_time}
@@ -312,11 +372,13 @@ export default function EditClinic() {
 
         <Card className="mb-4">
           <Card.Body>
+            <h5 className="mb-3">Offerings</h5>
+
+            {/* Rabies 1-Year */}
             <Form.Check
               label="Rabies 1-Year"
               checked={form.rabies_1_year}
               onChange={e => {
-
                 if (
                   !e.target.checked &&
                   !form.rabies_3_year &&
@@ -332,11 +394,89 @@ export default function EditClinic() {
               }}
             />
 
+            {form.rabies_1_year && (
+              <Row className="g-3 mt-1">
+                <Col xs={12}>
+                  <Form.Group>
+                    <Form.Label>
+                      Product <span className="text-danger">*</span>
+                    </Form.Label>
+
+                    <Form.Select
+                      value={form.rabies_1_year_product}
+                      onChange={e =>
+                        update(
+                          'rabies_1_year_product',
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option value="">
+                        Select product
+                      </option>
+
+                      {RABIES_PRODUCT_MANUFACTURER.map(p => (
+                        <option
+                          key={`${p.product}-${p.manufacturer}`}
+                          value={p.product}
+                        >
+                          {p.product}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label>
+                      Lot Number <span className="text-danger">*</span>
+                    </Form.Label>
+
+                    <Form.Control
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={form.rabies_1_year_lot_number}
+                      onChange={e =>
+                        update(
+                          'rabies_1_year_lot_number',
+                          e.target.value
+                        )
+                      }
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label>
+                      Product Expiration Date{' '}
+                      <span className="text-danger">*</span>
+                    </Form.Label>
+
+                    <Form.Control
+                      type="date"
+                      value={
+                        form.rabies_1_year_product_expiration_date
+                      }
+                      onChange={e =>
+                        update(
+                          'rabies_1_year_product_expiration_date',
+                          e.target.value
+                        )
+                      }
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+            )}
+
+            {/* Rabies 3-Year */}
             <Form.Check
+              className="mt-4"
               label="Rabies 3-Year"
               checked={form.rabies_3_year}
               onChange={e => {
-
                 if (
                   !e.target.checked &&
                   !form.rabies_1_year &&
@@ -352,11 +492,89 @@ export default function EditClinic() {
               }}
             />
 
+            {form.rabies_3_year && (
+              <Row className="g-3 mt-1">
+                <Col xs={12}>
+                  <Form.Group>
+                    <Form.Label>
+                      Product <span className="text-danger">*</span>
+                    </Form.Label>
+
+                    <Form.Select
+                      value={form.rabies_3_year_product}
+                      onChange={e =>
+                        update(
+                          'rabies_3_year_product',
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option value="">
+                        Select product
+                      </option>
+
+                      {RABIES_PRODUCT_MANUFACTURER.map(p => (
+                        <option
+                          key={`${p.product}-${p.manufacturer}`}
+                          value={p.product}
+                        >
+                          {p.product}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label>
+                      Lot Number <span className="text-danger">*</span>
+                    </Form.Label>
+
+                    <Form.Control
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={form.rabies_3_year_lot_number}
+                      onChange={e =>
+                        update(
+                          'rabies_3_year_lot_number',
+                          e.target.value
+                        )
+                      }
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label>
+                      Product Expiration Date{' '}
+                      <span className="text-danger">*</span>
+                    </Form.Label>
+
+                    <Form.Control
+                      type="date"
+                      value={
+                        form.rabies_3_year_product_expiration_date
+                      }
+                      onChange={e =>
+                        update(
+                          'rabies_3_year_product_expiration_date',
+                          e.target.value
+                        )
+                      }
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+            )}
+
+            {/* Microchip */}
             <Form.Check
+              className="mt-4"
               label="Microchip"
               checked={form.microchip}
               onChange={e => {
-
                 if (
                   !e.target.checked &&
                   !form.rabies_1_year &&
@@ -372,119 +590,12 @@ export default function EditClinic() {
               }}
             />
 
-            {form.rabies_1_year && (
-              <Card className="mt-3">
-                <Card.Body>
-                  <h6>1-Year Rabies Defaults</h6>
-
-                  <Form.Group>
-                    <Form.Label>Product</Form.Label>
-                    <Form.Select
-                      value={form.rabies_1_year_product}
-                      onChange={e =>
-                        update('rabies_1_year_product', e.target.value)
-                      }
-                    >
-                      <option value=""></option>
-                      {RABIES_PRODUCT_MANUFACTURER.map(p => (
-                        <option
-                          key={`${p.product}-${p.manufacturer}`}
-                          value={p.product}
-                        >
-                          {p.product}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-
-                  <Form.Group>
-                    <Form.Label>Lot Number</Form.Label>
-                    <Form.Control
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={form.rabies_1_year_lot_number}
-                      onChange={e =>
-                        update('rabies_1_year_lot_number', e.target.value)
-                      }
-                    />
-                  </Form.Group>
-
-                  <Form.Group>
-                    <Form.Label>Product Expiration Date</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={form.rabies_1_year_product_expiration_date}
-                      onChange={e =>
-                        update(
-                          'rabies_1_year_product_expiration_date',
-                          e.target.value
-                        )
-                      }
-                    />
-                  </Form.Group>
-                </Card.Body>
-              </Card>
-            )}
-
-            {form.rabies_3_year && (
-              <Card className="mt-3">
-                <Card.Body>
-                  <h6>3-Year Rabies Defaults</h6>
-
-                  <Form.Group>
-                    <Form.Label>Product</Form.Label>
-                    <Form.Select
-                      value={form.rabies_3_year_product}
-                      onChange={e =>
-                        update('rabies_3_year_product', e.target.value)
-                      }
-                    >
-                      <option value=""></option>
-                      {RABIES_PRODUCT_MANUFACTURER.map(p => (
-                        <option
-                          key={`${p.product}-${p.manufacturer}`}
-                          value={p.product}
-                        >
-                          {p.product}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-
-                  <Form.Group>
-                    <Form.Label>Lot Number</Form.Label>
-                    <Form.Control
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={form.rabies_3_year_lot_number}
-                      onChange={e =>
-                        update('rabies_3_year_lot_number', e.target.value)
-                      }
-                    />
-                  </Form.Group>
-
-                  <Form.Group>
-                    <Form.Label>Product Expiration Date</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={form.rabies_3_year_product_expiration_date}
-                      onChange={e =>
-                        update(
-                          'rabies_3_year_product_expiration_date',
-                          e.target.value
-                        )
-                      }
-                    />
-                  </Form.Group>
-                </Card.Body>
-              </Card>
+            {!hasOfferings && (
+              <div className="text-danger small mt-2">
+                At least one offering must be selected.
+              </div>
             )}
           </Card.Body>
-          {!hasOfferings && (
-            <div className="text-danger small mb-3">
-              At least one offering must be selected.
-            </div>
-          )}
         </Card>
 
         <Card className="mb-4">
@@ -520,19 +631,27 @@ export default function EditClinic() {
           </Card.Body>
         </Card>
 
-        <div className="d-flex gap-2">
-          <Button
-            onClick={submit}
-            disabled={!hasOfferings}
-          >
-            <i className="fas fa-save me-1"></i>
-            Save Changes
-          </Button>
+        <div className="d-flex flex-column flex-sm-row justify-content-sm-end gap-2">
           <Button
             variant="secondary"
             onClick={() => navigate(`/clinics/${id}`)}
+            className="order-1 order-sm-1"
           >
             Cancel
+          </Button>
+
+          <Button
+            onClick={submit}
+            disabled={!canSubmit}
+            style={{
+              cursor: !canSubmit
+                ? 'not-allowed'
+                : 'pointer'
+            }}
+            className="order-2 order-sm-2"
+          >
+            <i className="fas fa-save me-1"></i>
+            Save Changes
           </Button>
         </div>
       </Form>
