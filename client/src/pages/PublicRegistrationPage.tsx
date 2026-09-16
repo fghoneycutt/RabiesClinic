@@ -56,6 +56,17 @@ const EMPTY_ANIMAL: AnimalDraft = {
   microchip_issuer: ''
 };
 
+const formatAddressField = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, char => char.toUpperCase());
+
+const formatCounty = (value: string) =>
+  formatAddressField(value)
+    .replace(/\s+County\b/i, '')
+    .trim();
+
 export default function PublicRegistrationPage() {
   const { id } = useParams();
 
@@ -179,12 +190,33 @@ export default function PublicRegistrationPage() {
 
     try {
       const cleanedOwner = Object.fromEntries(
-        Object.entries(owner).map(([key, value]) => [
-          key,
-          typeof value === 'string'
-            ? value.trim()
-            : value
-        ])
+        Object.entries(owner).map(([key, value]) => {
+          if (typeof value !== 'string') {
+            return [key, value];
+          }
+
+          if (
+            key === 'address' ||
+            key === 'city'
+          ) {
+            return [
+              key,
+              formatAddressField(value)
+            ];
+          }
+
+          if (key === 'county') {
+            return [
+              key,
+              formatCounty(value)
+            ];
+          }
+
+          return [
+            key,
+            value.trim()
+          ];
+        })
       );
 
       const cleanedAnimals = animals.map(animal =>
