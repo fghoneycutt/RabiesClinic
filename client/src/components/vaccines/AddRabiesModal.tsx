@@ -239,7 +239,7 @@ export default function AddRabiesModal({
   const maxDateTime = formatDateTimeLocal(new Date());
 
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal show={show} onHide={onHide} centered scrollable>
       <Modal.Header closeButton>
         <Modal.Title>
           <i className="fas fa-syringes text-success me-2"></i>
