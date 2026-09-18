@@ -214,7 +214,9 @@ export default function PublicRegistrationPage() {
 
           return [
             key,
-            value.trim()
+            key === 'email'
+              ? value.trim().toLowerCase()
+              : value.trim()
           ];
         })
       );
