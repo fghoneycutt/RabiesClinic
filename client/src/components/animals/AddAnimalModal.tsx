@@ -203,9 +203,9 @@ export default function AddAnimalModal({
       </Modal.Body>
 
       <Modal.Footer>
-        <div className="d-flex flex-column flex-md-row justify-content-between gap-3 w-100">
+        <div className="d-flex flex-column flex-lg-row justify-content-lg-end gap-3 w-100">
 
-          <div className="d-flex flex-column flex-sm-row gap-2">
+          <div className="d-flex flex-column flex-lg-row gap-2">
             <Button
               variant="secondary"
               onClick={addAnimal}
@@ -223,8 +223,7 @@ export default function AddAnimalModal({
             </Button>
           </div>
 
-
-          <div className="d-flex flex-column flex-sm-row gap-2">
+          <div className="d-flex flex-column flex-lg-row gap-2">
             <Button
               variant="secondary"
               onClick={onHide}
