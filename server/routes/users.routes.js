@@ -40,7 +40,6 @@ router.get(
 router.get(
   '/',
   authenticate,
-  requireRole('admin'),
   controller.listUsers
 );
 
