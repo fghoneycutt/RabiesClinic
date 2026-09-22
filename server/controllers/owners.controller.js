@@ -273,9 +273,14 @@ exports.searchOwners = async (req, res) => {
       JOIN owners o
         ON o.id = a.owner_id
 
-      LEFT JOIN vaccinations v
-        ON v.animal_id = a.id
-        AND v.is_active = true
+      LEFT JOIN LATERAL (
+        SELECT v.vaccine_type
+        FROM vaccinations v
+        WHERE v.animal_id = a.id
+          AND v.is_active = true
+        ORDER BY v.date_time_administered DESC
+        LIMIT 1
+      ) v ON true
 
       WHERE
         (
@@ -297,6 +302,7 @@ exports.searchOwners = async (req, res) => {
       `,
       [search, clinicId]
     );
+    
 
     const ownerMap = new Map();
 

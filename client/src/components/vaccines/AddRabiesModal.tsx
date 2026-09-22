@@ -39,8 +39,8 @@ export default function AddRabiesModal({
   onSave
 }: Props) {
   const { user } = useAuth();
-  console.log(user)
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [saving, setSaving] = useState(false);
 
   // -----------------------------
   // CLEAN HELPER (CRITICAL FIX)
@@ -194,7 +194,9 @@ export default function AddRabiesModal({
   // SAVE
   // -----------------------------
   const save = async () => {
-    if (!isFormValid) return;
+    if (!isFormValid || saving) return;
+
+    setSaving(true);
 
     try {
       const { id, ...cleanForm } = form;
@@ -234,6 +236,8 @@ export default function AddRabiesModal({
     } catch (err: any) {
       console.error('Failed to save vaccination:', err?.response?.data || err);
       alert(err?.response?.data?.message || 'Failed to save vaccination');
+    } finally {
+      setSaving(false);
     }
   };
   const maxDateTime = formatDateTimeLocal(new Date());
@@ -440,8 +444,12 @@ export default function AddRabiesModal({
           Cancel
         </Button>
 
-        <Button variant="success" onClick={save} disabled={!isFormValid}>
-          Save Vaccine
+        <Button
+          variant="success"
+          onClick={save}
+          disabled={!isFormValid || saving}
+        >
+          {saving ? 'Saving...' : 'Save Vaccine'}
         </Button>
       </Modal.Footer>
     </Modal>

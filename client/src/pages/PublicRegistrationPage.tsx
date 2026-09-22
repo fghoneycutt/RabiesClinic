@@ -274,17 +274,25 @@ export default function PublicRegistrationPage() {
   // ----------------------
   // PAST CLINIC GUARD LAYER
   // ----------------------
-  const checkIsClinicPast = () => {
-    if (!clinic?.clinic_date) return false;
+const checkIsClinicPast = () => {
+  if (!clinic?.clinic_date) return false;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Strip time from current moment
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    const clinicDay = new Date(clinic.clinic_date);
-    clinicDay.setHours(0, 0, 0, 0); // Strip time from target date
+  const [year, month, day] =
+    clinic.clinic_date.split('-').map(Number);
 
-    return today.getTime() > clinicDay.getTime();
-  };
+  const clinicDay = new Date(
+    year,
+    month - 1,
+    day
+  );
+
+  clinicDay.setHours(0, 0, 0, 0);
+
+  return today > clinicDay;
+};
 
   if (checkIsClinicPast()) {
     return (

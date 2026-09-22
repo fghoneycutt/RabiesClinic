@@ -228,9 +228,18 @@ exports.searchClinicOwners = async (req, res) => {
       INNER JOIN animals
         ON animals.owner_id = owners.id
 
-      LEFT JOIN vaccinations
-        ON vaccinations.animal_id = animals.id
-        AND vaccinations.is_active = true
+      LEFT JOIN LATERAL (
+        SELECT
+          v.rabies_tag_number,
+          v.vaccine_type
+        FROM vaccinations v
+        WHERE v.animal_id = animals.id
+          AND v.is_active = true
+        ORDER BY
+          v.date_time_administered DESC,
+          v.created_at DESC
+        LIMIT 1
+      ) vaccinations ON true
 
       WHERE animals.clinic_id = $1
       AND (
@@ -431,8 +440,18 @@ exports.getClinicRegistrations = async (req, res) => {
       FROM owners o
       LEFT JOIN animals a 
         ON o.id = a.owner_id AND a.clinic_id = $1
-      LEFT JOIN vaccinations v 
-        ON v.animal_id = a.id AND v.is_active = true
+      LEFT JOIN LATERAL (
+        SELECT
+          v.rabies_tag_number,
+          v.vaccine_type
+        FROM vaccinations v
+        WHERE v.animal_id = a.id
+          AND v.is_active = true
+        ORDER BY
+          v.date_time_administered DESC,
+          v.created_at DESC
+        LIMIT 1
+      ) v ON true
       WHERE o.id = ANY($2)
       ORDER BY o.created_at DESC, o.id DESC, a.name ASC
       `,
@@ -553,7 +572,24 @@ exports.exportClinicData = async (req, res) => {
       FROM animals a
       JOIN owners o ON o.id = a.owner_id
       JOIN clinics c ON c.id = a.clinic_id
-      LEFT JOIN vaccinations v ON v.animal_id = a.id AND v.is_active = true
+      LEFT JOIN LATERAL (
+      SELECT
+        v.vaccine_type,
+        v.product,
+        v.manufacturer,
+        v.lot_number,
+        v.rabies_tag_number,
+        v.vaccinated_by,
+        v.supervising_veterinarian,
+        v.date_time_administered,
+        v.date_time_due,
+        v.product_expiration_date
+      FROM vaccinations v
+      WHERE v.animal_id = a.id
+        AND v.is_active = true
+      ORDER BY v.date_time_administered DESC, v.created_at DESC
+      LIMIT 1
+    ) v ON true
       WHERE c.id = $1
         AND (
           NULLIF(TRIM(COALESCE(a.microchip_number, '')), '') IS NOT NULL
