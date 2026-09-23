@@ -265,6 +265,7 @@ async function generateRabiesCertificatePdf(vaccinationId) {
       o.city AS owner_city,
       o.state AS owner_state,
       o.zip_code AS owner_zip,
+      c.offerings -> v.vaccine_type ->> 'dose_type' AS dose_type,
 
       c.name AS clinic_name,
       c.address AS clinic_address,
@@ -374,10 +375,7 @@ async function generateRabiesCertificatePdf(vaccinationId) {
               .split('T')[0]
           : '—',
 
-      doseType:
-        row.vaccine_type === 'rabies_3_year'
-          ? '3 Year'
-          : '1 Year',
+      doseType: row.dose_type || '—',
 
       isBooster:
         row.vaccine_type === 'rabies_3_year'

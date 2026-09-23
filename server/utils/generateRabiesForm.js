@@ -454,16 +454,15 @@ async function generateRabiesForm(data) {
     doseStatus
   );
 
-  // add more nuance back later
-  // drawVisualCheck(
-  //   'USDALicensed',
-  //   data.vaccine.doseType
-  // );
-
   drawVisualCheck(
     'USDALicensed',
-    '3 Year'
+    data.vaccine.doseType
   );
+
+  // drawVisualCheck(
+  //   'USDALicensed',
+  //   '3 Year'
+  // );
 
 
 

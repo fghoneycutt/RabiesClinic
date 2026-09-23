@@ -28,10 +28,12 @@ type ClinicForm = {
   rabies_3_year: boolean;
   microchip: boolean;
 
+  rabies_1_year_dose_type: string;
   rabies_1_year_product: string;
   rabies_1_year_lot_number: string;
   rabies_1_year_product_expiration_date: string;
 
+  rabies_3_year_dose_type: string;
   rabies_3_year_product: string;
   rabies_3_year_lot_number: string;
   rabies_3_year_product_expiration_date: string;
@@ -103,11 +105,13 @@ export default function EditClinic() {
           rabies_3_year: rabies3.enabled ?? false,
           microchip: micro.enabled ?? false,
 
+          rabies_1_year_dose_type: rabies1.dose_type ?? '1 Year',
           rabies_1_year_product: extractProductName(rabies1.default_product ?? ''),
           rabies_1_year_lot_number: rabies1.default_lot_number ?? '',
           rabies_1_year_product_expiration_date:
             rabies1.default_product_expiration_date ?? '',
 
+          rabies_3_year_dose_type: rabies3.dose_type ?? '3 Year',
           rabies_3_year_product: extractProductName(rabies3.default_product ?? ''),
           rabies_3_year_lot_number: rabies3.default_lot_number ?? '',
           rabies_3_year_product_expiration_date:
@@ -137,6 +141,7 @@ export default function EditClinic() {
   const rabies1YearValid =
     !form?.rabies_1_year ||
     (
+      form.rabies_1_year_dose_type.trim() !== '' &&
       form.rabies_1_year_product.trim() !== '' &&
       form.rabies_1_year_lot_number.trim() !== '' &&
       form.rabies_1_year_product_expiration_date.trim() !== ''
@@ -145,6 +150,7 @@ export default function EditClinic() {
   const rabies3YearValid =
     !form?.rabies_3_year ||
     (
+      form.rabies_3_year_dose_type.trim() !== '' &&
       form.rabies_3_year_product.trim() !== '' &&
       form.rabies_3_year_lot_number.trim() !== '' &&
       form.rabies_3_year_product_expiration_date.trim() !== ''
@@ -209,6 +215,7 @@ export default function EditClinic() {
       const offerings = {
         rabies_1_year: {
           enabled: form.rabies_1_year,
+          dose_type: form.rabies_1_year_dose_type,
           default_product: form.rabies_1_year_product,
           default_lot_number: form.rabies_1_year_lot_number,
           default_product_expiration_date:
@@ -216,6 +223,7 @@ export default function EditClinic() {
         },
         rabies_3_year: {
           enabled: form.rabies_3_year,
+          dose_type: form.rabies_3_year_dose_type,
           default_product: form.rabies_3_year_product,
           default_lot_number: form.rabies_3_year_lot_number,
           default_product_expiration_date:
@@ -468,6 +476,33 @@ export default function EditClinic() {
                     />
                   </Form.Group>
                 </Col>
+                                <Col xs={12}>
+                  <Form.Group>
+                    <Form.Label>
+                      Dose Type <span className="text-danger">*</span>
+                    </Form.Label>
+
+                    <Form.Select
+                      value={form.rabies_1_year_dose_type}
+                      onChange={e =>
+                        update(
+                          'rabies_1_year_dose_type',
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option value="">
+                        Select dose type
+                      </option>
+                      <option value="1 Year">
+                        1 Year
+                      </option>
+                      <option value="3 Year">
+                        3 Year
+                      </option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
               </Row>
             )}
 
@@ -564,6 +599,33 @@ export default function EditClinic() {
                         )
                       }
                     />
+                  </Form.Group>
+                </Col>
+                                <Col xs={12}>
+                  <Form.Group>
+                    <Form.Label>
+                      Dose Type <span className="text-danger">*</span>
+                    </Form.Label>
+
+                    <Form.Select
+                      value={form.rabies_3_year_dose_type}
+                      onChange={e =>
+                        update(
+                          'rabies_3_year_dose_type',
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option value="">
+                        Select dose type
+                      </option>
+                      <option value="1 Year">
+                        1 Year
+                      </option>
+                      <option value="3 Year">
+                        3 Year
+                      </option>
+                    </Form.Select>
                   </Form.Group>
                 </Col>
               </Row>
