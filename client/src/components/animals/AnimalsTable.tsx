@@ -152,8 +152,8 @@ export default function AnimalsTable({
               <th
                 className="text-center"
                 style={{
-                  width: 120,
-                  minWidth: 120,
+                  width: 1,
+                  whiteSpace: 'nowrap',
                   position: 'sticky',
                   right: 0,
                   background: 'white',

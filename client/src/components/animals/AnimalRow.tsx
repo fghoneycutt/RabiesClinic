@@ -513,7 +513,8 @@ export default function AnimalRow({
             right: 0,
             background: 'white',
             zIndex: 5,
-            minWidth: '120px'
+            width: 1,
+            whiteSpace: 'nowrap'
           }}
         >
           <div
