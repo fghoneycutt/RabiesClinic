@@ -585,29 +585,40 @@ export default function AnimalRow({
 
       </tr>
 
-
       {hasRabies &&
         vaccineExpanded &&
         latestRabies && (
 
         <tr>
 
-          <td colSpan={999}>
-
-            <VaccineSection
-              animal={animal}
-              clinic={clinic}
-              users={users}
-              updateAnimalLocal={updateAnimalLocal}
-              saveAnimalField={saveAnimalField}
-            />
-
+          <td
+            colSpan={999}
+            style={{
+              padding: 0,
+              border: 0
+            }}
+          >
+            <div
+              style={{
+                position: 'sticky',
+                left: 0,
+                width: 'fit-content',
+                maxWidth: 'none'
+              }}
+            >
+              <VaccineSection
+                animal={animal}
+                clinic={clinic}
+                users={users}
+                updateAnimalLocal={updateAnimalLocal}
+                saveAnimalField={saveAnimalField}
+              />
+            </div>
           </td>
 
         </tr>
 
       )}
-
 
       <AddRabiesModal
         show={showRabiesModal}

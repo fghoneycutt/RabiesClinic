@@ -120,7 +120,12 @@ export default function AnimalsTable({
           </div>
 
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div
+          style={{
+            position: 'relative',
+            overflowX: 'auto'
+          }}
+        >
         {/* TABLE */}
         <Table
           striped
