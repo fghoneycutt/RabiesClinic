@@ -9,7 +9,6 @@ import { api } from '../../api/api';
 import type { Vaccination, Clinic } from '../../types/intake';
 
 import { RABIES_PRODUCT_MANUFACTURER } from '../../constants/animalOptions';
-import { useAuth } from '../../auth/AuthContext';
 
 type VaccineType = '' | 'rabies_1_year' | 'rabies_3_year';
 
@@ -38,7 +37,6 @@ export default function AddRabiesModal({
   clinic,
   onSave
 }: Props) {
-  const { user } = useAuth();
   const [users, setUsers] = useState<UserOption[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -90,8 +88,6 @@ export default function AddRabiesModal({
     const savedVetId = clinic?.default_veterinarian;
     const matchingVet = users.find(u => u.id === savedVetId);
 
-    const vaccinatedBy = user?.name || '';
-
     return {
       id: crypto.randomUUID(),
       animal_id: animalId,
@@ -102,10 +98,12 @@ export default function AddRabiesModal({
       lot_number: '',
       product_expiration_date: '',
       notes: '',
-      vaccinated_by: vaccinatedBy,
 
-      supervising_veterinarian:
-        matchingVet?.name || vaccinatedBy,
+      // Always require an explicit selection.
+      vaccinated_by: '',
+
+      // Use the clinic default when available.
+      supervising_veterinarian: matchingVet?.name || '',
 
       date_time_administered: formatDateTimeLocal(new Date()),
       date_time_due: ''
@@ -118,7 +116,7 @@ export default function AddRabiesModal({
     if (show) {
       setForm(createEmptyForm());
     }
-  }, [show, animalId, user, clinic, users]);
+  }, [show, animalId, clinic, users]);
 
   // -----------------------------
   // DEFAULTS
@@ -148,13 +146,6 @@ export default function AddRabiesModal({
         : '';
 
     setForm(prev => {
-      const hasDefaultVeterinarian =
-        !!clinic?.default_veterinarian;
-
-      const supervisingVeterinarian = hasDefaultVeterinarian
-        ? prev.supervising_veterinarian
-        : prev.vaccinated_by;
-
       return {
         ...prev,
 
@@ -169,9 +160,6 @@ export default function AddRabiesModal({
 
         product_expiration_date:
           defaults?.default_product_expiration_date ?? '',
-
-        supervising_veterinarian:
-          supervisingVeterinarian
       };
     });
   };
@@ -338,10 +326,10 @@ export default function AddRabiesModal({
                 ...prev,
                 vaccinated_by: vaccinatedBy,
 
-                supervising_veterinarian:
-                  clinic?.default_veterinarian
-                    ? prev.supervising_veterinarian
-                    : vaccinatedBy
+                // Only auto-fill the vet if the clinic has no default.
+                supervising_veterinarian: clinic?.default_veterinarian
+                  ? prev.supervising_veterinarian
+                  : vaccinatedBy
               }));
             }}
           >
