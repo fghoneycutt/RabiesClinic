@@ -1,11 +1,10 @@
+
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faEye,
   faEyeSlash
 } from '@fortawesome/free-solid-svg-icons';
-
-import Button from 'react-bootstrap/Button';
 
 type PasswordInputProps = {
   label: string;
@@ -31,24 +30,33 @@ export default function PasswordInput({
         {required}
       </label>
 
-      <div className="input-group">
+      <div className="position-relative">
         <input
           type={showPassword ? 'text' : 'password'}
-          className="form-control"
+          className="form-control pe-5"
           value={value}
           autoComplete={autoComplete}
+          required={required}
           onChange={(e) => onChange(e.target.value)}
         />
 
-        <Button
-          variant="outline-secondary"
+        <button
           type="button"
+          className="btn position-absolute top-50 end-0 translate-middle-y border-0 bg-transparent text-secondary d-flex align-items-center justify-content-center"
+          style={{
+            width: '44px',
+            height: '100%',
+            zIndex: 5
+          }}
           onClick={() => setShowPassword(prev => !prev)}
+          aria-label={showPassword ? 'Hide password' : 'Show password'}
+          aria-pressed={showPassword}
+          title={showPassword ? 'Hide password' : 'Show password'}
         >
           <FontAwesomeIcon
             icon={showPassword ? faEyeSlash : faEye}
           />
-        </Button>
+        </button>
       </div>
     </div>
   );
