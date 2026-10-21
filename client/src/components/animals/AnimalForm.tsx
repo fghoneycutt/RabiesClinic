@@ -401,10 +401,11 @@ export default function AnimalForm(props: Props) {
         </Row>
 
         {/* AGE */}
+        <Form.Label>Age <span className="text-danger">*</span></Form.Label>
         <Row className="mb-3">
           <Col md={6}>
             <Form.Group>
-              <Form.Label>Age (Years)</Form.Label>
+              <Form.Label>Years</Form.Label>
               <Form.Control
                 inputMode="numeric" 
                 pattern="[0-9]*"
@@ -427,7 +428,7 @@ export default function AnimalForm(props: Props) {
 
           <Col md={6}>
             <Form.Group>
-              <Form.Label>Age (Months)</Form.Label>
+              <Form.Label>Months</Form.Label>
               <Form.Control
                 inputMode="numeric" 
                 pattern="[0-9]*"
@@ -638,7 +639,7 @@ export default function AnimalForm(props: Props) {
               </Form.Control.Feedback>
             </Form.Group>
           </Col>
-</Row>
+        </Row>
       </Card.Body>
     </Card>
   );
