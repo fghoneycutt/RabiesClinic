@@ -401,7 +401,7 @@ export default function AnimalForm(props: Props) {
         </Row>
 
         {/* AGE */}
-        <Form.Label>Age <span className="text-danger">*</span></Form.Label>
+        <Form.Label>Approximate Age <span className="text-danger">*</span></Form.Label>
         <Row className="mb-3">
           <Col md={6}>
             <Form.Group>
