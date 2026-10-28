@@ -21,6 +21,7 @@ import NotFoundPage from './pages/NotFoundPage';
 
 import WalkinIntake from './pages/WalkinIntake';
 import PublicRegistrationPage from './pages/PublicRegistrationPage';
+import NextClinicRegistrationPage from './pages/NextClinicRegistrationPage';
 
 import CreateClinic from './pages/CreateClinic';
 import EditClinic from './pages/EditClinic';
@@ -34,9 +35,8 @@ function AppLayout() {
   const location = useLocation();
 
   const hideNavbar =
-    /^\/clinics\/[^/]+\/register$/.test(
-      location.pathname
-    );
+    location.pathname === '/register/next-clinic' ||
+    /^\/clinics\/[^/]+\/register$/.test(location.pathname);
 
   return (
     <>
@@ -55,9 +55,16 @@ function AppLayout() {
           />
 
           <Route
+            path="/register/next-clinic"
+            element={<NextClinicRegistrationPage />}
+          />
+
+          <Route
             path="/clinics/:id/register"
             element={<PublicRegistrationPage />}
           />
+
+
 
           {/* -------------------- */}
           {/* PROTECTED ROUTES */}
