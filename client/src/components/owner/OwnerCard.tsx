@@ -78,15 +78,14 @@ export default function OwnerCard({
   return (
     <Card className="mb-4 shadow-sm">
       <Card.Body>
-
-        <div className="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
-          <h5 className="mb-0 text-primary d-flex align-items-center gap-2">
+        <div className="pb-2 mb-3 border-bottom">
+          <h5 className="mb-3 text-primary d-flex align-items-center gap-2">
             <i className="fas fa-user-circle"></i>
             {owner.first_name} {owner.last_name}
           </h5>
 
-          <div className="d-flex gap-2">
-            {editing && (
+          {editing ? (
+            <div className="d-flex flex-row flex-wrap align-items-center justify-content-lg-end gap-2">
               <Button
                 size="sm"
                 variant="outline-danger"
@@ -95,8 +94,7 @@ export default function OwnerCard({
                 <i className="fas fa-trash-alt me-1"></i>
                 Delete Profile
               </Button>
-            )}
-            {editing && (
+
               <Button
                 size="sm"
                 variant="outline-secondary"
@@ -105,22 +103,30 @@ export default function OwnerCard({
                 <i className="fas fa-times me-1"></i>
                 Cancel
               </Button>
-            )}
 
-            <Button
-              size="sm"
-              variant={editing ? 'success' : 'outline-primary'}
-              onClick={handleEditToggle}
-              className="d-inline-flex align-items-center gap-1"
-            >
-              <i
-                className={`fas ${
-                  editing ? 'fa-save' : 'fa-edit'
-                }`}
-              ></i>
-              {editing ? 'Save Profile' : 'Edit Profile'}
-            </Button>
-          </div>
+              <Button
+                size="sm"
+                variant="success"
+                onClick={handleEditToggle}
+                className="d-inline-flex align-items-center gap-1"
+              >
+                <i className="fas fa-save"></i>
+                Save Profile
+              </Button>
+            </div>
+          ) : (
+            <div className="d-flex justify-content-end">
+              <Button
+                size="sm"
+                variant="outline-primary"
+                onClick={handleEditToggle}
+                className="d-inline-flex align-items-center gap-1"
+              >
+                <i className="fas fa-edit"></i>
+                Edit Profile
+              </Button>
+            </div>
+          )}
         </div>
 
         {editing ? (

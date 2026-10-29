@@ -147,13 +147,24 @@ export default function AnimalsTable({
               <th>Weight</th>
               <th>Color</th>
               <th>Pattern</th>
-              <th>Rabies</th>
               <th>Microchip Number</th>
               <th>Microchip Issuer</th>
               <th
+                style={{
+                  position: 'sticky',
+                  right: '90px',
+                  background: 'white',
+                  zIndex: 5,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Rabies
+              </th>
+
+              <th
                 className="text-center"
                 style={{
-                  width: 1,
+                  width: '90px',
                   whiteSpace: 'nowrap',
                   position: 'sticky',
                   right: 0,

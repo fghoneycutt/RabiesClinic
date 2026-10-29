@@ -259,12 +259,131 @@ export default function AnimalRow({
           updateAnimalLocal={updateDraftAnimal}
         />
 
+        {/* MICROCHIP NUMBER */}
+
+        <td
+          style={{
+            whiteSpace: 'nowrap',
+            minWidth: editing ? '260px' : '180px'
+          }}
+        >
+          {editing ? (
+            <Form.Control
+              size="sm"
+              maxLength={19}
+              style={{
+                width: '250px'
+              }}
+              value={
+                formatMicrochip(
+                  displayedAnimal.microchip_number || ''
+                )
+              }
+              placeholder="None"
+              onChange={(e) => {
+                const value =
+                  unformatMicrochip(
+                    e.target.value
+                  )
+                  .slice(0, 15);
+                updateDraftAnimal(
+                  animal.id,
+                  'microchip_number',
+                  value
+                );
+                setMicrochipError('');
+                if (!value) {
+                  updateDraftAnimal(
+                    animal.id,
+                    'microchip_issuer',
+                    null
+                  );
+                }
+              }}
+              onCopy={(e) => {
+                e.preventDefault();
+                navigator.clipboard.writeText(
+                  displayedAnimal.microchip_number || ''
+                );
+              }}
+            />
+          ) : (
+            displayedAnimal.microchip_number
+              ? formatMicrochip(displayedAnimal.microchip_number)
+              : '-'
+          )}
+        </td>
+
+        {/* MICROCHIP ISSUER */}
+
+        <td
+          style={{
+            whiteSpace: 'nowrap',
+            minWidth: editing ? '220px' : '180px'
+          }}
+        >
+          {editing ? (
+            <>
+              <Form.Select
+                size="sm"
+                style={{
+                  width: '210px'
+                }}
+                disabled={
+                  !displayedAnimal.microchip_number
+                }
+                value={
+                  displayedAnimal.microchip_issuer || ''
+                }
+                onChange={(e) => {
+                  setMicrochipError('');
+                  updateDraftAnimal(
+                    animal.id,
+                    'microchip_issuer',
+                    e.target.value || null
+                  );
+                }}
+              >
+                <option value="">
+                  {displayedAnimal.microchip_number
+                    ? 'Select issuer'
+                    : 'Enter chip first'}
+                </option>
+                {MICROCHIP_ISSUERS.map(
+                  issuer => (
+                    <option
+                      key={issuer}
+                      value={issuer}
+                    >
+                      {issuer}
+                    </option>
+                  )
+                )}
+              </Form.Select>
+              {microchipError && (
+                <div
+                  className="text-danger small mt-1"
+                >
+                  {microchipError}
+                </div>
+              )}
+            </>
+          ) : (
+            displayedAnimal.microchip_issuer || '-'
+          )}
+        </td>
         {/* RABIES */}
 
-        <td>
-
+        <td
+          style={{
+            position: 'sticky',
+            right: '90px',
+            background: 'white',
+            zIndex: 5,
+            whiteSpace: 'nowrap'
+          }}
+        >
           {!hasRabies ? (
-
             <Button
               size="sm"
               variant="outline-success"
@@ -274,11 +393,8 @@ export default function AnimalRow({
             >
               <i className="fas fa-plus"></i> Add
             </Button>
-
           ) : (
-
             <div className="d-flex align-items-center justify-content-between gap-2">
-
               <div
                 className="d-flex align-items-center gap-1 flex-grow-1"
                 style={{
@@ -291,14 +407,10 @@ export default function AnimalRow({
                   )
                 }
               >
-
                 <strong>
                   {latestRabies?.rabies_tag_number}
                 </strong>
-
-
                 <span className="text-muted small">
-
                   {
                     latestRabies?.vaccine_type === 'rabies_1_year'
                       ? '1 Yr'
@@ -306,23 +418,15 @@ export default function AnimalRow({
                       ? '3 Yr'
                       : ''
                   }
-
                 </span>
-
-
                 <span className="text-primary small">
-
                   {
                     vaccineExpanded
                       ? <i className="fas fa-caret-down" />
                       : <i className="fas fa-caret-right" />
                   }
-
                 </span>
-
               </div>
-
-
               <Button
                 size="sm"
                 variant="outline-secondary"
@@ -332,180 +436,10 @@ export default function AnimalRow({
               >
                 <i className="fas fa-file-pdf text-danger" />
               </Button>
-
             </div>
-
           )}
-
         </td>
-
-        {/* MICROCHIP NUMBER */}
-
-        <td
-          style={{
-            whiteSpace: 'nowrap',
-            minWidth: editing ? '260px' : '180px'
-          }}
-        >
-
-          {editing ? (
-
-            <Form.Control
-              size="sm"
-              maxLength={19}
-              style={{
-                width: '250px'
-              }}
-
-              value={
-                formatMicrochip(
-                  displayedAnimal.microchip_number || ''
-                )
-              }
-
-              placeholder="None"
-
-              onChange={(e) => {
-
-                const value =
-                  unformatMicrochip(
-                    e.target.value
-                  )
-                  .slice(0, 15);
-
-
-                updateDraftAnimal(
-                  animal.id,
-                  'microchip_number',
-                  value
-                );
-
-
-                setMicrochipError('');
-
-
-                if (!value) {
-
-                  updateDraftAnimal(
-                    animal.id,
-                    'microchip_issuer',
-                    null
-                  );
-
-                }
-
-              }}
-
-              onCopy={(e) => {
-
-                e.preventDefault();
-
-                navigator.clipboard.writeText(
-                  displayedAnimal.microchip_number || ''
-                );
-
-              }}
-
-            />
-
-          ) : (
-
-            displayedAnimal.microchip_number
-              ? formatMicrochip(displayedAnimal.microchip_number)
-              : '-'
-
-          )}
-
-        </td>
-
-
-        {/* MICROCHIP ISSUER */}
-
-        <td
-          style={{
-            whiteSpace: 'nowrap',
-            minWidth: editing ? '220px' : '180px'
-          }}
-        >
-
-          {editing ? (
-
-            <>
-
-              <Form.Select
-                size="sm"
-
-                style={{
-                  width: '210px'
-                }}
-
-                disabled={
-                  !displayedAnimal.microchip_number
-                }
-
-                value={
-                  displayedAnimal.microchip_issuer || ''
-                }
-
-                onChange={(e) => {
-
-                  setMicrochipError('');
-
-                  updateDraftAnimal(
-                    animal.id,
-                    'microchip_issuer',
-                    e.target.value || null
-                  );
-
-                }}
-
-              >
-
-                <option value="">
-                  {displayedAnimal.microchip_number
-                    ? 'Select issuer'
-                    : 'Enter chip first'}
-                </option>
-
-
-                {MICROCHIP_ISSUERS.map(
-                  issuer => (
-
-                    <option
-                      key={issuer}
-                      value={issuer}
-                    >
-                      {issuer}
-                    </option>
-
-                  )
-                )}
-
-              </Form.Select>
-
-
-              {microchipError && (
-
-                <div
-                  className="text-danger small mt-1"
-                >
-                  {microchipError}
-                </div>
-
-              )}
-
-            </>
-
-          ) : (
-
-            displayedAnimal.microchip_issuer || '-'
-
-          )}
-
-        </td>
-
         {/* ACTIONS */}
-
         <td
           className="text-center"
           style={{
@@ -523,9 +457,7 @@ export default function AnimalRow({
               whiteSpace: 'nowrap'
             }}
           >
-
             {!editing ? (
-
               <Button
                 size="sm"
                 variant="outline-primary"
@@ -536,11 +468,8 @@ export default function AnimalRow({
               >
                 <i className="fas fa-edit"></i> Edit
               </Button>
-
             ) : (
-
               <>
-
                 <Button
                   size="sm"
                   variant="success"
@@ -549,8 +478,6 @@ export default function AnimalRow({
                 >
                   <i className="fas fa-save"></i> Save
                 </Button>
-
-
                 <Button
                   size="sm"
                   variant="outline-secondary"
@@ -559,14 +486,9 @@ export default function AnimalRow({
                 >
                   <i className="fas fa-times"></i> Cancel
                 </Button>
-
               </>
-
             )}
-
-
             {editing && (
-
               <Button
                 size="sm"
                 variant="outline-danger"
@@ -577,21 +499,14 @@ export default function AnimalRow({
               >
                 <i className="fas fa-trash-alt"></i> Delete
               </Button>
-
             )}
-
           </div>
-
         </td>
-
       </tr>
-
       {hasRabies &&
         vaccineExpanded &&
         latestRabies && (
-
         <tr>
-
           <td
             colSpan={999}
             style={{
@@ -616,11 +531,8 @@ export default function AnimalRow({
               />
             </div>
           </td>
-
         </tr>
-
       )}
-
       <AddRabiesModal
         show={showRabiesModal}
         onHide={() =>
@@ -631,8 +543,6 @@ export default function AnimalRow({
         clinic={clinic}
         onSave={addVaccination}
       />
-
-
       <DeleteAnimalModal
         show={showDeleteModal}
         onHide={() =>
@@ -643,7 +553,6 @@ export default function AnimalRow({
           onDeleteAnimal(animal.id)
         }
       />
-
     </>
   );
 }
