@@ -74,6 +74,28 @@ function normalizeAgeUnit(unit) {
   return null;
 }
 
+function normalizeSizeFromWeight(weight) {
+  if (weight == null || weight === '') {
+    return null;
+  }
+
+  const lbs = Number(weight);
+
+  if (!Number.isFinite(lbs) || lbs < 0) {
+    return null;
+  }
+
+  if (lbs < 20) {
+    return 'Under 20 lbs.';
+  }
+
+  if (lbs <= 50) {
+    return '20 - 50 lbs.';
+  }
+
+  return 'Over 50 lbs.';
+}
+
 function normalizeCoordinateKey(groupName, key) {
   switch (groupName) {
     case 'Species':
@@ -132,7 +154,6 @@ const COORDINATE_MAPS = {
 // ==========================================
 // SIGNATURE POSITION
 // ==========================================
-// Adjust these after seeing the generated PDF.
 const SIGNATURE_COORDINATES = {
   page: 0,
   x: 340,
@@ -401,7 +422,13 @@ async function generateRabiesForm(data) {
 
 
   drawVisualCheck('Species', data.animal.species);
-  drawVisualCheck('Size', data.animal.size);
+  const size = normalizeSizeFromWeight(
+    data.animal.approximate_weight
+  );
+
+  if (size) {
+    drawVisualCheck('Size', size);
+  }  
   drawVisualCheck('Sex', data.animal.sex);
   drawVisualCheck('AgeUnit', data.animal.ageUnit);
 

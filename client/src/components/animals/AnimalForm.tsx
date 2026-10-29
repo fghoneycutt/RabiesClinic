@@ -497,6 +497,29 @@ export default function AnimalForm(props: Props) {
           </Alert>
         )}
 
+        {/* APPROXIMATE WEIGHT */}
+        <Row className="mb-3">
+          <Col md={6}>
+            <Form.Group>
+              <Form.Label>Approximate Weight (lbs) <span className="text-muted fw-normal">(Optional)</span></Form.Label>
+              <Form.Control
+                type="number"
+                min="0"
+                step="0.01"
+                value={animal.approximate_weight ?? ''}
+                onChange={e => {
+                  const value = e.target.value;
+
+                  updateAnimal(
+                    'approximate_weight',
+                    value === '' ? null : Number(value)
+                  );
+                }}
+              />
+            </Form.Group>
+          </Col>
+        </Row>
+
         {/* COLORS */}
         <Row className="mb-3">
           <Col md={6}>

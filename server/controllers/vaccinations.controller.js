@@ -256,6 +256,7 @@ async function generateRabiesCertificatePdf(vaccinationId) {
       a.microchip_number,
       a.microchip_issuer,
       a.size_category,
+      a.approximate_weight,
 
       o.first_name,
       o.last_name,
@@ -343,6 +344,7 @@ async function generateRabiesCertificatePdf(vaccinationId) {
         : 'Months',
 
       size: row.size_category || '—',
+      approximate_weight: row.approximate_weight,
 
       microchip: row.microchip_number || '—',
 

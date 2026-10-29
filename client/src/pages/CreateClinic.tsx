@@ -31,12 +31,19 @@ type ClinicForm = {
   rabies_1_year_lot_number: string;
   rabies_1_year_product_expiration_date: string;
   rabies_1_year_dose_type: string;
+  rabies_1_year_free: boolean;
+  rabies_1_year_cost: string;
 
   rabies_3_year_product: string;
   rabies_3_year_manufacturer: string;
   rabies_3_year_lot_number: string;
   rabies_3_year_product_expiration_date: string;
   rabies_3_year_dose_type: string;
+  rabies_3_year_free: boolean;
+  rabies_3_year_cost: string;
+
+  microchip_free: boolean;
+  microchip_cost: string;
 
   default_veterinarian_id: string;
   notes: string;
@@ -75,12 +82,19 @@ export default function CreateClinic() {
     rabies_1_year_lot_number: '',
     rabies_1_year_product_expiration_date: '',
     rabies_1_year_dose_type: '1 Year',
+    rabies_1_year_free: true,
+    rabies_1_year_cost: '10.00',
 
     rabies_3_year_product: '',
     rabies_3_year_manufacturer: '',
     rabies_3_year_lot_number: '',
     rabies_3_year_product_expiration_date: '',
     rabies_3_year_dose_type: '3 Year',
+    rabies_3_year_free: true,
+    rabies_3_year_cost: '10.00',
+
+    microchip_free: true,
+    microchip_cost: '15.00',
 
     default_veterinarian_id: '',
     notes: ''
@@ -125,9 +139,39 @@ export default function CreateClinic() {
       form.rabies_3_year_product_expiration_date.trim() !== ''
     );
 
+    const rabies1YearPriceValid =
+      !form.rabies_1_year_enabled ||
+      form.rabies_1_year_free ||
+      (
+        form.rabies_1_year_cost.trim() !== '' &&
+        Number.isFinite(Number(form.rabies_1_year_cost)) &&
+        Number(form.rabies_1_year_cost) > 0
+      );
+
+    const rabies3YearPriceValid =
+      !form.rabies_3_year_enabled ||
+      form.rabies_3_year_free ||
+      (
+        form.rabies_3_year_cost.trim() !== '' &&
+        Number.isFinite(Number(form.rabies_3_year_cost)) &&
+        Number(form.rabies_3_year_cost) > 0
+      );
+
+    const microchipPriceValid =
+      !form.microchip_enabled ||
+      form.microchip_free ||
+      (
+        form.microchip_cost.trim() !== '' &&
+        Number.isFinite(Number(form.microchip_cost)) &&
+        Number(form.microchip_cost) > 0
+      );
+
   const vaccineFieldsValid =
     rabies1YearValid &&
-    rabies3YearValid;
+    rabies3YearValid &&
+    rabies1YearPriceValid &&
+    rabies3YearPriceValid &&
+    microchipPriceValid;
 
   const requiredClinicFieldsValid =
     form.name.trim() !== '' &&
@@ -180,6 +224,10 @@ export default function CreateClinic() {
       const offerings = {
         rabies_1_year: {
           enabled: form.rabies_1_year_enabled,
+          free: form.rabies_1_year_free,
+          cost: form.rabies_1_year_free
+            ? 0
+            : Number(form.rabies_1_year_cost),
           dose_type: form.rabies_1_year_dose_type,
           default_product: clean(form.rabies_1_year_product),
           default_manufacturer: clean(form.rabies_1_year_manufacturer),
@@ -188,8 +236,13 @@ export default function CreateClinic() {
             form.rabies_1_year_product_expiration_date
           )
         },
+
         rabies_3_year: {
           enabled: form.rabies_3_year_enabled,
+          free: form.rabies_3_year_free,
+          cost: form.rabies_3_year_free
+            ? 0
+            : Number(form.rabies_3_year_cost),
           dose_type: form.rabies_3_year_dose_type,
           default_product: clean(form.rabies_3_year_product),
           default_manufacturer: clean(form.rabies_3_year_manufacturer),
@@ -198,8 +251,13 @@ export default function CreateClinic() {
             form.rabies_3_year_product_expiration_date
           )
         },
+
         microchip: {
-          enabled: form.microchip_enabled
+          enabled: form.microchip_enabled,
+          free: form.microchip_free,
+          cost: form.microchip_free
+            ? 0
+            : Number(form.microchip_cost)
         }
       };
 
@@ -448,7 +506,46 @@ export default function CreateClinic() {
                     </Form.Select>
                   </Form.Group>
                 </Col>
+
+
+                <Col xs={12}>
+                  <div className="d-flex flex-wrap align-items-center gap-3 pt-2">
+                    <span className="text-muted small fw-semibold">
+                      Pricing
+                    </span>
+
+                    <Form.Check
+                      type="checkbox"
+                      label="Free"
+                      className="mb-0"
+                      checked={form.rabies_1_year_free}
+                      onChange={e =>
+                        update('rabies_1_year_free', e.target.checked)
+                      }
+                    />
+
+                    {!form.rabies_1_year_free && (
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="text-muted small">Price <span className="text-danger">*</span></span>
+                        <span className="text-muted small">$</span>
+                        <div style={{ width: 130 }}>
+                          <Form.Control
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            aria-label="Rabies 1-Year price in dollars"
+                            value={form.rabies_1_year_cost}
+                            onChange={e =>
+                              update('rabies_1_year_cost', e.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Col>
               </Row>
+              
             )}
 
             <div className="mt-4">
@@ -554,10 +651,45 @@ export default function CreateClinic() {
                       </Form.Select>
                     </Form.Group>
                   </Col>
+                  <Col xs={12}>
+                    <div className="d-flex flex-wrap align-items-center gap-3 pt-2">
+                      <span className="text-muted small fw-semibold">
+                        Pricing
+                      </span>
+
+                      <Form.Check
+                        type="checkbox"
+                        label="Free"
+                        className="mb-0"
+                        checked={form.rabies_3_year_free}
+                        onChange={e =>
+                          update('rabies_3_year_free', e.target.checked)
+                        }
+                      />
+
+                      {!form.rabies_3_year_free && (
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="text-muted small">Price <span className="text-danger">*</span></span>
+                          <span className="text-muted small">$</span>
+                          <div style={{ width: 130 }}>
+                            <Form.Control
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              aria-label="Rabies 3-Year price in dollars"
+                              value={form.rabies_3_year_cost}
+                              onChange={e =>
+                                update('rabies_3_year_cost', e.target.value)
+                              }
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Col>
                 </Row>
               )}
             </div>
-
             <Form.Check
               className="mt-3"
               label="Microchip"
@@ -571,12 +703,51 @@ export default function CreateClinic() {
                   return;
                 }
 
-                update(
-                  'microchip_enabled',
-                  e.target.checked
-                );
+                update('microchip_enabled', e.target.checked);
               }}
             />
+
+            {form.microchip_enabled && (
+              
+            <Row className="mt-2">
+              <Col xs={12}>
+                <div className="d-flex flex-wrap align-items-center gap-3">
+                  <span className="text-muted small fw-semibold">
+                    Pricing
+                  </span> 
+
+                  <Form.Check
+                    type="checkbox"
+                    label="Free"
+                    className="mb-0"
+                    checked={form.microchip_free}
+                    onChange={e =>
+                      update('microchip_free', e.target.checked)
+                    }
+                  />
+
+                  {!form.microchip_free && (
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="text-muted small">Price <span className="text-danger">*</span></span>
+                      <span className="text-muted small">$</span>
+                      <div style={{ width: 130 }}>
+                        <Form.Control
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          aria-label="Microchip price in dollars"
+                          value={form.microchip_cost}
+                          onChange={e =>
+                            update('microchip_cost', e.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Col>
+            </Row>
+            )}
             {!hasOfferings && (
               <div className="text-danger small mb-3">
                 At least one offering must be selected.

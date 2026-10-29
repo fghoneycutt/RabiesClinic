@@ -45,6 +45,7 @@ const EMPTY_ANIMAL: AnimalDraft = {
   age_years: null,
   age_months: null,
 
+  approximate_weight: null,
 
   primary_color: '',
   secondary_color: '',
@@ -373,6 +374,40 @@ const checkIsClinicPast = () => {
       )} - ${formatTime(end || '')}`;
     };
 
+  const activeOfferings = [
+    {
+      key: 'rabies_1_year',
+      label: '1-Year Rabies Vaccine',
+      offering: clinic.offerings?.rabies_1_year
+    },
+    {
+      key: 'rabies_3_year',
+      label: '3-Year Rabies Vaccine',
+      offering: clinic.offerings?.rabies_3_year
+    },
+    {
+      key: 'microchip',
+      label: 'Microchip',
+      offering: clinic.offerings?.microchip
+    }
+  ].filter(item => item.offering?.enabled === true);
+
+  const paidOfferings = activeOfferings.filter(({ offering }) => {
+    return offering?.free !== true;
+  });
+
+  const allOfferingsAreFree =
+    activeOfferings.length > 0 &&
+    paidOfferings.length === 0;
+
+  const hasPaidOfferings = paidOfferings.length > 0;
+
+  const formatPrice = (cost: number | string) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(Number(cost));
+
     return (
       <div
         style={{
@@ -389,6 +424,48 @@ const checkIsClinicPast = () => {
           We appreciate your help keeping your pets
           safe and healthy.
         </p>
+
+        <Alert
+          variant={allOfferingsAreFree ? 'success' : 'info'}
+          className="mb-4"
+        >
+          {allOfferingsAreFree ? (
+            <>
+              <h5 className="fw-bold">No Payment Required</h5>
+              <p className="mb-0">
+                All services offered at this clinic are free.
+              </p>
+            </>
+          ) : hasPaidOfferings ? (
+            <>
+              <p>The prices for the services offered at this clinic are:</p>
+
+              <ul className="mb-3">
+                {activeOfferings.map(({ key, label, offering }) => (
+                  <li key={key}>
+                    <strong>{label}:</strong>{' '}
+                    {offering?.free === true
+                      ? 'Free'
+                      : formatPrice(offering?.cost ?? 0)}
+                  </li>
+                ))}
+              </ul>
+
+              <p className="mb-0">
+                <strong>Payment is accepted by cash or check only.</strong>{' '}
+                Please have your payment ready when you arrive.
+              </p>
+            </>
+          ) : (
+            <>
+              <h5 className="fw-bold">No Services Available</h5>
+              <p className="mb-0">
+                There are currently no services enabled for this clinic.
+                Please contact the clinic for more information.
+              </p>
+            </>
+          )}
+        </Alert>
 
         <p>
           Please note that pre-registering does not

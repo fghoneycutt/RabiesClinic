@@ -144,6 +144,7 @@ export default function AnimalsTable({
               <th>Sex</th>
               <th>Altered</th>
               <th>Age</th>
+              <th>Weight</th>
               <th>Color</th>
               <th>Pattern</th>
               <th>Rabies</th>

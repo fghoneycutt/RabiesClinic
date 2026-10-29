@@ -533,7 +533,37 @@ export default function AnimalEditableCells({
         )}
 
       </td>
-            {/* COLOR */}
+      {/* APPROXIMATE WEIGHT */}
+      <td
+        style={editing ? { minWidth: '130px' } : undefined}
+      >
+        {editing ? (
+          <div className="d-flex align-items-center gap-1">
+            <Form.Control
+              size="sm"
+              type="number"
+              min={0}
+              step="0.01"
+              style={{ width: '90px' }}
+              value={animal.approximate_weight ?? ''}
+              placeholder="Weight"
+              onChange={(e) =>
+                updateAnimalLocal(
+                  animal.id,
+                  'approximate_weight',
+                  e.target.value === '' ? null : Number(e.target.value)
+                )
+              }
+            />
+            <span>lbs</span>
+          </div>
+        ) : animal.approximate_weight != null ? (
+          `${Number(Number(animal.approximate_weight).toFixed(2))} lbs`
+        ) : (
+          '-'
+        )}
+      </td>
+      {/* COLOR */}
       <td
         style={
           editing

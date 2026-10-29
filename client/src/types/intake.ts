@@ -38,6 +38,8 @@ export type Animal = {
   age_years: number | null;
   age_months: number | null;
 
+  approximate_weight: number | null;
+
   primary_color: string | null;
   secondary_color: string | null;
 
@@ -58,12 +60,19 @@ export type AnimalDraft = Omit<Animal, 'id'> & {
    CLINIC OFFERINGS (DB JSONB)
 -------------------------- */
 
+/* -------------------------
+   CLINIC OFFERINGS (DB JSONB)
+-------------------------- */
+
 export type VaccineDefault = {
   enabled: boolean;
   default_product?: string;
   default_manufacturer?: string;
   default_lot_number?: string;
   default_product_expiration_date?: string;
+  dose_type?: string;
+  free?: boolean;
+  cost?: number | string;
 };
 
 export type ClinicOfferings = {
@@ -71,6 +80,8 @@ export type ClinicOfferings = {
   rabies_3_year?: VaccineDefault;
   microchip?: {
     enabled: boolean;
+    free?: boolean;
+    cost?: number | string;
   };
 };
 

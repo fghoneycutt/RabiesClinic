@@ -32,11 +32,18 @@ type ClinicForm = {
   rabies_1_year_product: string;
   rabies_1_year_lot_number: string;
   rabies_1_year_product_expiration_date: string;
+  rabies_1_year_free: boolean;
+  rabies_1_year_cost: string;
 
   rabies_3_year_dose_type: string;
   rabies_3_year_product: string;
   rabies_3_year_lot_number: string;
   rabies_3_year_product_expiration_date: string;
+  rabies_3_year_free: boolean;
+  rabies_3_year_cost: string;
+
+  microchip_free: boolean;
+  microchip_cost: string;
 
   default_veterinarian_id: string;
   notes: string;
@@ -53,6 +60,18 @@ type VetUser = {
 function extractProductName(full: string) {
   if (!full) return '';
   return full.split(' - ')[0]?.trim() || full.trim();
+}
+
+function extractCost(cost: unknown, fallback: string): string {
+  const parsedCost = Number(cost);
+
+  return cost !== null &&
+    cost !== undefined &&
+    String(cost).trim() !== '' &&
+    Number.isFinite(parsedCost) &&
+    parsedCost > 0
+    ? String(cost)
+    : fallback;
 }
 
 export default function EditClinic() {
@@ -109,13 +128,20 @@ export default function EditClinic() {
           rabies_1_year_product: extractProductName(rabies1.default_product ?? ''),
           rabies_1_year_lot_number: rabies1.default_lot_number ?? '',
           rabies_1_year_product_expiration_date:
-            rabies1.default_product_expiration_date ?? '',
+          rabies1.default_product_expiration_date ?? '',
+          rabies_1_year_free: rabies1.free ?? true,
+          rabies_1_year_cost: extractCost(rabies1.cost, '10.00'),
 
           rabies_3_year_dose_type: rabies3.dose_type ?? '3 Year',
           rabies_3_year_product: extractProductName(rabies3.default_product ?? ''),
           rabies_3_year_lot_number: rabies3.default_lot_number ?? '',
           rabies_3_year_product_expiration_date:
-            rabies3.default_product_expiration_date ?? '',
+          rabies3.default_product_expiration_date ?? '',
+          rabies_3_year_free: rabies3.free ?? true,
+          rabies_3_year_cost: extractCost(rabies3.cost, '10.00'),
+
+          microchip_free: micro.free ?? true,
+          microchip_cost: extractCost(micro.cost, '15.00'),
 
           default_veterinarian_id: clinic.default_veterinarian || '',
           notes: clinic.notes || ''
@@ -156,6 +182,33 @@ export default function EditClinic() {
       form.rabies_3_year_product_expiration_date.trim() !== ''
     );
 
+      const rabies1YearPriceValid =
+    !form?.rabies_1_year ||
+    form.rabies_1_year_free ||
+    (
+      form.rabies_1_year_cost.trim() !== '' &&
+      Number.isFinite(Number(form.rabies_1_year_cost)) &&
+      Number(form.rabies_1_year_cost) > 0
+    );
+
+  const rabies3YearPriceValid =
+    !form?.rabies_3_year ||
+    form.rabies_3_year_free ||
+    (
+      form.rabies_3_year_cost.trim() !== '' &&
+      Number.isFinite(Number(form.rabies_3_year_cost)) &&
+      Number(form.rabies_3_year_cost) > 0
+    );
+
+  const microchipPriceValid =
+    !form?.microchip ||
+    form.microchip_free ||
+    (
+      form.microchip_cost.trim() !== '' &&
+      Number.isFinite(Number(form.microchip_cost)) &&
+      Number(form.microchip_cost) > 0
+    );
+
   const requiredClinicFieldsValid =
     !!form &&
     form.name.trim() !== '' &&
@@ -168,9 +221,12 @@ export default function EditClinic() {
     form.start_time.trim() !== '' &&
     form.end_time.trim() !== '';
 
-  const vaccineFieldsValid =
+    const vaccineFieldsValid =
     rabies1YearValid &&
-    rabies3YearValid;
+    rabies3YearValid &&
+    rabies1YearPriceValid &&
+    rabies3YearPriceValid &&
+    microchipPriceValid;
 
   const canSubmit =
     requiredClinicFieldsValid &&
@@ -219,7 +275,11 @@ export default function EditClinic() {
           default_product: form.rabies_1_year_product,
           default_lot_number: form.rabies_1_year_lot_number,
           default_product_expiration_date:
-            form.rabies_1_year_product_expiration_date
+            form.rabies_1_year_product_expiration_date,
+          free: form.rabies_1_year_free,
+          cost: form.rabies_1_year_free
+            ? 0
+            : Number(form.rabies_1_year_cost)
         },
         rabies_3_year: {
           enabled: form.rabies_3_year,
@@ -227,10 +287,18 @@ export default function EditClinic() {
           default_product: form.rabies_3_year_product,
           default_lot_number: form.rabies_3_year_lot_number,
           default_product_expiration_date:
-            form.rabies_3_year_product_expiration_date
+            form.rabies_3_year_product_expiration_date,
+          free: form.rabies_3_year_free,
+          cost: form.rabies_3_year_free
+            ? 0
+            : Number(form.rabies_3_year_cost)
         },
         microchip: {
-          enabled: form.microchip
+          enabled: form.microchip,
+          free: form.microchip_free,
+          cost: form.microchip_free
+            ? 0
+            : Number(form.microchip_cost)
         }
       };
       const cleanedForm = Object.fromEntries(
@@ -276,16 +344,36 @@ export default function EditClinic() {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
         <h2 className="mb-0">Edit Clinic</h2>
 
-        <Button
-          variant="danger"
-          onClick={() => setShowDeleteModal(true)}
-        >
-          <i className="fas fa-trash-alt me-1"></i>
-          Delete Clinic
-        </Button>
+        <div className="d-flex flex-column flex-sm-row justify-content-sm-end gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => navigate(`/clinics/${id}`)}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            variant="danger"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            <i className="fas fa-trash-alt me-1"></i>
+            Delete Clinic
+          </Button>
+
+          <Button
+            onClick={submit}
+            disabled={!canSubmit}
+            style={{
+              cursor: !canSubmit ? 'not-allowed' : 'pointer'
+            }}
+          >
+            <i className="fas fa-save me-1"></i>
+            Save Changes
+          </Button>
+        </div>
       </div>
 
       <Form>
@@ -298,7 +386,7 @@ export default function EditClinic() {
         </Form.Group>
 
         <Row className="mb-3">
-          <Col>
+          <Col xs={12} md={6}>
             <Form.Label>Location Name <span className="text-danger">*</span></Form.Label>
             <Form.Control
               value={form.location_name}
@@ -306,7 +394,7 @@ export default function EditClinic() {
             />
           </Col>
 
-          <Col>
+          <Col xs={12} md={6}>
             <Form.Label>Address <span className="text-danger">*</span></Form.Label>
             <Form.Control
               value={form.address}
@@ -316,7 +404,7 @@ export default function EditClinic() {
         </Row>
 
         <Row className="mb-3">
-          <Col>
+          <Col xs={12} md={6}>
             <Form.Label>City <span className="text-danger">*</span></Form.Label>
             <Form.Control
               value={form.city}
@@ -324,7 +412,7 @@ export default function EditClinic() {
             />
           </Col>
 
-          <Col>
+          <Col xs={12} md={6}>
             <Form.Label>State <span className="text-danger">*</span></Form.Label>
             <Form.Control
               value={form.state}
@@ -332,7 +420,7 @@ export default function EditClinic() {
             />
           </Col>
 
-          <Col>
+          <Col xs={12} md={6}>
             <Form.Label>Zip <span className="text-danger">*</span></Form.Label>
             <Form.Control
               inputMode="numeric"
@@ -476,7 +564,7 @@ export default function EditClinic() {
                     />
                   </Form.Group>
                 </Col>
-                                <Col xs={12}>
+                <Col xs={12}>
                   <Form.Group>
                     <Form.Label>
                       Dose Type <span className="text-danger">*</span>
@@ -502,6 +590,46 @@ export default function EditClinic() {
                       </option>
                     </Form.Select>
                   </Form.Group>
+                </Col>
+                <Col xs={12}>
+                  <div className="d-flex flex-wrap align-items-center gap-3 pt-2">
+                    <span className="text-muted small fw-semibold">
+                      Pricing
+                    </span>
+
+                    <Form.Check
+                      type="checkbox"
+                      label="Free"
+                      className="mb-0"
+                      checked={form.rabies_1_year_free}
+                      onChange={e =>
+                        update('rabies_1_year_free', e.target.checked)
+                      }
+                    />
+
+                    {!form.rabies_1_year_free && (
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="text-muted small">
+                          Price <span className="text-danger">*</span>
+                        </span>
+                        <span className="text-muted small">$</span>
+
+                        <div style={{ width: 130 }}>
+                          <Form.Control
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            placeholder="10.00"
+                            aria-label="Rabies 1-Year price in dollars"
+                            value={form.rabies_1_year_cost}
+                            onChange={e =>
+                              update('rabies_1_year_cost', e.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </Col>
               </Row>
             )}
@@ -601,7 +729,7 @@ export default function EditClinic() {
                     />
                   </Form.Group>
                 </Col>
-                                <Col xs={12}>
+                <Col xs={12}>
                   <Form.Group>
                     <Form.Label>
                       Dose Type <span className="text-danger">*</span>
@@ -628,6 +756,46 @@ export default function EditClinic() {
                     </Form.Select>
                   </Form.Group>
                 </Col>
+                <Col xs={12}>
+                  <div className="d-flex flex-wrap align-items-center gap-3 pt-2">
+                    <span className="text-muted small fw-semibold">
+                      Pricing
+                    </span>
+
+                    <Form.Check
+                      type="checkbox"
+                      label="Free"
+                      className="mb-0"
+                      checked={form.rabies_3_year_free}
+                      onChange={e =>
+                        update('rabies_3_year_free', e.target.checked)
+                      }
+                    />
+
+                    {!form.rabies_3_year_free && (
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="text-muted small">
+                          Price <span className="text-danger">*</span>
+                        </span>
+                        <span className="text-muted small">$</span>
+
+                        <div style={{ width: 130 }}>
+                          <Form.Control
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            placeholder="10.00"
+                            aria-label="Rabies 3-Year price in dollars"
+                            value={form.rabies_3_year_cost}
+                            onChange={e =>
+                              update('rabies_3_year_cost', e.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Col>
               </Row>
             )}
 
@@ -651,6 +819,50 @@ export default function EditClinic() {
                 );
               }}
             />
+            {form.microchip && (
+              <Row className="mt-2">
+                <Col xs={12}>
+                  <div className="d-flex flex-wrap align-items-center gap-3">
+                    <span className="text-muted small fw-semibold">
+                      Pricing
+                    </span>
+
+                    <Form.Check
+                      type="checkbox"
+                      label="Free"
+                      className="mb-0"
+                      checked={form.microchip_free}
+                      onChange={e =>
+                        update('microchip_free', e.target.checked)
+                      }
+                    />
+
+                    {!form.microchip_free && (
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="text-muted small">
+                          Price <span className="text-danger">*</span>
+                        </span>
+                        <span className="text-muted small">$</span>
+
+                        <div style={{ width: 130 }}>
+                          <Form.Control
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            placeholder="15.00"
+                            aria-label="Microchip price in dollars"
+                            value={form.microchip_cost}
+                            onChange={e =>
+                              update('microchip_cost', e.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Col>
+              </Row>
+            )}
 
             {!hasOfferings && (
               <div className="text-danger small mt-2">
@@ -697,11 +909,16 @@ export default function EditClinic() {
           <Button
             variant="secondary"
             onClick={() => navigate(`/clinics/${id}`)}
-            className="order-1 order-sm-1"
           >
             Cancel
           </Button>
-
+          <Button
+            variant="danger"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            <i className="fas fa-trash-alt me-1"></i>
+            Delete Clinic
+          </Button>
           <Button
             onClick={submit}
             disabled={!canSubmit}
@@ -710,7 +927,6 @@ export default function EditClinic() {
                 ? 'not-allowed'
                 : 'pointer'
             }}
-            className="order-2 order-sm-2"
           >
             <i className="fas fa-save me-1"></i>
             Save Changes

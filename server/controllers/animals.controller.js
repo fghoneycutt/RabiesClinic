@@ -19,11 +19,11 @@ exports.createAnimal = async (req, res) => {
       pattern,
       age_years,
       age_months,
+      approximate_weight,
       microchip_number,
       microchip_issuer,
       rabies_tag_number
     } = req.body;
-
 
     const result = await pool.query(
       `
@@ -41,13 +41,14 @@ exports.createAnimal = async (req, res) => {
         pattern,
         age_years,
         age_months,
+        approximate_weight,
         microchip_number,
         microchip_issuer,
         rabies_tag_number
       )
       VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,
-        $9,$10,$11,$12,$13,$14,$15,$16
+        $9,$10,$11,$12,$13,$14,$15,$16,$17
       )
       RETURNING *
       `,
@@ -65,28 +66,24 @@ exports.createAnimal = async (req, res) => {
         pattern || null,
         age_years,
         age_months,
+        approximate_weight ?? null,
         microchip_number || null,
         microchip_issuer || null,
         rabies_tag_number || null
       ]
     );
 
-
     res.status(201).json({
       success: true,
       animal: result.rows[0]
     });
-
-
   } catch (err) {
-
     console.error(err);
 
     res.status(500).json({
       success: false,
       error: err.message
     });
-
   }
 };
 
@@ -132,6 +129,26 @@ exports.updateAnimal = async (req, res) => {
     const { id } = req.params;
     const fields = req.body;
 
+    const allowedFields = new Set([
+      'owner_id',
+      'clinic_id',
+      'name',
+      'species',
+      'primary_breed',
+      'secondary_breed',
+      'sex',
+      'altered_status',
+      'primary_color',
+      'secondary_color',
+      'pattern',
+      'age_years',
+      'age_months',
+      'approximate_weight',
+      'microchip_number',
+      'microchip_issuer',
+      'rabies_tag_number'
+    ]);
+
     const keys = Object.keys(fields);
 
     if (keys.length === 0) {
@@ -141,8 +158,20 @@ exports.updateAnimal = async (req, res) => {
       });
     }
 
+    const invalidFields = keys.filter(
+      key => !allowedFields.has(key)
+    );
+
+    if (invalidFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid fields provided',
+        fields: invalidFields
+      });
+    }
+
     const setClause = keys
-      .map((key, index) => `${key} = $${index + 1}`)
+      .map((key, index) => `"${key}" = $${index + 1}`)
       .join(', ');
 
     const values = Object.values(fields);
@@ -157,20 +186,24 @@ exports.updateAnimal = async (req, res) => {
       [...values, id]
     );
 
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Animal not found'
+      });
+    }
+
     res.json({
       success: true,
       animal: result.rows[0]
     });
-
   } catch (err) {
-
     console.error(err);
 
     res.status(500).json({
       success: false,
       error: err.message
     });
-
   }
 };
 
@@ -180,24 +213,24 @@ exports.updateAnimal = async (req, res) => {
 async function createAnimalForOwner(req, res) {
   const { ownerId } = req.params;
 
-  const {
-    name,
-    species,
-    primary_breed,
-    secondary_breed,
-    sex,
-    altered_status,
-    age_years,
-    age_months,
-    primary_color,
-    secondary_color,
-    pattern,
-    rabies_tag_number,
-    microchip_number,
-    microchip_issuer
-  } = req.body;
-
   try {
+    const {
+      name,
+      species,
+      primary_breed,
+      secondary_breed,
+      sex,
+      altered_status,
+      age_years,
+      age_months,
+      approximate_weight,
+      primary_color,
+      secondary_color,
+      pattern,
+      rabies_tag_number,
+      microchip_number,
+      microchip_issuer
+    } = req.body;
 
     const result = await pool.query(
       `
@@ -211,6 +244,7 @@ async function createAnimalForOwner(req, res) {
         altered_status,
         age_years,
         age_months,
+        approximate_weight,
         primary_color,
         secondary_color,
         pattern,
@@ -219,8 +253,8 @@ async function createAnimalForOwner(req, res) {
         microchip_issuer
       )
       VALUES (
-        $1,$2,$3,$4,$5,$6,$7,
-        $8,$9,$10,$11,$12,$13,$14,$15
+        $1,$2,$3,$4,$5,$6,$7,$8,
+        $9,$10,$11,$12,$13,$14,$15,$16
       )
       RETURNING *
       `,
@@ -234,6 +268,7 @@ async function createAnimalForOwner(req, res) {
         altered_status,
         age_years,
         age_months,
+        approximate_weight ?? null,
         primary_color,
         secondary_color || null,
         pattern || null,
@@ -247,9 +282,7 @@ async function createAnimalForOwner(req, res) {
       success: true,
       animal: result.rows[0]
     });
-
   } catch (err) {
-
     console.error(err);
 
     res.status(500).json({
@@ -257,7 +290,6 @@ async function createAnimalForOwner(req, res) {
       message: 'Failed to create animal',
       error: err.message
     });
-
   }
 }
 

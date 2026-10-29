@@ -28,6 +28,7 @@ const EMPTY_ANIMAL: Omit<Animal, 'id'> = {
   secondary_breed: '',
   age_years: null,
   age_months: null,
+  approximate_weight: null,
   primary_color: '',
   secondary_color: '',
   pattern: '',

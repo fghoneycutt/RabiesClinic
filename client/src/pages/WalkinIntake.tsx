@@ -52,6 +52,8 @@ const EMPTY_ANIMAL: AnimalDraft = {
   age_years: null,
   age_months: null,
 
+  approximate_weight: null,
+
   primary_color: '',
   secondary_color: '',
 

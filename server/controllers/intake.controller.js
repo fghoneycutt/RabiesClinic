@@ -70,11 +70,8 @@ exports.createIntake = async (req, res) => {
       }
 
       if (existingOwner.rows.length > 0) {
-
         finalOwnerId = existingOwner.rows[0].id;
-
       } else {
-
         const ownerResult = await client.query(
           `
           INSERT INTO owners (
@@ -110,14 +107,12 @@ exports.createIntake = async (req, res) => {
       }
     }
 
-
     // ------------------------------------------------------------
     // FETCH ALL HISTORICAL ANIMALS FOR THIS OWNER
     // ------------------------------------------------------------
     let existingAnimals = [];
 
     if (finalOwnerId) {
-
       const existingAnimalsResult = await client.query(
         `
         SELECT
@@ -133,14 +128,11 @@ exports.createIntake = async (req, res) => {
       existingAnimals = existingAnimalsResult.rows;
     }
 
-
     // ------------------------
     // CASE 2: PROCESS ANIMALS
     // ------------------------
     for (const animal of animals) {
-
       if (!animal.name) continue;
-
 
       const matchedAnimal = existingAnimals.find(ea =>
         ea.name?.trim().toLowerCase() ===
@@ -150,9 +142,7 @@ exports.createIntake = async (req, res) => {
           animal.species?.trim().toLowerCase()
       );
 
-
       if (matchedAnimal) {
-
         // ------------------------
         // UPDATE EXISTING ANIMAL
         // ------------------------
@@ -170,15 +160,16 @@ exports.createIntake = async (req, res) => {
 
             age_years = $6,
             age_months = $7,
+            approximate_weight = $8,
 
-            primary_color = $8,
-            secondary_color = $9,
-            pattern = $10,
+            primary_color = $9,
+            secondary_color = $10,
+            pattern = $11,
 
-            microchip_number = $11,
-            microchip_issuer = $12
+            microchip_number = $12,
+            microchip_issuer = $13
 
-          WHERE id = $13
+          WHERE id = $14
           `,
           [
             clinic_id,
@@ -189,8 +180,9 @@ exports.createIntake = async (req, res) => {
 
             animal.altered_status,
 
-            animal.age_years,
-            animal.age_months,
+            clean(animal.age_years),
+            clean(animal.age_months),
+            clean(animal.approximate_weight),
 
             clean(animal.primary_color),
             clean(animal.secondary_color),
@@ -202,17 +194,13 @@ exports.createIntake = async (req, res) => {
             matchedAnimal.id
           ]
         );
-
-
       } else {
-
         // ------------------------
         // INSERT NEW ANIMAL
         // ------------------------
         await client.query(
           `
           INSERT INTO animals (
-
             owner_id,
             clinic_id,
 
@@ -227,6 +215,7 @@ exports.createIntake = async (req, res) => {
 
             age_years,
             age_months,
+            approximate_weight,
 
             primary_color,
             secondary_color,
@@ -235,13 +224,11 @@ exports.createIntake = async (req, res) => {
 
             microchip_number,
             microchip_issuer
-
           )
-
           VALUES (
             $1,$2,$3,$4,$5,
             $6,$7,$8,$9,$10,
-            $11,$12,$13,$14,$15
+            $11,$12,$13,$14,$15,$16
           )
           `,
           [
@@ -257,8 +244,9 @@ exports.createIntake = async (req, res) => {
             clean(animal.primary_breed),
             clean(animal.secondary_breed),
 
-            animal.age_years,
-            animal.age_months,
+            clean(animal.age_years),
+            clean(animal.age_months),
+            clean(animal.approximate_weight),
 
             clean(animal.primary_color),
             clean(animal.secondary_color),
@@ -272,18 +260,13 @@ exports.createIntake = async (req, res) => {
       }
     }
 
-
     await client.query('COMMIT');
-
 
     res.json({
       success: true,
       owner_id: finalOwnerId
     });
-
-
   } catch (err) {
-
     await client.query('ROLLBACK');
 
     console.error(err);
@@ -292,10 +275,7 @@ exports.createIntake = async (req, res) => {
       success: false,
       message: 'Failed to process intake'
     });
-
   } finally {
-
     client.release();
-
   }
 };
