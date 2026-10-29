@@ -405,7 +405,7 @@ exports.getClinicRegistrations = async (req, res) => {
       });
     }
 
-    // 3. Fetch detailed data (FIXED: Pulling rabies_tag_number from vaccinations table 'v')
+    // 3. Fetch detailed data
     const detailedRes = await pool.query(
       `
       SELECT
@@ -538,6 +538,7 @@ exports.exportClinicData = async (req, res) => {
         a.primary_breed,
         a.secondary_breed,
         a.sex,
+        a.approximate_weight AS weight,
         a.altered_status,
         a.primary_color,
         a.secondary_color,

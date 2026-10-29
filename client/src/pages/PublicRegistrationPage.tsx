@@ -90,7 +90,7 @@ export default function PublicRegistrationPage() {
     useState(false);
 
   const [submitted, setSubmitted] =
-    useState(false);
+    useState(true);
 
   const [error, setError] = useState('');
 
@@ -455,6 +455,12 @@ const checkIsClinicPast = () => {
                 <strong>Payment is accepted by cash or check only.</strong>{' '}
                 Please have your payment ready when you arrive.
               </p>
+              {clinic.offerings?.rabies_3_year?.enabled === true && (
+                <p className="mt-3 mb-0">
+                  <strong>Please note:</strong> Proof of a previous rabies vaccination
+                  is required to receive a three-year rabies vaccine.
+                </p>
+              )}
             </>
           ) : (
             <>
