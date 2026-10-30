@@ -90,7 +90,7 @@ export default function PublicRegistrationPage() {
     useState(false);
 
   const [submitted, setSubmitted] =
-    useState(true);
+    useState(false);
 
   const [error, setError] = useState('');
 
@@ -455,12 +455,6 @@ const checkIsClinicPast = () => {
                 <strong>Payment is accepted by cash or check only.</strong>{' '}
                 Please have your payment ready when you arrive.
               </p>
-              {clinic.offerings?.rabies_3_year?.enabled === true && (
-                <p className="mt-3 mb-0">
-                  <strong>Please note:</strong> Proof of a previous rabies vaccination
-                  is required to receive a three-year rabies vaccine.
-                </p>
-              )}
             </>
           ) : (
             <>
@@ -472,7 +466,13 @@ const checkIsClinicPast = () => {
             </>
           )}
         </Alert>
-
+        {clinic.offerings?.rabies_3_year?.enabled === true && (
+          <p className="mt-3 mb-0">
+            Proof of a previous rabies vaccination
+            is required to receive a three-year rabies vaccine.
+          </p>
+        )}
+        <p></p>
         <p>
           Please note that pre-registering does not
           guarantee you a spot and that we provide

@@ -32,6 +32,7 @@ type Props = {
   animal: Animal;
   clinic: Clinic;
   users: UserOption[];
+  isMobile?: boolean;
 
   updateAnimalLocal: (
     animalId: string,
@@ -50,15 +51,15 @@ export default function VaccineSection({
   animal,
   clinic,
   users,
+  isMobile = false,
   updateAnimalLocal
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const vaccination = animal.vaccinations?.[0];
-  if (!vaccination) return null;
-
   const [form, setForm] = useState<Vaccination | null>(null);
+  if (!vaccination) return null;
 
   const clean = (v: any) => (v === '' ? null : v);
 
@@ -205,280 +206,276 @@ export default function VaccineSection({
   // COLUMN WIDTHS
   // -----------------------------
   const colStyle = {
-    tag: { width: '110px' },
-    type: { width: '160px' },
-    product: { width: '170px' },
-    lot: { width: '130px' },
-    date: { width: '140px' },
-    vet: { width: '170px' },
-    exp: { width: '140px' }
+    tag: { minWidth: '90px' },
+    type: { minWidth: '110px' },
+    product: { minWidth: '140px' },
+    lot: { minWidth: '105px' },
+    date: { minWidth: '115px' },
+    vet: { minWidth: '140px' },
+    exp: { minWidth: '135px' }
   };
 
-  return (
-    <>
-      {/* FIX: REMOVE colSpan=50 (this was forcing full-width expansion) */}
-      <tr>
-        <td style={{ padding: 0 }}>
-          {/* KEY FIX: content-sized card instead of full-width stretch */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <Card
-              className="m-2 border-0 bg-light"
-              style={{
-                width: 'fit-content',
-                maxWidth: '100%'
-              }}
-            >
-              <Card.Body>
-
-                <div className="d-flex justify-content-end mb-2 gap-2">
-
-                {editing && (
-                  <>
-
-                    <Button
-                      size="sm"
-                      variant="outline-secondary"
-                      onClick={cancelEdit}
-                      className="text-nowrap"
-                    >
-                      <FontAwesomeIcon icon={faTimes} /> Cancel
-                    </Button>
-
-
-                    <Button
-                      size="sm"
-                      variant="outline-danger"
-                      onClick={() => setShowDeleteModal(true)}
-                      className="text-nowrap"
-                    >
-                      <FontAwesomeIcon icon={faTrashAlt} /> Delete
-                    </Button>
-
-                  </>
-                )}
-
+  const vaccineCard = (
+      <div className="animal-vaccine-card">
+        <Card style={{
+          width: '100%',
+          margin: 0,
+        }}>
+        <Card.Body>
+          <div className={`vaccine-toolbar d-flex justify-content-start mb-2 gap-2 ${isMobile ? 'vaccine-toolbar-mobile' : ''}`}>
+            {editing && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline-secondary"
+                  onClick={cancelEdit}
+                  className="text-nowrap"
+                >
+                  <FontAwesomeIcon icon={faTimes} /> Cancel
+                </Button>
 
                 <Button
                   size="sm"
-                  variant={editing ? 'success' : 'outline-primary'}
-                  onClick={() => {
-                    if (editing) {
-                      saveVaccination();
-                    } else {
-                      startEdit();
-                    }
-                  }}
+                  variant="outline-danger"
+                  onClick={() => setShowDeleteModal(true)}
                   className="text-nowrap"
                 >
-
-                  {editing ? (
-                    <>
-                      <FontAwesomeIcon icon={faSave} /> Save
-                    </>
-                  ) : (
-                    <>
-                      <FontAwesomeIcon icon={faEdit} /> Edit Vaccine
-                    </>
-                  )}
-
+                  <FontAwesomeIcon icon={faTrashAlt} /> Delete
                 </Button>
+              </>
+            )}
 
-              </div>
-
-                {/* KEY FIX: table no longer forced to w-100 */}
-                <Table
-                  size="sm"
-                  bordered
-                  style={{
-                    tableLayout: 'auto',
-                    width: 'auto'
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th style={colStyle.tag}>Tag #</th>
-                      <th style={colStyle.type}>Type</th>
-                      <th style={colStyle.product}>Product</th>
-                      <th style={colStyle.lot}>Lot #</th>
-                      <th style={colStyle.date}>Administered</th>
-                      <th style={colStyle.date}>Next Due</th>
-                      <th style={colStyle.vet}>Vaccinated By</th>
-                      <th style={colStyle.exp}>Product Expiration</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    <tr>
-                      <td>
-                        {editing ? (
-                          <Form.Control
-                            inputMode="numeric" 
-                            pattern="[0-9]*"
-                            size="sm"
-                            value={active.rabies_tag_number || ''}
-                            onChange={e =>
-                              updateField('rabies_tag_number', e.target.value)
-                            }
-                          />
-                        ) : (
-                          active.rabies_tag_number || '-'
-                        )}
-                      </td>
-
-                      <td>
-                        {editing ? (
-                          <Form.Select
-                            size="sm"
-                            value={active.vaccine_type || ''}
-                            onChange={e =>
-                              handleTypeChange(e.target.value as VaccineType)
-                            }
-                          >
-                            <option value=""></option>
-
-                            {clinic?.offerings?.rabies_1_year?.enabled && (
-                              <option value="rabies_1_year">
-                                1 Year
-                              </option>
-                            )}
-
-                            {clinic?.offerings?.rabies_3_year?.enabled && (
-                              <option value="rabies_3_year">
-                                3 Year
-                              </option>
-                            )}
-
-                          </Form.Select>
-                        ) : (
-                          active.vaccine_type?.includes('1_year')
-                            ? '1 Year'
-                            : active.vaccine_type?.includes('3_year')
-                            ? '3 Year'
-                            : '-'
-                        )}
-                      </td>
-
-                      <td>
-                        {editing ? (
-                          <Form.Select
-                            size="sm"
-                            value={active.product || ''}
-                            onChange={e => {
-                              const value = e.target.value;
-                              const match = RABIES_PRODUCT_MANUFACTURER.find(
-                                p => p.product === value
-                              );
-
-                              updateField('product', value);
-                              updateField('manufacturer', match?.manufacturer || '');
-                            }}
-                          >
-                            <option value=""></option>
-                            {RABIES_PRODUCT_MANUFACTURER.map(p => (
-                              <option
-                                key={`${p.product}-${p.manufacturer}`}
-                                value={p.product}
-                              >
-                                {p.product}
-                              </option>
-                            ))}
-                          </Form.Select>
-                        ) : (
-                          active.product
-                        )}
-                      </td>
-
-                      <td>
-                        {editing ? (
-                          <Form.Control
-                            inputMode="numeric" 
-                            pattern="[0-9]*"
-                            size="sm"
-                            value={active.lot_number || ''}
-                            onChange={e =>
-                              updateField('lot_number', e.target.value)
-                            }
-                          />
-                        ) : (
-                          active.lot_number || '-'
-                        )}
-                      </td>
-
-                      {/* --- Administered Column --- */}
-                      <td>
-                        {editing ? (
-                          <Form.Control
-                            size="sm"
-                            type="date"
-                            value={formatDateOnly(active.date_time_administered)}
-                            onChange={e =>
-                              updateField('date_time_administered', e.target.value)
-                            }
-                          />
-                        ) : (
-                          formatDisplayDate(active.date_time_administered)
-                        )}
-                      </td>
-
-                      {/* --- Next Due Column --- */}
-                      <td>
-                        {editing ? (
-                          <Form.Control
-                            size="sm"
-                            type="date"
-                            value={formatDateOnly(active.date_time_due)}
-                            onChange={e =>
-                              updateField('date_time_due', e.target.value)
-                            }
-                          />
-                        ) : (
-                          formatDisplayDate(active.date_time_due)
-                        )}
-                      </td>
-
-                      <td>
-                        {editing ? (
-                          <Form.Select
-                            size="sm"
-                            value={active.vaccinated_by || ''}
-                            onChange={e =>
-                              updateField('vaccinated_by', e.target.value)
-                            }
-                          >
-                            <option value=""></option>
-                            {users.map(u => (
-                              <option key={u.id} value={u.name}>
-                                {u.name}
-                              </option>
-                            ))}
-                          </Form.Select>
-                        ) : (
-                          active.vaccinated_by || '-'
-                        )}
-                      </td>
-
-                      <td>
-                        {editing ? (
-                          <Form.Control
-                            size="sm"
-                            type="date"
-                            value={formatDateOnly(active.product_expiration_date)}
-                            onChange={e =>
-                              updateField('product_expiration_date', e.target.value)
-                            }
-                          />
-                        ) : (
-                          formatDisplayDate(active.product_expiration_date)
-                        )}
-                      </td>
-                    </tr>
-                  </tbody>
-                </Table>
-              </Card.Body>
-            </Card>
+            <Button
+              size="sm"
+              variant={editing ? 'success' : 'outline-primary'}
+              onClick={() => {
+                if (editing) {
+                  saveVaccination();
+                } else {
+                  startEdit();
+                }
+              }}
+              className="text-nowrap"
+            >
+              {editing ? (
+                <>
+                  <FontAwesomeIcon icon={faSave} /> Save
+                </>
+              ) : (
+                <>
+                  <FontAwesomeIcon icon={faEdit} /> Edit Vaccine
+                </>
+              )}
+            </Button>
           </div>
+
+          <Table
+            size="sm"
+            bordered
+            className={isMobile ? 'vaccine-table-mobile' : 'vaccine-table-desktop'}
+            style={{
+              tableLayout: 'auto',
+              width: 'max-content',
+              marginBottom: 0
+            }}
+          >
+            <thead>
+              <tr>
+                <th style={colStyle.tag}>Tag #</th>
+                <th style={colStyle.type}>Type</th>
+                <th style={colStyle.product}>Product</th>
+                <th style={colStyle.lot}>Lot #</th>
+                <th style={colStyle.date}>Administered</th>
+                <th style={colStyle.date}>Next Due</th>
+                <th style={colStyle.vet}>Vaccinated By</th>
+                <th style={colStyle.exp}>Product Expiration</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr>
+                <td>
+                  {editing ? (
+                    <Form.Control
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      size="sm"
+                      value={active.rabies_tag_number || ''}
+                      onChange={e =>
+                        updateField('rabies_tag_number', e.target.value)
+                      }
+                    />
+                  ) : (
+                    active.rabies_tag_number || '-'
+                  )}
+                </td>
+
+                <td>
+                  {editing ? (
+                    <Form.Select
+                      size="sm"
+                      value={active.vaccine_type || ''}
+                      onChange={e =>
+                        handleTypeChange(e.target.value as VaccineType)
+                      }
+                    >
+                      <option value=""></option>
+
+                      {clinic?.offerings?.rabies_1_year?.enabled && (
+                        <option value="rabies_1_year">1 Year</option>
+                      )}
+
+                      {clinic?.offerings?.rabies_3_year?.enabled && (
+                        <option value="rabies_3_year">3 Year</option>
+                      )}
+                    </Form.Select>
+                  ) : (
+                    active.vaccine_type?.includes('1_year')
+                      ? '1 Year'
+                      : active.vaccine_type?.includes('3_year')
+                      ? '3 Year'
+                      : '-'
+                  )}
+                </td>
+
+                <td>
+                  {editing ? (
+                    <Form.Select
+                      size="sm"
+                      value={active.product || ''}
+                      onChange={e => {
+                        const value = e.target.value;
+                        const match = RABIES_PRODUCT_MANUFACTURER.find(
+                          p => p.product === value
+                        );
+
+                        updateField('product', value);
+                        updateField('manufacturer', match?.manufacturer || '');
+                      }}
+                    >
+                      <option value=""></option>
+                      {RABIES_PRODUCT_MANUFACTURER.map(p => (
+                        <option
+                          key={`${p.product}-${p.manufacturer}`}
+                          value={p.product}
+                        >
+                          {p.product}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  ) : (
+                    active.product
+                  )}
+                </td>
+
+                <td>
+                  {editing ? (
+                    <Form.Control
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      size="sm"
+                      value={active.lot_number || ''}
+                      onChange={e =>
+                        updateField('lot_number', e.target.value)
+                      }
+                    />
+                  ) : (
+                    active.lot_number || '-'
+                  )}
+                </td>
+
+                <td>
+                  {editing ? (
+                    <Form.Control
+                      size="sm"
+                      type="date"
+                      value={formatDateOnly(active.date_time_administered)}
+                      onChange={e =>
+                        updateField('date_time_administered', e.target.value)
+                      }
+                    />
+                  ) : (
+                    formatDisplayDate(active.date_time_administered)
+                  )}
+                </td>
+
+                <td>
+                  {editing ? (
+                    <Form.Control
+                      size="sm"
+                      type="date"
+                      value={formatDateOnly(active.date_time_due)}
+                      onChange={e =>
+                        updateField('date_time_due', e.target.value)
+                      }
+                    />
+                  ) : (
+                    formatDisplayDate(active.date_time_due)
+                  )}
+                </td>
+
+                <td>
+                  {editing ? (
+                    <Form.Select
+                      size="sm"
+                      value={active.vaccinated_by || ''}
+                      onChange={e =>
+                        updateField('vaccinated_by', e.target.value)
+                      }
+                    >
+                      <option value=""></option>
+                      {users.map(u => (
+                        <option key={u.id} value={u.name}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  ) : (
+                    active.vaccinated_by || '-'
+                  )}
+                </td>
+
+                <td>
+                  {editing ? (
+                    <Form.Control
+                      size="sm"
+                      type="date"
+                      value={formatDateOnly(active.product_expiration_date)}
+                      onChange={e =>
+                        updateField('product_expiration_date', e.target.value)
+                      }
+                    />
+                  ) : (
+                    formatDisplayDate(active.product_expiration_date)
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </Table>
+        </Card.Body>
+      </Card>
+    </div>
+  );
+
+  return (
+    <>
+      {isMobile ? (
+        <div className="animal-mobile-vaccine-content">
+          {vaccineCard}
+        </div>
+      ) : (
+       <tr className="animal-vaccine-row">
+        <td
+          colSpan={13}
+          style={{
+            padding: 0,
+            width: '100%',
+          }}
+        >
+          {vaccineCard}
         </td>
-      </tr>
+</tr>
+      )}
 
       <DeleteVaccineModal
         show={showDeleteModal}
@@ -486,15 +483,12 @@ export default function VaccineSection({
         vaccination={vaccination}
         onDeleted={async () => {
           try {
-            // 1. Fire the actual HTTP DELETE request to your backend controller route
             await api.delete(`/vaccinations/${vaccination.id}`);
-            
-            // 2. Clear local UI state only after the database returns a 200 OK success response
+
             updateAnimalLocal(animal.id, 'vaccinations', []);
             setEditing(false);
             setForm(null);
-            setShowDeleteModal(false); // Cleanly drop down the view modal overlay
-            
+            setShowDeleteModal(false);
           } catch (err) {
             console.error('Error deleting vaccination entry:', err);
             alert('Failed to delete vaccination record from the database.');

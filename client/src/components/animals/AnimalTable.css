@@ -1,0 +1,233 @@
+
+/* =========================================
+   GENERAL TABLE STYLING
+========================================= */
+
+/* Hide the old mobile actions row on desktop */
+.animal-table .animal-mobile-actions-row {
+  display: none;
+}
+
+/* Hide external mobile controls on desktop */
+.animal-mobile-actions-container {
+  display: none;
+}
+
+/* =========================================
+   DESKTOP ANIMAL TABLE
+========================================= */
+
+.animal-desktop-table {
+  position: relative;
+  overflow-x: auto;
+}
+
+/* Vaccine section on desktop */
+.animal-mobile-vaccine-scroll {
+  width: 100%;
+  overflow: visible;
+}
+
+.animal-mobile-vaccine-section {
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+/* Keep desktop vaccine section pinned during horizontal table scrolling */
+.animal-vaccine-row > td {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  background: white;
+}
+
+/* Keep vaccine card sized to its contents */
+.animal-vaccine-card {
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.animal-vaccine-card .card {
+  width: 100%;
+  margin: 0;
+}
+
+/* =========================================
+   MOBILE LAYOUT
+========================================= */
+
+.animal-mobile-list {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+
+  /* Hide desktop table */
+  .animal-desktop-table {
+    display: none;
+  }
+
+  /* Show mobile animal list */
+  .animal-mobile-list {
+    display: block;
+    width: 100%;
+  }
+
+  /* Individual animal container */
+  .animal-mobile-item {
+    width: 100%;
+    margin-bottom: 16px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+
+    /* Clip rounded corners without creating a scroll container */
+    overflow: clip;
+  }
+
+  /* =========================================
+     ANIMAL INFORMATION TABLE
+  ========================================= */
+
+  .animal-mobile-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Pin the Name header */
+  .animal-table thead .animal-name-header {
+    position: sticky;
+    left: 0;
+    z-index: 8;
+    background: white;
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  /* Pin the Name cell */
+  .animal-table tbody .animal-main-row > td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    background: white;
+    width: 1%;
+    white-space: nowrap;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Hide Rabies and Actions from the main table */
+  .animal-table .animal-rabies-cell,
+  .animal-table .animal-actions-cell {
+    display: none;
+  }
+
+  /* Hide old actions placeholder inside table */
+  .animal-table .animal-mobile-actions-row {
+    display: none;
+  }
+
+  /* =========================================
+     MOBILE ACTION BUTTONS
+  ========================================= */
+
+  .animal-mobile-actions-container {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .animal-mobile-actions-slot {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    border-bottom: 2px solid #dee2e6;
+  }
+
+  .animal-mobile-actions-slot .animal-controls-content,
+  .animal-controls-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .animal-mobile-control-group {
+    min-width: 0;
+  }
+
+  .animal-mobile-control-group .btn {
+    max-width: 100%;
+    white-space: nowrap;
+  }
+
+  /* =========================================
+   MOBILE VACCINE SECTION
+========================================= */
+
+/* Independent horizontal scrolling for vaccines */
+.animal-mobile-vaccine-scroll {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Allow the vaccine content to extend beyond
+   the visible screen width */
+.animal-mobile-vaccine-section {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+
+  padding: 10px;
+  background: white;
+  border-top: 1px solid #dee2e6;
+  box-sizing: border-box;
+}
+
+/* Allow the content wrapper to grow */
+.animal-mobile-vaccine-content {
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Let the vaccine card accommodate its table */
+.animal-mobile-vaccine-section .animal-vaccine-card {
+  width: max-content;
+  max-width: none;
+}
+
+/* Vaccine table */
+.vaccine-table-mobile {
+  width: max-content !important;
+  min-width: 100%;
+  table-layout: auto;
+  white-space: nowrap;
+}}
+
+/* Sticky vaccine controls on mobile */
+.vaccine-toolbar-mobile {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+
+  background: white;
+  padding: 8px 0;
+  margin-top: -8px;
+  margin-bottom: 8px !important;
+
+  width: 100%;
+}

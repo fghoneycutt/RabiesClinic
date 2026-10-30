@@ -1,6 +1,8 @@
 import Table from 'react-bootstrap/Table';
 import Button from 'react-bootstrap/Button';
 import Card from 'react-bootstrap/Card';
+import './AnimalTable.css';
+import { useState } from 'react';
 
 import {
   faPlus
@@ -13,6 +15,7 @@ import type {
 } from '../../types/intake';
 
 import AnimalRow from './AnimalRow';
+import VaccineSection from '../vaccines/VaccinationSection';
 
 type UserOption = {
   id: string;
@@ -61,6 +64,26 @@ export default function AnimalsTable({
   onDeleteAnimal,
   onAddAnimal
 }: Props) {
+
+  const [expandedMobileVaccines, setExpandedMobileVaccines] =
+    useState<Set<string>>(new Set());
+
+  const handleVaccineExpandChange = (
+    animalId: string,
+    expanded: boolean
+  ) => {
+    setExpandedMobileVaccines(previous => {
+      const next = new Set(previous);
+
+      if (expanded) {
+        next.add(animalId);
+      } else {
+        next.delete(animalId);
+      }
+
+      return next;
+    });
+  };
 
   const hasRabiesCertificates = animals.some(
     animal =>
@@ -121,6 +144,7 @@ export default function AnimalsTable({
 
         </div>
         <div
+          className="animal-desktop-table"
           style={{
             position: 'relative',
             overflowX: 'auto'
@@ -131,6 +155,7 @@ export default function AnimalsTable({
           striped
           bordered
           hover
+          className="animal-table"
           style={{
             minWidth: '1500px'
           }}
@@ -138,7 +163,7 @@ export default function AnimalsTable({
 
           <thead>
             <tr>
-              <th>Name</th>
+              <th className="animal-name-header">Name</th>
               <th>Species</th>
               <th>Breed</th>
               <th>Sex</th>
@@ -150,6 +175,7 @@ export default function AnimalsTable({
               <th>Microchip Number</th>
               <th>Microchip Issuer</th>
               <th
+                className="animal-rabies-cell"
                 style={{
                   position: 'sticky',
                   right: '90px',
@@ -162,7 +188,7 @@ export default function AnimalsTable({
               </th>
 
               <th
-                className="text-center"
+                className="animal-actions-cell text-center"
                 style={{
                   width: '90px',
                   whiteSpace: 'nowrap',
@@ -197,6 +223,85 @@ export default function AnimalsTable({
 
         </Table>
       </div>
+      {/* MOBILE ANIMAL LIST */}
+        <div className="animal-mobile-list">
+
+          {animals.map(animal => (
+            <div
+              key={animal.id}
+              className="animal-mobile-item"
+            >
+
+              <div className="animal-mobile-table-scroll">
+
+                <Table
+                  striped
+                  bordered
+                  hover
+                  className="animal-table"
+                  style={{ minWidth: '1500px' }}
+                >
+
+                  {/* MOBILE TABLE HEADERS */}
+                  <thead>
+                    <tr>
+                      <th className="animal-name-header">Name</th>
+                      <th>Species</th>
+                      <th>Breed</th>
+                      <th>Sex</th>
+                      <th>Altered</th>
+                      <th>Age</th>
+                      <th>Weight</th>
+                      <th>Color</th>
+                      <th>Pattern</th>
+                      <th>Microchip Number</th>
+                      <th>Microchip Issuer</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    <AnimalRow
+                      animal={animal}
+                      clinic={clinic}
+                      users={users}
+                      editing={editingAnimals.has(animal.id)}
+                      isMobile={true}
+                      onVaccineExpandChange={handleVaccineExpandChange}
+                      toggleAnimalEdit={toggleAnimalEdit}
+                      updateAnimalLocal={updateAnimalLocal}
+                      saveAnimalField={saveAnimalField}
+                      onDeleteAnimal={onDeleteAnimal}
+                    />
+                  </tbody>
+
+                </Table>
+
+              </div>
+
+              {/* MOBILE ACTIONS */}
+              <div className="animal-mobile-actions-slot">
+                <div id={`animal-actions-${animal.id}`} />
+              </div>
+              {/* MOBILE VACCINE INFORMATION */}
+              {expandedMobileVaccines.has(animal.id) && (
+              <div className="animal-mobile-vaccine-scroll">
+                <div className="animal-mobile-vaccine-section">
+                  <VaccineSection
+                    animal={animal}
+                    clinic={clinic}
+                    users={users}
+                    isMobile={true}
+                    updateAnimalLocal={updateAnimalLocal}
+                    saveAnimalField={saveAnimalField}
+                  />
+                </div>
+              </div>
+            )}
+
+            </div>
+          ))}
+
+        </div>
   
       </Card.Body>
 

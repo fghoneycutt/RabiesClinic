@@ -111,7 +111,7 @@ export default function AnimalEditableCells({
       <td
         style={
           editing
-            ? { minWidth: '180px' }
+            ? { minWidth: '110px' }
             : undefined
         }
       >

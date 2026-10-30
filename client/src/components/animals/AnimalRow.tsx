@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -7,6 +8,8 @@ import AnimalEditableCells from './AnimalEditableCells';
 import VaccineSection from '../vaccines/VaccinationSection';
 import AddRabiesModal from '../vaccines/AddRabiesModal';
 import DeleteAnimalModal from './DeleteAnimalModal';
+
+import AnimalRowActions from './AnimalRowActions';
 
 import type {
   Animal,
@@ -29,6 +32,12 @@ type Props = {
   users: UserOption[];
 
   editing: boolean;
+  isMobile?: boolean;
+
+  onVaccineExpandChange?: (
+    animalId: string,
+    expanded: boolean
+  ) => void;
 
   updateAnimalLocal: (
     animalId: string,
@@ -66,6 +75,8 @@ export default function AnimalRow({
   clinic,
   users,
   editing,
+  isMobile = false,
+  onVaccineExpandChange,
   updateAnimalLocal,
   saveAnimalField,
   toggleAnimalEdit,
@@ -247,10 +258,23 @@ export default function AnimalRow({
       ? draftAnimal
       : animal;
 
+  const [mobileActionsTarget, setMobileActionsTarget] =
+    useState<HTMLElement | null>(null);
 
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileActionsTarget(null);
+      return;
+    }
+
+    setMobileActionsTarget(
+      document.getElementById(`animal-actions-${animal.id}`)
+    );
+  }, [animal.id, isMobile]);
+  
   return (
     <>
-      <tr>
+      <tr className="animal-main-row">
 
         <AnimalEditableCells
           animal={displayedAnimal}
@@ -374,15 +398,17 @@ export default function AnimalRow({
         </td>
         {/* RABIES */}
 
-        <td
-          style={{
-            position: 'sticky',
-            right: '90px',
-            background: 'white',
-            zIndex: 5,
-            whiteSpace: 'nowrap'
-          }}
-        >
+        {!isMobile && (
+          <td
+            className="animal-rabies-cell"
+            style={{
+              position: 'sticky',
+              right: '90px',
+              background: 'white',
+              zIndex: 5,
+              whiteSpace: 'nowrap'
+            }}
+          >
           {!hasRabies ? (
             <Button
               size="sm"
@@ -401,11 +427,12 @@ export default function AnimalRow({
                   cursor: 'pointer',
                   userSelect: 'none'
                 }}
-                onClick={() =>
-                  setVaccineExpanded(
-                    prev => !prev
-                  )
-                }
+                onClick={() => {
+                  const next = !vaccineExpanded;
+
+                  setVaccineExpanded(next);
+                  onVaccineExpandChange?.(animal.id, next);
+                }}
               >
                 <strong>
                   {latestRabies?.rabies_tag_number}
@@ -439,18 +466,20 @@ export default function AnimalRow({
             </div>
           )}
         </td>
+        )}
         {/* ACTIONS */}
-        <td
-          className="text-center"
-          style={{
-            position: 'sticky',
-            right: 0,
-            background: 'white',
-            zIndex: 5,
-            width: 1,
-            whiteSpace: 'nowrap'
-          }}
-        >
+        {!isMobile && (
+          <td
+            className="animal-actions-cell text-center"
+            style={{
+              position: 'sticky',
+              right: 0,
+              background: 'white',
+              zIndex: 5,
+              width: 1,
+              whiteSpace: 'nowrap'
+            }}
+          >
           <div
             className="d-flex flex-column gap-1"
             style={{
@@ -502,36 +531,39 @@ export default function AnimalRow({
             )}
           </div>
         </td>
+        )}
       </tr>
-      {hasRabies &&
+      {isMobile && mobileActionsTarget &&
+        createPortal(
+          <AnimalRowActions
+            animal={animal}
+            editing={editing}
+            hasRabies={hasRabies}
+            latestRabies={latestRabies}
+            vaccineExpanded={vaccineExpanded}
+            setShowRabiesModal={setShowRabiesModal}
+            setShowDeleteModal={setShowDeleteModal}
+            setVaccineExpanded={(expanded) => {
+              setVaccineExpanded(expanded);
+              onVaccineExpandChange?.(animal.id, expanded);
+            }}
+            saveEdit={saveEdit}
+            cancelEdit={cancelEdit}
+            toggleAnimalEdit={toggleAnimalEdit}
+          />,
+          mobileActionsTarget
+        )}
+      {!isMobile &&
+        hasRabies &&
         vaccineExpanded &&
         latestRabies && (
-        <tr>
-          <td
-            colSpan={999}
-            style={{
-              padding: 0,
-              border: 0
-            }}
-          >
-            <div
-              style={{
-                position: 'sticky',
-                left: 0,
-                width: 'fit-content',
-                maxWidth: 'none'
-              }}
-            >
-              <VaccineSection
-                animal={animal}
-                clinic={clinic}
-                users={users}
-                updateAnimalLocal={updateAnimalLocal}
-                saveAnimalField={saveAnimalField}
-              />
-            </div>
-          </td>
-        </tr>
+          <VaccineSection
+            animal={animal}
+            clinic={clinic}
+            users={users}
+            updateAnimalLocal={updateAnimalLocal}
+            saveAnimalField={saveAnimalField}
+          />
       )}
       <AddRabiesModal
         show={showRabiesModal}
