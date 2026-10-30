@@ -23,6 +23,7 @@ const EMPTY_OWNER: OwnerDraft = {
   email: '',
   phone: '',
   address: '',
+  secondary_address: '',
   city: '',
   county: '',
   state: 'NC',

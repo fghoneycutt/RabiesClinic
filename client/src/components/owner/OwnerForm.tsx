@@ -168,10 +168,11 @@ export default function OwnerForm({
         </Col>
       </Row>
 
+      
       {/* ADDRESS */}
       <Form.Group className="mb-3">
         <Form.Label>
-          Address{' '}
+          Street Address 1{' '}
           <span className="text-danger">*</span>
         </Form.Label>
 
@@ -191,6 +192,26 @@ export default function OwnerForm({
         <Form.Control.Feedback type="invalid">
           Street address is required.
         </Form.Control.Feedback>
+      </Form.Group>
+
+      {/* SECONDARY ADDRESS (OPTIONAL) */}
+      <Form.Group className="mb-3">
+        <Form.Label>
+          Street Address 2{' '}
+          <span className="text-muted">(Optional)</span>
+        </Form.Label>
+
+        <Form.Control
+          type="text"
+          value={owner.secondary_address || ''}
+          placeholder="Apartment, suite, unit, building, etc."
+          onChange={(e) =>
+            update(
+              'secondary_address',
+              e.target.value
+            )
+          }
+        />
       </Form.Group>
 
       {/* CITY + COUNTY */}

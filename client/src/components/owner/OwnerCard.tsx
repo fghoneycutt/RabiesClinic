@@ -193,7 +193,7 @@ export default function OwnerCard({
 
             <div className="col-12">
               <Form.Label className="small fw-bold">
-                Street Address <span className="text-danger">*</span>
+                Street Address 1<span className="text-danger">*</span>
               </Form.Label>
 
               <Form.Control
@@ -202,6 +202,21 @@ export default function OwnerCard({
                 value={draftOwner.address}
                 onChange={e =>
                   updateDraftField('address', e.target.value)
+                }
+              />
+            </div>
+
+            <div className="col-12">
+              <Form.Label className="small fw-bold">
+                Street Address 2 <span className="text-muted">(Optional)</span>
+              </Form.Label>
+
+              <Form.Control
+                size="sm"
+                value={draftOwner.secondary_address ?? ''}
+                placeholder="Apartment, suite, unit, building, etc."
+                onChange={e =>
+                  updateDraftField('secondary_address', e.target.value)
                 }
               />
             </div>
@@ -314,8 +329,15 @@ export default function OwnerCard({
                   Address
                 </span>
 
-                {owner.address}, {owner.city}, {owner.state}{' '}
-                {owner.zip_code}
+                {owner.address}
+
+                {owner.secondary_address && (
+                  <span className="d-block">
+                    {owner.secondary_address}
+                  </span>
+                )}
+
+                {owner.city}, {owner.state} {owner.zip_code}
 
                 <span className="d-block text-muted small">
                   ({owner.county} County)

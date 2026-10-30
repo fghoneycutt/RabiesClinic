@@ -1,5 +1,6 @@
 const pool = require('../db');
 
+
 // CREATE OWNER
 exports.createOwner = async (req, res) => {
   try {
@@ -7,6 +8,7 @@ exports.createOwner = async (req, res) => {
       first_name,
       last_name,
       address,
+      secondary_address,
       county,
       city,
       state,
@@ -21,6 +23,7 @@ exports.createOwner = async (req, res) => {
         first_name,
         last_name,
         address,
+        secondary_address,
         county,
         city,
         state,
@@ -28,13 +31,14 @@ exports.createOwner = async (req, res) => {
         email,
         phone
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       RETURNING *
       `,
       [
         first_name,
         last_name,
         address,
+        secondary_address || null,
         county,
         city,
         state,
@@ -71,6 +75,7 @@ exports.updateOwner = async (req, res) => {
       first_name,
       last_name,
       address,
+      secondary_address,
       county,
       city,
       state,
@@ -86,19 +91,21 @@ exports.updateOwner = async (req, res) => {
         first_name = $1,
         last_name = $2,
         address = $3,
-        county = $4,
-        city = $5,
-        state = $6,
-        zip_code = $7,
-        email = $8,
-        phone = $9
-      WHERE id = $10
+        secondary_address = $4,
+        county = $5,
+        city = $6,
+        state = $7,
+        zip_code = $8,
+        email = $9,
+        phone = $10
+      WHERE id = $11
       RETURNING *
       `,
       [
         first_name,
         last_name,
         address,
+        secondary_address || null,
         county,
         city,
         state,

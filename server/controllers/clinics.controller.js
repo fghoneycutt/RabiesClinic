@@ -506,16 +506,20 @@ exports.getClinicRegistrations = async (req, res) => {
   }
 };
 
+
 // -----------------------------------
 // EXPORT CLINIC DATA
 // -----------------------------------
 exports.exportClinicData = async (req, res) => {
   try {
     // Safety check: fall back to clinicId if your router uses nested params
-    const id = req.params.id || req.params.clinicId; 
+    const id = req.params.id || req.params.clinicId;
 
     if (!id) {
-      return res.status(400).json({ success: false, error: 'Clinic ID is required' });
+      return res.status(400).json({
+        success: false,
+        error: 'Clinic ID is required'
+      });
     }
 
     const result = await pool.query(
@@ -527,6 +531,7 @@ exports.exportClinicData = async (req, res) => {
         o.phone AS phone,
         o.email AS email,
         o.address AS address,
+        o.secondary_address AS secondary_address,
         o.city AS city,
         o.county AS county,
         o.state AS state,
@@ -574,23 +579,23 @@ exports.exportClinicData = async (req, res) => {
       JOIN owners o ON o.id = a.owner_id
       JOIN clinics c ON c.id = a.clinic_id
       LEFT JOIN LATERAL (
-      SELECT
-        v.vaccine_type,
-        v.product,
-        v.manufacturer,
-        v.lot_number,
-        v.rabies_tag_number,
-        v.vaccinated_by,
-        v.supervising_veterinarian,
-        v.date_time_administered,
-        v.date_time_due,
-        v.product_expiration_date
-      FROM vaccinations v
-      WHERE v.animal_id = a.id
-        AND v.is_active = true
-      ORDER BY v.date_time_administered DESC, v.created_at DESC
-      LIMIT 1
-    ) v ON true
+        SELECT
+          v.vaccine_type,
+          v.product,
+          v.manufacturer,
+          v.lot_number,
+          v.rabies_tag_number,
+          v.vaccinated_by,
+          v.supervising_veterinarian,
+          v.date_time_administered,
+          v.date_time_due,
+          v.product_expiration_date
+        FROM vaccinations v
+        WHERE v.animal_id = a.id
+          AND v.is_active = true
+        ORDER BY v.date_time_administered DESC, v.created_at DESC
+        LIMIT 1
+      ) v ON true
       WHERE c.id = $1
         AND (
           NULLIF(TRIM(COALESCE(a.microchip_number, '')), '') IS NOT NULL
@@ -614,18 +619,38 @@ exports.exportClinicData = async (req, res) => {
     // CREATE EXCEL FILE
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Clinic Export');
 
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      'Clinic Export'
+    );
+
+    const buffer = XLSX.write(workbook, {
+      type: 'buffer',
+      bookType: 'xlsx'
+    });
 
     // SEND FILE
-    res.setHeader('Content-Disposition', `attachment; filename=clinic_${id}_export.xlsx`);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=clinic_${id}_export.xlsx`
+    );
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+
     return res.send(buffer);
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, error: err.message });
+
+    return res.status(500).json({
+      success: false,
+      error: err.message
+    });
   }
 };
 

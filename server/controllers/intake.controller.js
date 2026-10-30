@@ -1,5 +1,6 @@
 const pool = require('../db');
 
+
 exports.createIntake = async (req, res) => {
   const {
     owner,
@@ -80,26 +81,28 @@ exports.createIntake = async (req, res) => {
             email,
             phone,
             address,
+            secondary_address,
             city,
             county,
             state,
             zip_code
           )
           VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10
           )
           RETURNING id
           `,
           [
             owner.first_name,
             owner.last_name,
-            owner.email || null,
-            owner.phone,
-            owner.address || null,
-            owner.city || null,
-            owner.county || null,
-            owner.state || null,
-            owner.zip_code || null
+            clean(owner.email),
+            clean(owner.phone),
+            clean(owner.address),
+            clean(owner.secondary_address),
+            clean(owner.city),
+            clean(owner.county),
+            clean(owner.state),
+            clean(owner.zip_code)
           ]
         );
 
