@@ -5,21 +5,21 @@ import {
   useSearchParams
 } from 'react-router-dom';
 
-import { api } from '../api/api';
-import { useClinic } from '../hooks/useClinics';
+import { api } from '../../api/api';
+import { useClinic } from '../../hooks/useClinics';
 
-import ClinicHeader from '../components/clinics/ClinicHeader';
-import OwnerForm from '../components/owner/OwnerForm';
-import AnimalForm from '../components/animals/AnimalForm';
+import ClinicHeader from '../../components/clinics/ClinicHeader';
+import OwnerForm from '../../components/owner/OwnerForm';
+import AnimalForm from '../../components/animals/AnimalForm';
 
-import { isOwnerValid } from '../utils/ownerValidation';
+import { isOwnerValid } from '../../utils/ownerValidation';
 
 import Button from 'react-bootstrap/Button';
 
 import type {
   OwnerDraft,
   AnimalDraft
-} from '../types/intake';
+} from '../../types/intake';
 
 // ----------------------
 // EMPTY OWNER (FORM STATE)

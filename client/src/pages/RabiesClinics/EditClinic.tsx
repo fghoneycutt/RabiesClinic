@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { api } from '../api/api';
-import DeleteClinicModal from '../components/clinics/DeleteClinicModal';
+import { api } from '../../api/api';
+import DeleteClinicModal from '../../components/clinics/DeleteClinicModal';
 
-import { RABIES_PRODUCT_MANUFACTURER } from '../constants/animalOptions';
+import { RABIES_PRODUCT_MANUFACTURER } from '../../constants/animalOptions';
 
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';

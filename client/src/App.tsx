@@ -19,14 +19,20 @@ import AdminCreateUserPage from './pages/AdminCreateUserPage';
 import AdminUserListPage from './pages/AdminUserListPage';
 import NotFoundPage from './pages/NotFoundPage';
 
-import WalkinIntake from './pages/WalkinIntake';
-import PublicRegistrationPage from './pages/PublicRegistrationPage';
-import NextClinicRegistrationPage from './pages/NextClinicRegistrationPage';
+import WalkinIntake from './pages/RabiesClinics/WalkinIntake';
+import PublicRegistrationPage from './pages/RabiesClinics/PublicRegistrationPage';
+import NextClinicRegistrationPage from './pages/RabiesClinics/NextClinicRegistrationPage';
 
-import CreateClinic from './pages/CreateClinic';
-import EditClinic from './pages/EditClinic';
-import ClinicPage from './pages/ClinicPage';
-import OwnerProfilePage from './pages/OwnerProfilePage';
+import CreateClinic from './pages/RabiesClinics/CreateClinic';
+import EditClinic from './pages/RabiesClinics/EditClinic';
+import ClinicPage from './pages/RabiesClinics/ClinicPage';
+import ClinicList from './pages/RabiesClinics/ClinicList';
+import OwnerProfilePage from './pages/RabiesClinics/OwnerProfilePage';
+
+import SurrenderForms from './pages/Forms/SurrenderForms';
+import SurrenderFormBuilder from './pages/Forms/SurrenderFormBuilder';
+import PublicSurrenderForm from './pages/Forms/PublicSurrenderForm';
+import SurrenderSubmissionReview from './pages/Forms/SurrenderSubmissionReview';
 
 // -----------------------------------
 // APP LAYOUT
@@ -36,7 +42,8 @@ function AppLayout() {
 
   const hideNavbar =
     location.pathname === '/register/next-clinic' ||
-    /^\/clinics\/[^/]+\/register$/.test(location.pathname);
+    /^\/clinics\/[^/]+\/register$/.test(location.pathname) ||
+    location.pathname.startsWith('/surrender/');
 
   return (
     <>
@@ -44,11 +51,9 @@ function AppLayout() {
 
       <Container className="py-4">
         <Routes>
-
           {/* -------------------- */}
           {/* PUBLIC ROUTES */}
           {/* -------------------- */}
-
           <Route
             path="/login"
             element={<LoginPage />}
@@ -64,52 +69,66 @@ function AppLayout() {
             element={<PublicRegistrationPage />}
           />
 
-
+          <Route
+            path="/surrender/:slug"
+            element={<PublicSurrenderForm />}
+          />
 
           {/* -------------------- */}
           {/* PROTECTED ROUTES */}
           {/* -------------------- */}
 
           <Route element={<ProtectedRoute />}>
-
             <Route
               path="/"
               element={<Home />}
             />
-
+            <Route
+              path="/clinic-list"
+              element={<ClinicList />}
+            />
             <Route
               path="/clinics/new"
               element={<CreateClinic />}
             />
-
             <Route
               path="/clinics/:id/edit"
               element={<EditClinic />}
             />
-
             <Route
               path="/clinics/:id"
               element={<ClinicPage />}
             />
-
             <Route
               path="/clinics/:id/intake"
               element={<WalkinIntake />}
             />
-
             <Route
               path="/clinics/:clinicId/owners/:ownerId"
               element={<OwnerProfilePage />}
             />
-
             <Route
               path="/admin/create-users"
               element={<AdminCreateUserPage />}
             />
-
             <Route
               path="/admin/users"
               element={<AdminUserListPage />}
+            />
+            {/* Forms */}
+            <Route
+              path="/surrender-forms"
+              element={<SurrenderForms />}
+            />
+
+            <Route
+              path="/surrender-forms/:id/edit"
+              element={<SurrenderFormBuilder/>}
+            />
+
+            <Route
+              path="/surrender-submissions/:id"
+              element={<SurrenderSubmissionReview/>}
             />
 
             {/* Logged-in users get actual 404 page */}

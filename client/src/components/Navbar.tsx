@@ -26,7 +26,7 @@ export default function AppNavbar() {
 
         {/* Brand */}
         <Navbar.Brand as={Link} to="/">
-          Rabies Clinic
+          ShelterHelper
         </Navbar.Brand>
 
         <Navbar.Toggle aria-controls="basic-navbar-nav" />

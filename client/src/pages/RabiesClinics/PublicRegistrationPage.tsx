@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { api } from '../api/api';
-import { useClinic } from '../hooks/useClinics';
+import { api } from '../../api/api';
+import { useClinic } from '../../hooks/useClinics';
 
-import OwnerForm from '../components/owner/OwnerForm';
-import AnimalForm from '../components/animals/AnimalForm';
+import OwnerForm from '../../components/owner/OwnerForm';
+import AnimalForm from '../../components/animals/AnimalForm';
 
 import Button from 'react-bootstrap/Button';
 import Alert from 'react-bootstrap/Alert';
 
-import type { OwnerDraft, AnimalDraft } from '../types/intake';
+import type { OwnerDraft, AnimalDraft } from '../../types/intake';
 
-import { isOwnerValid } from '../utils/ownerValidation';
+import { isOwnerValid } from '../../utils/ownerValidation';
 
 // ----------------------
 // EMPTY OWNER

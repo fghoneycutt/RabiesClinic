@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-import { api } from '../api/api';
-import { useClinic } from '../hooks/useClinics';
+import { api } from '../../api/api';
+import { useClinic } from '../../hooks/useClinics';
 
-import ClinicHeader from '../components/clinics/ClinicHeader';
-import OwnerCard from '../components/owner/OwnerCard';
-import AnimalsTable from '../components/animals/AnimalsTable';
-import AddAnimalModal from '../components/animals/AddAnimalModal';
+import ClinicHeader from '../../components/clinics/ClinicHeader';
+import OwnerCard from '../../components/owner/OwnerCard';
+import AnimalsTable from '../../components/animals/AnimalsTable';
+import AddAnimalModal from '../../components/animals/AddAnimalModal';
 
 import Button from 'react-bootstrap/Button';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
 
-import type { Owner, Animal } from '../types/intake';
+import type { Owner, Animal } from '../../types/intake';
 
 type UserOption = {
   id: string;
