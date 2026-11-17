@@ -8,10 +8,14 @@ const formsController = require('../controllers/forms.controllers');
 // FORM MANAGEMENT
 // ==========================================
 
-// Create a new form
+// Create a new form (including its form_type)
 router.post('/', formsController.createForm);
 
-// List all forms
+// List forms, optionally filtered by form_type
+// Examples:
+// GET /forms
+// GET /forms?form_type=surrender
+// GET /forms?form_type=rescue
 router.get('/', formsController.getForms);
 
 // ==========================================

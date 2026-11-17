@@ -8,16 +8,15 @@ import Card from 'react-bootstrap/Card';
 import Form from 'react-bootstrap/Form';
 import Spinner from 'react-bootstrap/Spinner';
 
-import { api } from '../../api/api';
+import { api } from '../../../api/api';
 
-// Adjust these two paths if your component folders differ.
-import OwnerForm from '../../components/owner/OwnerForm';
-import AnimalForm from '../../components/animals/AnimalForm';
+import OwnerForm from '../../../components/owner/OwnerForm';
+import AnimalForm from '../../../components/animals/AnimalForm';
 
 import type {
   OwnerDraft,
   AnimalDraft
-} from '../../types/intake';
+} from '../../../types/intake';
 
 type QuestionType =
   | 'short_text'
@@ -30,7 +29,8 @@ type QuestionType =
   | 'date'
   | 'content'
   | 'owner_information'
-  | 'animal_information';
+  | 'animal_information'
+  | 'file_upload';
 
 interface Condition {
   questionId: string;
@@ -49,6 +49,8 @@ interface Question {
   condition?: Condition;
   animalCountSource?: 'fixed' | 'question';
   animalCountQuestionId?: string;
+  fileAccept?: string;
+  allowMultipleFiles?: boolean;
 }
 
 interface Section {
@@ -183,8 +185,8 @@ const replaceAnimalPlaceholder = (
     species === 'dog'
       ? 'dog'
       : species === 'cat'
-      ? 'cat'
-      : 'animal';
+        ? 'cat'
+        : 'animal';
 
   return text
     .replace(/\[ANIMAL\]/gi, animalWord)
@@ -192,21 +194,59 @@ const replaceAnimalPlaceholder = (
     .replace(/\{animal\}/gi, animalWord);
 };
 
+const isAcceptedFile = (file: File, accept?: string): boolean => {
+  if (!accept?.trim()) return true;
+
+  const acceptedTypes = accept
+    .split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (acceptedTypes.length === 0) return true;
+
+  const fileName = file.name.toLowerCase();
+
+  return acceptedTypes.some(type => {
+    if (type.startsWith('.')) {
+      return fileName.endsWith(type);
+    }
+
+    if (type.endsWith('/*')) {
+      return file.type.startsWith(type.slice(0, -1));
+    }
+
+    return file.type === type;
+  });
+};
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} bytes`;
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 const validateOwner = (owner: OwnerDraft): string[] => {
   const errors: string[] = [];
 
-  if (!owner.first_name.trim()) errors.push('Owner first name is required.');
-  if (!owner.last_name.trim()) errors.push('Owner last name is required.');
+  if (!owner.first_name.trim()) {
+    errors.push('Owner first name is required.');
+  }
+
+  if (!owner.last_name.trim()) {
+    errors.push('Owner last name is required.');
+  }
 
   const email = owner.email.trim();
-  if (
-    !email ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-  ) {
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.push('A valid email address is required.');
   }
 
   const phoneDigits = owner.phone.replace(/\D/g, '');
+
   if (phoneDigits.length !== 10) {
     errors.push('A valid 10-digit phone number is required.');
   }
@@ -261,18 +301,21 @@ const validateAnimal = (
     animal.microchip_number?.trim() &&
     !animal.microchip_issuer?.trim()
   ) {
-    errors.push(`${prefix}: Microchip issuer is required when a microchip number is provided.`);
+    errors.push(
+      `${prefix}: Microchip issuer is required when a microchip number is provided.`
+    );
   }
 
   return errors;
 };
 
-export default function PublicSurrenderForm() {
+export default function PublicRescueApplication() {
   const { slug } = useParams<{ slug: string }>();
 
   const [form, setForm] = useState<PublicForm | null>(null);
   const [responses, setResponses] = useState<Responses>({});
   const [owner, setOwner] = useState<OwnerDraft>({ ...emptyOwner });
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -281,7 +324,7 @@ export default function PublicSurrenderForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
 
-  document.title = 'Animal Surrender Application'
+  document.title = 'Rescue Group Application';
 
   useEffect(() => {
     const loadForm = async () => {
@@ -298,15 +341,13 @@ export default function PublicSurrenderForm() {
         const response = await api.get(`/forms/public/${slug}`);
 
         setForm(response.data);
-
       } catch (error: any) {
-        console.error('Unable to load public surrender form:', error);
+        console.error('Unable to load public rescue application:', error);
 
         setLoadError(
           error.response?.data?.message ||
-          'This surrender form could not be found or is not currently available.'
+          'This rescue group application could not be found or is not currently available.'
         );
-
       } finally {
         setLoading(false);
       }
@@ -335,7 +376,6 @@ export default function PublicSurrenderForm() {
   }, [visibleSections, responses]);
 
   // Remove answers belonging to questions that have become hidden.
-  // The backend rejects answers to hidden or nonexistent questions.
   useEffect(() => {
     setResponses(previous => {
       let changed = false;
@@ -412,10 +452,7 @@ export default function PublicSurrenderForm() {
     setValidationErrors([]);
   };
 
-  const resizeAnimals = (
-    questionId: string,
-    count: number
-  ) => {
+  const resizeAnimals = (questionId: string, count: number) => {
     setResponses(previous => {
       const current: AnimalDraft[] =
         Array.isArray(previous[questionId])
@@ -435,33 +472,89 @@ export default function PublicSurrenderForm() {
     });
   };
 
-  
-    const removeAnimal = (question: Question, index: number) => {
+  const removeAnimal = (question: Question, index: number) => {
     if (question.animalCountSource !== 'question') return;
 
     const countQuestionId = question.animalCountQuestionId;
     if (!countQuestionId) return;
 
     setResponses(previous => {
-        const current: AnimalDraft[] = Array.isArray(previous[question.id])
+      const current: AnimalDraft[] = Array.isArray(previous[question.id])
         ? [...previous[question.id]]
         : [];
 
-        current.splice(index, 1);
+      current.splice(index, 1);
 
-        const currentCount = Number(previous[countQuestionId] || 0);
+      const currentCount = Number(previous[countQuestionId] || 0);
 
-        return {
+      return {
         ...previous,
         [question.id]: current,
         [countQuestionId]: Math.max(0, currentCount - 1)
-        };
+      };
     });
-    };
+  };
 
+  const getSelectedSpecies = (): string => {
+    for (const section of visibleSections) {
+      for (const question of getVisibleQuestions(section, responses)) {
+        if (question.type === 'animal_information') {
+          const animals = responses[question.id];
+
+          if (Array.isArray(animals) && animals[0]?.species) {
+            return animals[0].species;
+          }
+        }
+      }
+    }
+
+    return '';
+  };
+
+  const handleFileChange = (
+    question: Question,
+    selectedFiles: FileList | null
+  ) => {
+    if (!selectedFiles) return;
+
+    const files = Array.from(selectedFiles);
+    const acceptedFiles = files.filter(file =>
+      isAcceptedFile(file, question.fileAccept)
+    );
+
+    const rejectedFiles = files.filter(file =>
+      !isAcceptedFile(file, question.fileAccept)
+    );
+
+    const existingFiles: File[] = Array.isArray(responses[question.id])
+      ? responses[question.id]
+      : [];
+
+    const nextFiles = question.allowMultipleFiles === false
+      ? acceptedFiles.slice(0, 1)
+      : [...existingFiles, ...acceptedFiles];
+
+    updateResponse(question.id, nextFiles);
+
+    if (rejectedFiles.length > 0) {
+      setSubmitError(
+        `Some files were not added because they do not match the accepted file types for "${question.label}".`
+      );
+    }
+  };
+
+  const removeFile = (questionId: string, index: number) => {
+    const currentFiles: File[] = Array.isArray(responses[questionId])
+      ? [...responses[questionId]]
+      : [];
+
+    currentFiles.splice(index, 1);
+    updateResponse(questionId, currentFiles);
+  };
 
   const renderQuestion = (question: Question) => {
     const value = responses[question.id];
+
     const label = replaceAnimalPlaceholder(
       question.label || '',
       getSelectedSpecies()
@@ -528,6 +621,7 @@ export default function PublicSurrenderForm() {
               required={question.required}
               onChange={e => {
                 const raw = e.target.value;
+
                 updateResponse(
                   question.id,
                   raw === '' ? '' : Number(raw)
@@ -657,12 +751,6 @@ export default function PublicSurrenderForm() {
         const animals: AnimalDraft[] =
           Array.isArray(value) ? value : [];
 
-        // Keep the response array aligned with the selected count.
-        if (animals.length !== count) {
-          // Resizing is performed after render to avoid changing state here.
-          // The effect below handles this synchronization.
-        }
-
         return (
           <div className="mb-3">
             {question.animalCountSource === 'question' && (
@@ -697,25 +785,72 @@ export default function PublicSurrenderForm() {
         );
       }
 
+      case 'file_upload': {
+        const files: File[] = Array.isArray(value) ? value : [];
+
+        return (
+          <Form.Group className="mb-3">
+            <Form.Label>
+              {label}
+              {question.required && <span className="text-danger"> *</span>}
+            </Form.Label>
+
+            <Form.Control
+              type="file"
+              accept={question.fileAccept || undefined}
+              multiple={question.allowMultipleFiles ?? true}
+              onChange={e => {
+                const input = e.currentTarget as HTMLInputElement;
+                handleFileChange(question, input.files);
+                input.value = '';
+              }}
+            />
+
+            <Form.Text className="text-muted d-block mt-1">
+              {question.fileAccept
+                ? `Accepted file types: ${question.fileAccept}`
+                : 'You may upload any file type.'}
+
+              {question.allowMultipleFiles === false
+                ? ' One file may be uploaded.'
+                : ' Multiple files may be uploaded.'}
+            </Form.Text>
+
+            {files.length > 0 && (
+              <div className="mt-3">
+                <p className="fw-semibold mb-2">Selected files:</p>
+
+                {files.map((file, index) => (
+                  <div
+                    key={`${file.name}-${file.lastModified}-${index}`}
+                    className="d-flex align-items-center justify-content-between border rounded p-2 mb-2"
+                  >
+                    <div className="me-3" style={{ minWidth: 0 }}>
+                      <div className="text-break">{file.name}</div>
+                      <small className="text-muted">
+                        {formatFileSize(file.size)}
+                      </small>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => removeFile(question.id, index)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Form.Group>
+        );
+      }
+
       default:
         return null;
     }
-  };
-
-  const getSelectedSpecies = (): string => {
-    for (const section of visibleSections) {
-      for (const question of getVisibleQuestions(section, responses)) {
-        if (question.type === 'animal_information') {
-          const animals = responses[question.id];
-
-          if (Array.isArray(animals) && animals[0]?.species) {
-            return animals[0].species;
-          }
-        }
-      }
-    }
-
-    return '';
   };
 
   const validateForm = (): string[] => {
@@ -734,6 +869,7 @@ export default function PublicSurrenderForm() {
 
         if (question.type === 'animal_information') {
           const count = getAnimalCount(question);
+
           const animals: AnimalDraft[] = Array.isArray(responses[question.id])
             ? responses[question.id]
             : [];
@@ -762,11 +898,38 @@ export default function PublicSurrenderForm() {
           return;
         }
 
+        if (question.type === 'file_upload' && !isEmpty(answer)) {
+          const files: File[] = Array.isArray(answer) ? answer : [];
+
+          const invalidFiles = files.filter(file =>
+            !isAcceptedFile(file, question.fileAccept)
+          );
+
+          if (invalidFiles.length > 0) {
+            errors.push(
+              `"${question.label}" contains a file type that is not accepted.`
+            );
+          }
+
+          if (
+            question.allowMultipleFiles === false &&
+            files.length > 1
+          ) {
+            errors.push(
+              `"${question.label}" only allows one file.`
+            );
+          }
+
+          return;
+        }
+
         if (question.type === 'number' && !isEmpty(answer)) {
           const number = Number(answer);
 
           if (!Number.isFinite(number) || number < 0) {
-            errors.push(`"${question.label}" must be a valid non-negative number.`);
+            errors.push(
+              `"${question.label}" must be a valid non-negative number.`
+            );
           }
         }
 
@@ -778,7 +941,9 @@ export default function PublicSurrenderForm() {
             !isEmpty(answer) &&
             !(question.options || []).includes(answer)
           ) {
-            errors.push(`"${question.label}" contains an invalid answer.`);
+            errors.push(
+              `"${question.label}" contains an invalid answer.`
+            );
           }
         }
 
@@ -790,7 +955,9 @@ export default function PublicSurrenderForm() {
               (item: string) => !(question.options || []).includes(item)
             )
           ) {
-            errors.push(`"${question.label}" contains an invalid answer.`);
+            errors.push(
+              `"${question.label}" contains an invalid answer.`
+            );
           }
         }
 
@@ -799,7 +966,9 @@ export default function PublicSurrenderForm() {
           !isEmpty(answer) &&
           !['Yes', 'No'].includes(answer)
         ) {
-          errors.push(`"${question.label}" must be answered Yes or No.`);
+          errors.push(
+            `"${question.label}" must be answered Yes or No.`
+          );
         }
       });
     });
@@ -821,8 +990,12 @@ export default function PublicSurrenderForm() {
       return;
     }
 
-    // Do not send staff-only, hidden, or unknown question answers.
+    // Only include answers to visible, public questions.
     const publicResponses: Responses = {};
+    const filesToUpload: {
+      questionId: string;
+      file: File;
+    }[] = [];
 
     visibleSections.forEach(section => {
       getVisibleQuestions(section, responses).forEach(question => {
@@ -843,65 +1016,78 @@ export default function PublicSurrenderForm() {
           return;
         }
 
+        if (question.type === 'file_upload') {
+          const files: File[] = Array.isArray(responses[question.id])
+            ? responses[question.id]
+            : [];
+
+          publicResponses[question.id] = files.map(file => ({
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            lastModified: file.lastModified
+          }));
+
+          files.forEach(file => {
+            filesToUpload.push({
+              questionId: question.id,
+              file
+            });
+          });
+
+          return;
+        }
+
         if (Object.prototype.hasOwnProperty.call(responses, question.id)) {
           publicResponses[question.id] = responses[question.id];
         }
       });
     });
 
-    const firstAnimal = Object.values(publicResponses).find(
-      value => Array.isArray(value) && value.length > 0 &&
-        value[0] && typeof value[0] === 'object' &&
-        'species' in value[0]
-    ) as AnimalDraft[] | undefined;
-
-    const surrenderTypeQuestion = visibleSections
-      .flatMap(section => getVisibleQuestions(section, responses))
-      .find(question =>
-        /surrender.*(type|situation)|best option.*describe/i.test(question.label)
-      );
-
-    const payload: Responses & {
-      species?: string;
-      surrender_type?: string;
-    } = {
+    const payload = {
       responses: publicResponses
     };
-
-    if (firstAnimal?.[0]?.species) {
-      payload.species = firstAnimal[0].species;
-    }
-
-    if (
-      surrenderTypeQuestion &&
-      typeof responses[surrenderTypeQuestion.id] === 'string'
-    ) {
-      payload.surrender_type = responses[surrenderTypeQuestion.id];
-    }
 
     try {
       setSubmitting(true);
 
-      const response = await api.post(
-        `/forms/public/${slug}/submit`,
-        payload
-      );
+      let response;
+
+      if (filesToUpload.length > 0) {
+        const formData = new FormData();
+
+        formData.append('payload', JSON.stringify(payload));
+
+        filesToUpload.forEach(({ questionId, file }) => {
+          formData.append(`files[${questionId}]`, file, file.name);
+        });
+
+        response = await api.post(
+          `/forms/public/${slug}/submit`,
+          formData
+        );
+      } else {
+        response = await api.post(
+          `/forms/public/${slug}/submit`,
+          payload
+        );
+      }
 
       setSubmissionId(
-        response.data?.id || response.data?.submission_id || null
+        response.data?.id ||
+        response.data?.submission_id ||
+        null
       );
 
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-
     } catch (error: any) {
-      console.error('Unable to submit surrender form:', error);
+      console.error('Unable to submit rescue application:', error);
 
       setSubmitError(
         error.response?.data?.message ||
-        'Your form could not be submitted. Please review your answers and try again.'
+        'Your application could not be submitted. Please review your answers and try again.'
       );
-
     } finally {
       setSubmitting(false);
     }
@@ -936,7 +1122,7 @@ export default function PublicSurrenderForm() {
     return (
       <div className="text-center py-5">
         <Spinner animation="border" role="status" />
-        <p className="mt-3">Loading surrender form...</p>
+        <p className="mt-3">Loading rescue group application...</p>
       </div>
     );
   }
@@ -944,7 +1130,7 @@ export default function PublicSurrenderForm() {
   if (loadError || !form) {
     return (
       <Alert variant="danger" className="my-4">
-        {loadError || 'This form is unavailable.'}
+        {loadError || 'This application is unavailable.'}
       </Alert>
     );
   }
@@ -954,20 +1140,20 @@ export default function PublicSurrenderForm() {
       <Card className="my-4">
         <Card.Body className="text-center py-5">
           <h2 className="text-success mb-3">
-            Submission Received
+            Application Received
           </h2>
 
           <p className="mb-2">
-            Thank you. Your surrender form has been successfully submitted.
+            Thank you. Your rescue group application has been successfully submitted.
           </p>
 
           <p className="text-muted">
-            A member of our staff will review your submission.
+            A member of our staff will review your application.
           </p>
 
           {submissionId && (
             <p className="small text-muted mb-0">
-              Submission reference: {submissionId}
+              Application reference: {submissionId}
             </p>
           )}
         </Card.Body>
@@ -976,7 +1162,7 @@ export default function PublicSurrenderForm() {
   }
 
   return (
-    <div className="public-surrender-form">
+    <div className="public-form-narrow">
       <Card className="mb-4">
         <Card.Body>
           <h1 className="mb-2">{form.name}</h1>
@@ -1027,7 +1213,10 @@ export default function PublicSurrenderForm() {
               )}
 
               {questions.map(question => (
-                <div key={question.id} className="public-surrender-question">
+                <div
+                  key={question.id}
+                  className="public-rescue-question"
+                >
                   {renderQuestion(question)}
                 </div>
               ))}
@@ -1036,11 +1225,11 @@ export default function PublicSurrenderForm() {
         );
       })}
 
-      <div className="d-grid mb-5">
+      <div className="d-flex justify-content-end mt-4">
         <Button
           variant="primary"
           size="lg"
-          disabled={submitting}
+          disabled={submitting || validateForm().length > 0}
           onClick={handleSubmit}
         >
           {submitting ? (
@@ -1054,7 +1243,7 @@ export default function PublicSurrenderForm() {
               Submitting...
             </>
           ) : (
-            'Submit Surrender Form'
+            'Submit Rescue Group Application'
           )}
         </Button>
       </div>

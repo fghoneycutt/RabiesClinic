@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import {
   Row,
@@ -11,13 +12,14 @@ import {
 } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { api } from '../../api/api';
+import { api } from '../../../api/api';
 
-interface SurrenderForm {
+interface RescueForm {
   id: number;
   name: string;
   slug: string;
   description?: string;
+  form_type?: string;
   created_at?: string;
   updated_at?: string;
   submission_count?: number;
@@ -26,24 +28,22 @@ interface SurrenderForm {
 interface Submission {
   id: number;
   form_id?: number;
-  species?: string | null;
-  surrender_type?: string | null;
   status?: string;
   created_at?: string;
   submitted_at?: string;
 }
 
-function SurrenderForms() {
+function RescueApplications() {
   const navigate = useNavigate();
 
-  const [form, setForm] = useState<SurrenderForm | null>(null);
+  const [form, setForm] = useState<RescueForm | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
 
-  document.title = 'Surrender Forms';
+  document.title = 'Rescue Group Applications';
 
   useEffect(() => {
     fetchData();
@@ -54,65 +54,77 @@ function SurrenderForms() {
       setLoading(true);
       setError('');
 
-      const [formsRes, submissionsRes] = await Promise.all([
-        api.get('/forms'),
-        api.get('/forms/submissions'),
-      ]);
+      const formsRes = await api.get('/forms?form_type=rescue');
 
       const fetchedForms = formsRes.data.forms ?? formsRes.data;
-      const fetchedSubmissions =
-        submissionsRes.data.submissions ?? submissionsRes.data;
 
+      // There should only ever be one rescue group application.
       const currentForm = Array.isArray(fetchedForms)
         ? fetchedForms[0] ?? null
         : null;
 
       setForm(currentForm);
 
-      const allSubmissions = Array.isArray(fetchedSubmissions)
-        ? fetchedSubmissions
-        : [];
+      if (currentForm) {
+        const submissionsRes = await api.get(
+          `/forms/submissions?form_id=${currentForm.id}`
+        );
 
-      // Only show submissions belonging to the current surrender form.
-      const formSubmissions = currentForm
-        ? allSubmissions.filter(
-            (submission: Submission) =>
-              submission.form_id === undefined ||
-              submission.form_id === currentForm.id
-          )
-        : [];
+        const fetchedSubmissions =
+          submissionsRes.data.submissions ?? submissionsRes.data;
 
-      setSubmissions(formSubmissions);
+        setSubmissions(
+          Array.isArray(fetchedSubmissions)
+            ? fetchedSubmissions
+            : []
+        );
+      } else {
+        setSubmissions([]);
+      }
     } catch (err) {
       console.error(err);
-      setError('Unable to load surrender form information.');
+      setError('Unable to load rescue group application information.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreateForm = async () => {
-    const defaultSlug = 'animal-surrender-application';
-
     try {
       setCreating(true);
       setError('');
 
       const res = await api.post('/forms', {
-        name: 'Animal Surrender Application',
-        slug: defaultSlug,
-        description: 'Online animal surrender application.',
+        name: 'Rescue Group Application',
+        slug: 'rescue-group-application',
+        description: 'Online rescue group application.',
+        form_type: 'rescue',
       });
 
       const newForm = res.data.form ?? res.data;
 
-      navigate(`/surrender-forms/${newForm.id}/edit`);
+      navigate(`/forms/${newForm.id}/edit`);
     } catch (err: any) {
       console.error(err);
 
       if (err.response?.status === 409) {
+        // The form may already exist. Reload it and open the editor.
         await fetchData();
-        setError('The surrender form already exists. The form list has been refreshed.');
+
+        const formsRes = await api.get('/forms?form_type=rescue');
+        const fetchedForms = formsRes.data.forms ?? formsRes.data;
+
+        const existingForm = Array.isArray(fetchedForms)
+          ? fetchedForms[0] ?? null
+          : null;
+
+        if (existingForm) {
+          navigate(`/forms/${existingForm.id}/edit`);
+        } else {
+          setError(
+            'The rescue group application already exists, but could not be retrieved.'
+          );
+        }
       } else {
         setError(
           err.response?.data?.message || 'Unable to create form.'
@@ -125,7 +137,7 @@ function SurrenderForms() {
 
   const handleEditForm = () => {
     if (form) {
-      navigate(`/surrender-forms/${form.id}/edit`);
+      navigate(`/forms/${form.id}/edit`);
     }
   };
 
@@ -142,6 +154,8 @@ function SurrenderForms() {
       submitted: 'primary',
       under_review: 'warning',
       approved: 'success',
+      denied: 'danger',
+      withdrawn: 'secondary',
       rejected: 'danger',
       completed: 'success',
     };
@@ -157,9 +171,9 @@ function SurrenderForms() {
     <>
       <Row className="align-items-center mb-4">
         <Col>
-          <h2 className="mb-1">Animal Surrender</h2>
+          <h2 className="mb-1">Rescue Groups</h2>
           <p className="text-muted mb-0">
-            Manage your public surrender application and review submissions.
+            Manage the rescue group application and review submissions.
           </p>
         </Col>
       </Row>
@@ -178,7 +192,7 @@ function SurrenderForms() {
         <div className="text-center py-5">
           <Spinner animation="border" role="status" />
           <p className="text-muted mt-2">
-            Loading surrender information...
+            Loading rescue group information...
           </p>
         </div>
       ) : (
@@ -204,11 +218,11 @@ function SurrenderForms() {
                       <div className="mt-1">
                         <strong>Public URL:</strong>{' '}
                         <a
-                          href={`/surrender/${form.slug}`}
+                          href={`/rescue/${form.slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          /surrender/{form.slug}
+                          /rescue/{form.slug}
                         </a>
                       </div>
 
@@ -232,9 +246,9 @@ function SurrenderForms() {
                 </Row>
               ) : (
                 <div className="text-center py-4">
-                  <h5>No Surrender Form Found</h5>
+                  <h5>No Rescue Group Application Found</h5>
                   <p className="text-muted">
-                    Create your surrender application to get started.
+                    Create your rescue group application to get started.
                   </p>
 
                   <Button
@@ -252,7 +266,7 @@ function SurrenderForms() {
                         Creating...
                       </>
                     ) : (
-                      'Create Surrender Form'
+                      'Create Rescue Group Application'
                     )}
                   </Button>
                 </div>
@@ -263,10 +277,7 @@ function SurrenderForms() {
           {/* SUBMISSIONS */}
           <div className="d-flex justify-content-between align-items-center mb-3">
             <div>
-              <h4 className="mb-1">Surrender Submissions</h4>
-              <p className="text-muted mb-0">
-                Review applications submitted through the public form.
-              </p>
+              <h4 className="mb-1">Rescue Group Submissions</h4>
             </div>
 
             <Badge bg="secondary" className="fs-6">
@@ -279,7 +290,7 @@ function SurrenderForms() {
               <Card.Body className="text-center py-5">
                 <h5>No Submissions Yet</h5>
                 <p className="text-muted mb-0">
-                  Submitted surrender applications will appear here.
+                  Submitted rescue group applications will appear here.
                 </p>
               </Card.Body>
             ) : (
@@ -288,8 +299,6 @@ function SurrenderForms() {
                   <tr>
                     <th>Submission</th>
                     <th>Date Submitted</th>
-                    <th>Animal</th>
-                    <th>Surrender Type</th>
                     <th>Status</th>
                     <th className="text-end">Action</th>
                   </tr>
@@ -310,24 +319,13 @@ function SurrenderForms() {
                       </td>
 
                       <td>
-                        {submission.species
-                          ? submission.species.charAt(0).toUpperCase() +
-                            submission.species.slice(1)
-                          : '—'}
-                      </td>
-
-                      <td>
-                        {submission.surrender_type || '—'}
-                      </td>
-
-                      <td>
                         {formatStatus(submission.status)}
                       </td>
 
                       <td className="text-end">
                         <Button
                           as={Link as any}
-                          to={`/surrender-submissions/${submission.id}`}
+                          to={`/rescue-submissions/${submission.id}`}
                           variant="outline-primary"
                           size="sm"
                         >
@@ -346,4 +344,4 @@ function SurrenderForms() {
   );
 }
 
-export default SurrenderForms;
+export default RescueApplications;

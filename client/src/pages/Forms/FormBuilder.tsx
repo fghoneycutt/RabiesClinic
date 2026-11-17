@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type DragEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -19,6 +18,7 @@ import {
   faChevronDown,
   faChevronRight,
   faCircleInfo,
+  faGripVertical,
   faSave,
   faList,
   faPlus,
@@ -38,6 +38,7 @@ type QuestionType =
   | 'dropdown'
   | 'yes_no'
   | 'date'
+  | 'file_upload'
   | 'content'
   | 'owner_information'
   | 'animal_information';
@@ -59,6 +60,8 @@ interface Question {
 
   animalCountSource?: 'fixed' | 'question';
   animalCountQuestionId?: string;
+  fileAccept?: string;
+  allowMultipleFiles?: boolean;
 }
 
 interface Section {
@@ -104,6 +107,7 @@ const questionTypes: { value: QuestionType; label: string }[] = [
   { value: 'dropdown', label: 'Dropdown' },
   { value: 'yes_no', label: 'Yes / No' },
   { value: 'date', label: 'Date' },
+  { value: 'file_upload', label: 'File Upload / Attachment' },
   { value: 'content', label: 'Information / Text' },
   { value: 'owner_information', label: 'Owner Information' },
   { value: 'animal_information', label: 'Animal Information' },
@@ -119,6 +123,7 @@ const isSpecialBlock = (type: QuestionType) =>
 const canBeBranchingSource = (question: Question) =>
   !question.staffOnly &&
   question.type !== 'content' &&
+  question.type !== 'file_upload' &&
   !isSpecialBlock(question.type);
 
 const getDefaultOptions = (type: QuestionType): string[] => {
@@ -178,6 +183,9 @@ function normalizeDefinition(value: any): FormDefinition {
                 condition: normalizeCondition(question.condition),
                 animalCountSource: question.animalCountSource ?? 'fixed',
                 animalCountQuestionId: question.animalCountQuestionId,
+                fileAccept:
+                  question.fileAccept ?? '.pdf,.jpg,.jpeg,.png,.doc,.docx',
+                allowMultipleFiles: question.allowMultipleFiles ?? true,
               }))
             : [],
         }))
@@ -237,7 +245,7 @@ function clearInvalidConditions(definition: FormDefinition): FormDefinition {
   return { ...definition, sections };
 }
 
-function SurrenderFormBuilder() {
+function FormBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -248,6 +256,9 @@ function SurrenderFormBuilder() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
+
+  const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
+  const [draggedQuestionId, setDraggedQuestionId] = useState<string | null>(null);
 
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     new Set()
@@ -344,6 +355,146 @@ function SurrenderFormBuilder() {
 
     setSaveMessage(
       'Section order updated. Any branching rules that were no longer valid were cleared.'
+    );
+  };
+
+  const handleSectionDragStart = (
+    event: DragEvent<HTMLButtonElement>,
+    sectionId: string
+  ) => {
+    setDraggedSectionId(sectionId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', sectionId);
+  };
+
+  const handleSectionDrop = (
+    event: DragEvent<HTMLElement>,
+    targetSectionId: string
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const sourceSectionId =
+      draggedSectionId || event.dataTransfer.getData('text/plain');
+
+    if (!sourceSectionId || sourceSectionId === targetSectionId) {
+      setDraggedSectionId(null);
+      return;
+    }
+
+    const targetRect = event.currentTarget.getBoundingClientRect();
+    const dropAfterTarget =
+      event.clientY > targetRect.top + targetRect.height / 2;
+
+    setDefinition((prev) => {
+      const sections = [...prev.sections];
+
+      const sourceIndex = sections.findIndex(
+        (section) => section.id === sourceSectionId
+      );
+
+      const targetIndex = sections.findIndex(
+        (section) => section.id === targetSectionId
+      );
+
+      if (sourceIndex < 0 || targetIndex < 0) return prev;
+
+      const [movedSection] = sections.splice(sourceIndex, 1);
+
+      let insertionIndex = targetIndex + (dropAfterTarget ? 1 : 0);
+
+      if (sourceIndex < targetIndex) {
+        insertionIndex -= 1;
+      }
+
+      sections.splice(insertionIndex, 0, movedSection);
+
+      return clearInvalidConditions({ ...prev, sections });
+    });
+
+    setDraggedSectionId(null);
+
+    setSaveMessage(
+      'Section order updated. Any branching rules that were no longer valid were cleared.'
+    );
+  };
+
+  const handleQuestionDragStart = (
+    event: DragEvent<HTMLButtonElement>,
+    sectionId: string,
+    questionId: string
+  ) => {
+    const dragValue = `${sectionId}::${questionId}`;
+
+    setDraggedQuestionId(dragValue);
+
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', dragValue);
+  };
+
+  const handleQuestionDrop = (
+    event: DragEvent<HTMLElement>,
+    targetSectionId: string,
+    targetQuestionId: string
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const dragValue =
+      draggedQuestionId || event.dataTransfer.getData('text/plain');
+
+    const [sourceSectionId, sourceQuestionId] = dragValue.split('::');
+
+    if (
+      !sourceSectionId ||
+      !sourceQuestionId ||
+      sourceSectionId !== targetSectionId ||
+      sourceQuestionId === targetQuestionId
+    ) {
+      setDraggedQuestionId(null);
+      return;
+    }
+
+    const targetRect = event.currentTarget.getBoundingClientRect();
+    const dropAfterTarget =
+      event.clientY > targetRect.top + targetRect.height / 2;
+
+    setDefinition((prev) => {
+      const sections = prev.sections.map((section) => {
+        if (section.id !== targetSectionId) return section;
+
+        const questions = [...section.questions];
+
+        const sourceIndex = questions.findIndex(
+          (question) => question.id === sourceQuestionId
+        );
+
+        const targetIndex = questions.findIndex(
+          (question) => question.id === targetQuestionId
+        );
+
+        if (sourceIndex < 0 || targetIndex < 0) return section;
+
+        const [movedQuestion] = questions.splice(sourceIndex, 1);
+
+        let insertionIndex = targetIndex + (dropAfterTarget ? 1 : 0);
+
+        if (sourceIndex < targetIndex) {
+          insertionIndex -= 1;
+        }
+
+        questions.splice(insertionIndex, 0, movedQuestion);
+
+        return { ...section, questions };
+      });
+
+      return clearInvalidConditions({ ...prev, sections });
+    });
+
+    setDraggedQuestionId(null);
+
+    setSaveMessage(
+      'Question order updated. Any branching rules that were no longer valid were cleared.'
     );
   };
 
@@ -485,7 +636,7 @@ function SurrenderFormBuilder() {
     );
   };
 
-  const deleteQuestion = (sectionId: string, questionId: string) => {
+  const deleteQuestion = (questionId: string) => {
     setDefinition((prev) => {
       const next = {
         ...prev,
@@ -822,7 +973,8 @@ function SurrenderFormBuilder() {
         <Col>
           <h2 className="mb-1">{formName}</h2>
           <p className="text-muted mb-0">
-            Build the Animal Surrender Application.
+            Build and organize this application. Drag sections and elements
+            using the grip handles, or use the arrow buttons.
           </p>
         </Col>
 
@@ -931,7 +1083,16 @@ function SurrenderFormBuilder() {
               const sectionCollapsed = collapsedSections.has(section.id);
 
               return (
-                <Card key={section.id} className="mb-4 shadow-sm">
+                <Card
+                  key={section.id}
+                  className={`mb-4 shadow-sm ${
+                    draggedSectionId === section.id ? 'opacity-50' : ''
+                  }`}
+                  onDragOver={(event) => {
+                    if (draggedSectionId) event.preventDefault();
+                  }}
+                  onDrop={(event) => handleSectionDrop(event, section.id)}
+                >
                   <Card.Header className="bg-light py-3">
                     <div className="d-flex justify-content-between align-items-center gap-3">
                       <Button
@@ -964,6 +1125,21 @@ function SurrenderFormBuilder() {
                       </Button>
 
                       <div className="d-flex align-items-center gap-1 flex-shrink-0">
+                        <Button
+                          variant="outline-secondary"
+                          size="sm"
+                          draggable
+                          title="Drag to reorder section"
+                          aria-label="Drag to reorder section"
+                          onDragStart={(event) =>
+                            handleSectionDragStart(event, section.id)
+                          }
+                          onDragEnd={() => setDraggedSectionId(null)}
+                          style={{ cursor: 'grab' }}
+                        >
+                          <FontAwesomeIcon icon={faGripVertical} />
+                        </Button>
+
                         <Button
                           variant="outline-secondary"
                           size="sm"
@@ -1074,7 +1250,24 @@ function SurrenderFormBuilder() {
                         );
 
                         return (
-                          <Card key={question.id} className="mb-3 border">
+                          <Card
+                            key={question.id}
+                            className={`mb-3 border ${
+                              draggedQuestionId === `${section.id}::${question.id}`
+                                ? 'opacity-50'
+                                : ''
+                            }`}
+                            onDragOver={(event) => {
+                              if (draggedQuestionId) event.preventDefault();
+                            }}
+                            onDrop={(event) =>
+                              handleQuestionDrop(
+                                event,
+                                section.id,
+                                question.id
+                              )
+                            }
+                          >
                             <Card.Header className="bg-white">
                               <div className="d-flex justify-content-between align-items-center gap-3">
                                 <Button
@@ -1132,6 +1325,25 @@ function SurrenderFormBuilder() {
                                   <Button
                                     variant="outline-secondary"
                                     size="sm"
+                                    draggable
+                                    title="Drag to reorder element"
+                                    aria-label="Drag to reorder element"
+                                    onDragStart={(event) =>
+                                      handleQuestionDragStart(
+                                        event,
+                                        section.id,
+                                        question.id
+                                      )
+                                    }
+                                    onDragEnd={() => setDraggedQuestionId(null)}
+                                    style={{ cursor: 'grab' }}
+                                  >
+                                    <FontAwesomeIcon icon={faGripVertical} />
+                                  </Button>
+
+                                  <Button
+                                    variant="outline-secondary"
+                                    size="sm"
                                     title="Move element up"
                                     aria-label="Move element up"
                                     disabled={questionIndex === 0}
@@ -1171,9 +1383,7 @@ function SurrenderFormBuilder() {
                                     size="sm"
                                     title="Delete element"
                                     aria-label="Delete element"
-                                    onClick={() =>
-                                      deleteQuestion(section.id, question.id)
-                                    }
+                                    onClick={() => deleteQuestion(question.id)}
                                   >
                                     <FontAwesomeIcon icon={faTrash} />
                                   </Button>
@@ -1491,6 +1701,67 @@ function SurrenderFormBuilder() {
                                       </Form.Group>
                                     )}
 
+                                    {question.type === 'file_upload' && (
+                                      <div className="border rounded p-3 bg-light mb-3">
+                                        <h6 className="mb-2">
+                                          File Upload Settings
+                                        </h6>
+
+                                        <p className="text-muted small">
+                                          Applicants will be able to attach
+                                          files to this question. File storage
+                                          and upload processing will be
+                                          connected when the backend is
+                                          implemented.
+                                        </p>
+
+                                        <Form.Group className="mb-3">
+                                          <Form.Label>
+                                            <strong>Accepted File Types</strong>
+                                          </Form.Label>
+
+                                          <Form.Control
+                                            value={
+                                              question.fileAccept ??
+                                              '.pdf,.jpg,.jpeg,.png,.doc,.docx'
+                                            }
+                                            onChange={(e) =>
+                                              updateQuestion(
+                                                section.id,
+                                                question.id,
+                                                { fileAccept: e.target.value }
+                                              )
+                                            }
+                                            placeholder=".pdf,.jpg,.png,.doc,.docx"
+                                          />
+
+                                          <Form.Text className="text-muted">
+                                            Enter extensions separated by
+                                            commas. For example: .pdf,.jpg,.png
+                                          </Form.Text>
+                                        </Form.Group>
+
+                                        <Form.Check
+                                          type="switch"
+                                          id={`multiple-files-${question.id}`}
+                                          label="Allow multiple files"
+                                          checked={
+                                            question.allowMultipleFiles ?? true
+                                          }
+                                          onChange={(e) =>
+                                            updateQuestion(
+                                              section.id,
+                                              question.id,
+                                              {
+                                                allowMultipleFiles:
+                                                  e.target.checked,
+                                              }
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                    )}
+
                                     {question.type !== 'content' && (
                                       <Row className="g-3">
                                         <Col xs={12} md={6}>
@@ -1584,4 +1855,4 @@ function SurrenderFormBuilder() {
   );
 }
 
-export default SurrenderFormBuilder;
+export default FormBuilder;

@@ -37,6 +37,15 @@ export default function AppNavbar() {
             <Nav.Link as={Link} to="/">
               Home
             </Nav.Link>
+            <Nav.Link as={Link} to="/surrender-forms">
+              Surrender Forms
+            </Nav.Link>
+            <Nav.Link as={Link} to="/rescue-applications">
+              Rescue Group Applications
+            </Nav.Link>
+            <Nav.Link as={Link} to="/lobby-slides">
+              Lobby Slides
+            </Nav.Link>
 
             {user?.role === 'admin' && (
               <Nav.Link as={Link} to="/admin/users">

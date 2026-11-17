@@ -8,6 +8,9 @@ import {
 
 import Container from 'react-bootstrap/Container';
 
+import './App.css';
+
+
 import AppNavbar from './components/Navbar';
 
 import { AuthProvider } from './auth/AuthContext';
@@ -29,11 +32,15 @@ import ClinicPage from './pages/RabiesClinics/ClinicPage';
 import ClinicList from './pages/RabiesClinics/ClinicList';
 import OwnerProfilePage from './pages/RabiesClinics/OwnerProfilePage';
 
-import SurrenderForms from './pages/Forms/SurrenderForms';
-import SurrenderFormBuilder from './pages/Forms/SurrenderFormBuilder';
-import PublicSurrenderForm from './pages/Forms/PublicSurrenderForm';
-import SurrenderSubmissionReview from './pages/Forms/SurrenderSubmissionReview';
+import SurrenderForms from './pages/Forms/SurrenderForms/SurrenderForms';
+import FormBuilder from './pages/Forms/FormBuilder';
+import PublicSurrenderForm from './pages/Forms/SurrenderForms/PublicSurrenderForm';
+import SurrenderSubmissionReview from './pages/Forms/SurrenderForms/SurrenderSubmissionReview';
 
+import RescueApplications from './pages/Forms/RescueGroupApplications/RescueApplications';
+import PublicRescueApplication from './pages/Forms/RescueGroupApplications/PublicRescueApplication';
+
+import LobbySlides from './pages/LobbySlides/LobbySlides';
 // -----------------------------------
 // APP LAYOUT
 // -----------------------------------
@@ -72,6 +79,10 @@ function AppLayout() {
           <Route
             path="/surrender/:slug"
             element={<PublicSurrenderForm />}
+          />
+          <Route
+            path="/rescue/:slug"
+            element={<PublicRescueApplication />}
           />
 
           {/* -------------------- */}
@@ -115,7 +126,7 @@ function AppLayout() {
               path="/admin/users"
               element={<AdminUserListPage />}
             />
-            {/* Forms */}
+            {/* Surrender Forms */}
             <Route
               path="/surrender-forms"
               element={<SurrenderForms />}
@@ -123,12 +134,22 @@ function AppLayout() {
 
             <Route
               path="/surrender-forms/:id/edit"
-              element={<SurrenderFormBuilder/>}
+              element={<FormBuilder/>}
             />
 
             <Route
               path="/surrender-submissions/:id"
               element={<SurrenderSubmissionReview/>}
+            />
+            {/* Rescue Group Applications */}
+            <Route
+              path="/rescue-applications"
+              element={<RescueApplications/>}
+            />
+
+            <Route
+              path="/lobby-slides"
+              element={<LobbySlides />}
             />
 
             {/* Logged-in users get actual 404 page */}

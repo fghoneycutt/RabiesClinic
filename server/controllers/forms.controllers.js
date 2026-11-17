@@ -576,11 +576,33 @@ const validateSubmission = (definition, responses) => {
 // ==========================================
 
 exports.createForm = async (req, res) => {
-  const { name, description, slug } = req.body || {};
+  const {
+    name,
+    description,
+    slug,
+    form_type
+  } = req.body || {};
 
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({
       message: 'A form name is required.',
+    });
+  }
+
+  const allowedFormTypes = [
+    'surrender',
+    'rescue',
+    'foster',
+    'volunteer',
+    'adoption',
+    'general',
+  ];
+
+  const formType = form_type || 'general';
+
+  if (!allowedFormTypes.includes(formType)) {
+    return res.status(400).json({
+      message: 'Invalid form type.',
     });
   }
 
@@ -609,17 +631,19 @@ exports.createForm = async (req, res) => {
   try {
     const result = await pool.query(
       `INSERT INTO forms (
-         name,
-         slug,
-         description,
-         definition
-       )
-       VALUES ($1, $2, $3, '{}'::jsonb)
-       RETURNING *`,
+        name,
+        slug,
+        description,
+        form_type,
+        definition
+      )
+      VALUES ($1, $2, $3, $4, '{}'::jsonb)
+      RETURNING *`,
       [
         name.trim(),
         formSlug,
         description || null,
+        formType,
       ]
     );
 
@@ -644,18 +668,45 @@ exports.createForm = async (req, res) => {
 // ==========================================
 
 exports.getForms = async (req, res) => {
+  const { form_type } = req.query;
+
+  const allowedFormTypes = [
+    'surrender',
+    'rescue',
+    'foster',
+    'volunteer',
+    'adoption',
+    'general',
+  ];
+
+  if (form_type && !allowedFormTypes.includes(form_type)) {
+    return res.status(400).json({
+      message: 'Invalid form type.',
+    });
+  }
+
   try {
-    const result = await pool.query(
-      `SELECT
-         f.*,
-         (
-           SELECT COUNT(*)
-           FROM form_submissions fs
-           WHERE fs.form_id = f.id
-         ) AS submission_count
-       FROM forms f
-       ORDER BY f.created_at DESC`
-    );
+    const values = [];
+
+    let query = `
+      SELECT
+        f.*,
+        (
+          SELECT COUNT(*)
+          FROM form_submissions fs
+          WHERE fs.form_id = f.id
+        ) AS submission_count
+      FROM forms f
+    `;
+
+    if (form_type) {
+      values.push(form_type);
+      query += ` WHERE f.form_type = $${values.length}`;
+    }
+
+    query += ` ORDER BY f.created_at DESC`;
+
+    const result = await pool.query(query, values);
 
     return res.status(200).json(result.rows);
   } catch (error) {

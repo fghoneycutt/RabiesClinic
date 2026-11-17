@@ -6,6 +6,7 @@ const clinicsRoutes = require('./clinics.routes');
 const intakeRoutes = require('./intake.routes');
 const usersRoutes = require('./users.routes');
 const formsRoutes = require('./forms.routes.js')
+const slideRoutes = require('./lobbySlides.routes.js')
 
 module.exports = (app) => {
   app.use('/api/auth', authRoutes);
@@ -20,4 +21,5 @@ module.exports = (app) => {
   app.use('/api/intake', intakeRoutes);
 
   app.use('/api/forms', formsRoutes)
+  app.use('/api/slides', slideRoutes)
 };
