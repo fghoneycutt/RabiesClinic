@@ -562,23 +562,6 @@ function LobbySlides() {
                   />
                 </Form.Group>
               </Col>
-
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label>Display Order</Form.Label>
-                  <Form.Control
-                    type="number"
-                    min="0"
-                    value={displayOrder}
-                    onChange={(e) => setDisplayOrder(Number(e.target.value))}
-                    required
-                  />
-                  <Form.Text className="text-muted">
-                    Lower numbers appear earlier in the rotation.
-                  </Form.Text>
-                </Form.Group>
-              </Col>
-
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Display Duration (Seconds)</Form.Label>
