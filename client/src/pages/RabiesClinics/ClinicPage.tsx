@@ -1,11 +1,11 @@
 import { useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-import { api } from '../api/api';
-import { useClinic } from '../hooks/useClinics';
+import { api } from '../../api/api';
+import { useClinic } from '../../hooks/useClinics';
 
-import ClinicHeader from '../components/clinics/ClinicHeader';
-import ClinicRegistrationsList from '../components/clinics/ClinicRegistrationsList';
+import ClinicHeader from '../../components/clinics/ClinicHeader';
+import ClinicRegistrationsList from '../../components/clinics/ClinicRegistrationsList';
 
 import Card from 'react-bootstrap/Card';
 import Button from 'react-bootstrap/Button';

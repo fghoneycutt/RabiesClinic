@@ -182,3 +182,13 @@
     border-right-color: var(--border);
   }
 }
+
+.public-form-narrow {
+  width: 100%;
+  max-width: 950px;
+  margin: 0 auto;
+}
+
+button:disabled {
+  cursor: not-allowed !important;
+}
