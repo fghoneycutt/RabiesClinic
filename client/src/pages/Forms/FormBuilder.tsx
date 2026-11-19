@@ -249,6 +249,8 @@ function FormBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
+  document.title = 'Edit Form';
+
   const [formName, setFormName] = useState('');
   const [definition, setDefinition] =
     useState<FormDefinition>(emptyDefinition);

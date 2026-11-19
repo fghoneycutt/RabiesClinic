@@ -18,6 +18,12 @@ import type {
   AnimalDraft
 } from '../../../types/intake';
 
+type FormVariant = 'rescue' | 'surrender';
+
+interface PublicFormProps {
+  variant: FormVariant;
+}
+
 type QuestionType =
   | 'short_text'
   | 'long_text'
@@ -66,7 +72,7 @@ interface FormDefinition {
   sections: Section[];
 }
 
-interface PublicForm {
+interface PublicFormData {
   form_id: string;
   name: string;
   slug: string;
@@ -75,6 +81,8 @@ interface PublicForm {
 }
 
 type Responses = Record<string, any>;
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const emptyOwner: OwnerDraft = {
   first_name: '',
@@ -221,6 +229,7 @@ const isAcceptedFile = (file: File, accept?: string): boolean => {
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} bytes`;
+
   if (bytes < 1024 * 1024) {
     return `${(bytes / 1024).toFixed(1)} KB`;
   }
@@ -309,10 +318,36 @@ const validateAnimal = (
   return errors;
 };
 
-export default function PublicRescueApplication() {
+export default function PublicForm({ variant }: PublicFormProps) {
   const { slug } = useParams<{ slug: string }>();
 
-  const [form, setForm] = useState<PublicForm | null>(null);
+  const isRescue = variant === 'rescue';
+
+  const title = isRescue
+    ? 'Rescue Group Application'
+    : 'Animal Surrender Application';
+
+  const loadingMessage = isRescue
+    ? 'Loading rescue group application...'
+    : 'Loading surrender form...';
+
+  const loadFailureMessage = isRescue
+    ? 'This rescue group application could not be found or is not currently available.'
+    : 'This surrender form could not be found or is not currently available.';
+
+  const submissionTitle = isRescue
+    ? 'Application Received'
+    : 'Submission Received';
+
+  const submissionMessage = isRescue
+    ? 'Thank you. Your rescue group application has been successfully submitted.'
+    : 'Thank you. Your surrender form has been successfully submitted.';
+
+  const submitButtonLabel = isRescue
+    ? 'Submit Rescue Group Application'
+    : 'Submit Surrender Form';
+
+  const [form, setForm] = useState<PublicFormData | null>(null);
   const [responses, setResponses] = useState<Responses>({});
   const [owner, setOwner] = useState<OwnerDraft>({ ...emptyOwner });
 
@@ -322,9 +357,10 @@ export default function PublicRescueApplication() {
   const [submitError, setSubmitError] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
-  const [submissionId, setSubmissionId] = useState<string | null>(null);
 
-  document.title = 'Rescue Group Application';
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
 
   useEffect(() => {
     const loadForm = async () => {
@@ -342,11 +378,10 @@ export default function PublicRescueApplication() {
 
         setForm(response.data);
       } catch (error: any) {
-        console.error('Unable to load public rescue application:', error);
+        console.error(`Unable to load public ${variant} form:`, error);
 
         setLoadError(
-          error.response?.data?.message ||
-          'This rescue group application could not be found or is not currently available.'
+          error.response?.data?.message || loadFailureMessage
         );
       } finally {
         setLoading(false);
@@ -354,7 +389,7 @@ export default function PublicRescueApplication() {
     };
 
     loadForm();
-  }, [slug]);
+  }, [slug, variant]);
 
   const sections = form?.definition?.sections || [];
 
@@ -518,11 +553,20 @@ export default function PublicRescueApplication() {
     if (!selectedFiles) return;
 
     const files = Array.from(selectedFiles);
-    const acceptedFiles = files.filter(file =>
+
+    const oversizedFiles = files.filter(
+      file => file.size > MAX_FILE_SIZE
+    );
+
+    const sizeValidFiles = files.filter(
+      file => file.size <= MAX_FILE_SIZE
+    );
+
+    const acceptedFiles = sizeValidFiles.filter(file =>
       isAcceptedFile(file, question.fileAccept)
     );
 
-    const rejectedFiles = files.filter(file =>
+    const rejectedFiles = sizeValidFiles.filter(file =>
       !isAcceptedFile(file, question.fileAccept)
     );
 
@@ -536,7 +580,11 @@ export default function PublicRescueApplication() {
 
     updateResponse(question.id, nextFiles);
 
-    if (rejectedFiles.length > 0) {
+    if (oversizedFiles.length > 0) {
+      setSubmitError(
+        'Files must be 10 MB or smaller. Oversized files were not added.'
+      );
+    } else if (rejectedFiles.length > 0) {
       setSubmitError(
         `Some files were not added because they do not match the accepted file types for "${question.label}".`
       );
@@ -809,11 +857,13 @@ export default function PublicRescueApplication() {
             <Form.Text className="text-muted d-block mt-1">
               {question.fileAccept
                 ? `Accepted file types: ${question.fileAccept}`
-                : 'You may upload any file type.'}
+                : 'Supported formats: PDF, JPG, PNG, WebP, DOC, and DOCX.'}
 
               {question.allowMultipleFiles === false
                 ? ' One file may be uploaded.'
                 : ' Multiple files may be uploaded.'}
+
+              {' '}Maximum file size: 10 MB per file.
             </Form.Text>
 
             {files.length > 0 && (
@@ -893,16 +943,35 @@ export default function PublicRescueApplication() {
 
         const answer = responses[question.id];
 
-        if (question.required && isEmpty(answer)) {
-          errors.push(`"${question.label}" is required.`);
-          return;
-        }
-
-        if (question.type === 'file_upload' && !isEmpty(answer)) {
+        if (question.type === 'file_upload') {
           const files: File[] = Array.isArray(answer) ? answer : [];
 
-          const invalidFiles = files.filter(file =>
-            !isAcceptedFile(file, question.fileAccept)
+          if (question.required && files.length === 0) {
+            errors.push(
+              `"${question.label}" requires at least one attachment.`
+            );
+            return;
+          }
+
+          if (
+            question.allowMultipleFiles === false &&
+            files.length > 1
+          ) {
+            errors.push(`"${question.label}" only allows one file.`);
+          }
+
+          const oversizedFiles = files.filter(
+            file => file.size > MAX_FILE_SIZE
+          );
+
+          if (oversizedFiles.length > 0) {
+            errors.push(
+              `"${question.label}" contains a file larger than 10 MB.`
+            );
+          }
+
+          const invalidFiles = files.filter(
+            file => !isAcceptedFile(file, question.fileAccept)
           );
 
           if (invalidFiles.length > 0) {
@@ -911,15 +980,11 @@ export default function PublicRescueApplication() {
             );
           }
 
-          if (
-            question.allowMultipleFiles === false &&
-            files.length > 1
-          ) {
-            errors.push(
-              `"${question.label}" only allows one file.`
-            );
-          }
+          return;
+        }
 
+        if (question.required && isEmpty(answer)) {
+          errors.push(`"${question.label}" is required.`);
           return;
         }
 
@@ -992,6 +1057,7 @@ export default function PublicRescueApplication() {
 
     // Only include answers to visible, public questions.
     const publicResponses: Responses = {};
+
     const filesToUpload: {
       questionId: string;
       file: File;
@@ -1021,13 +1087,6 @@ export default function PublicRescueApplication() {
             ? responses[question.id]
             : [];
 
-          publicResponses[question.id] = files.map(file => ({
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            lastModified: file.lastModified
-          }));
-
           files.forEach(file => {
             filesToUpload.push({
               questionId: question.id,
@@ -1044,9 +1103,43 @@ export default function PublicRescueApplication() {
       });
     });
 
-    const payload = {
+    const payload: Responses & {
+      species?: string;
+      surrender_type?: string;
+    } = {
       responses: publicResponses
     };
+
+    // Surrender submissions retain their additional metadata.
+    if (!isRescue) {
+      const firstAnimal = Object.values(publicResponses).find(
+        value =>
+          Array.isArray(value) &&
+          value.length > 0 &&
+          value[0] &&
+          typeof value[0] === 'object' &&
+          'species' in value[0]
+      ) as AnimalDraft[] | undefined;
+
+      const surrenderTypeQuestion = visibleSections
+        .flatMap(section => getVisibleQuestions(section, responses))
+        .find(question =>
+          /surrender.*(type|situation)|best option.*describe/i.test(
+            question.label
+          )
+        );
+
+      if (firstAnimal?.[0]?.species) {
+        payload.species = firstAnimal[0].species;
+      }
+
+      if (
+        surrenderTypeQuestion &&
+        typeof responses[surrenderTypeQuestion.id] === 'string'
+      ) {
+        payload.surrender_type = responses[surrenderTypeQuestion.id];
+      }
+    }
 
     try {
       setSubmitting(true);
@@ -1056,10 +1149,25 @@ export default function PublicRescueApplication() {
       if (filesToUpload.length > 0) {
         const formData = new FormData();
 
-        formData.append('payload', JSON.stringify(payload));
+        formData.append(
+          'responses',
+          JSON.stringify(publicResponses)
+        );
+
+        if (payload.species) {
+          formData.append('species', payload.species);
+        }
+
+        if (payload.surrender_type) {
+          formData.append('surrender_type', payload.surrender_type);
+        }
 
         filesToUpload.forEach(({ questionId, file }) => {
-          formData.append(`files[${questionId}]`, file, file.name);
+          formData.append(
+            `file_${questionId}`,
+            file,
+            file.name
+          );
         });
 
         response = await api.post(
@@ -1073,20 +1181,14 @@ export default function PublicRescueApplication() {
         );
       }
 
-      setSubmissionId(
-        response.data?.id ||
-        response.data?.submission_id ||
-        null
-      );
-
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error: any) {
-      console.error('Unable to submit rescue application:', error);
+      console.error(`Unable to submit ${variant} form:`, error);
 
       setSubmitError(
         error.response?.data?.message ||
-        'Your application could not be submitted. Please review your answers and try again.'
+        'Your form could not be submitted. Please review your answers and try again.'
       );
     } finally {
       setSubmitting(false);
@@ -1122,7 +1224,7 @@ export default function PublicRescueApplication() {
     return (
       <div className="text-center py-5">
         <Spinner animation="border" role="status" />
-        <p className="mt-3">Loading rescue group application...</p>
+        <p className="mt-3">{loadingMessage}</p>
       </div>
     );
   }
@@ -1130,7 +1232,7 @@ export default function PublicRescueApplication() {
   if (loadError || !form) {
     return (
       <Alert variant="danger" className="my-4">
-        {loadError || 'This application is unavailable.'}
+        {loadError || 'This form is unavailable.'}
       </Alert>
     );
   }
@@ -1140,22 +1242,16 @@ export default function PublicRescueApplication() {
       <Card className="my-4">
         <Card.Body className="text-center py-5">
           <h2 className="text-success mb-3">
-            Application Received
+            {submissionTitle}
           </h2>
 
           <p className="mb-2">
-            Thank you. Your rescue group application has been successfully submitted.
+            {submissionMessage}
           </p>
 
           <p className="text-muted">
-            A member of our staff will review your application.
+            A member of our staff will review your submission.
           </p>
-
-          {submissionId && (
-            <p className="small text-muted mb-0">
-              Application reference: {submissionId}
-            </p>
-          )}
         </Card.Body>
       </Card>
     );
@@ -1167,7 +1263,7 @@ export default function PublicRescueApplication() {
         <Card.Body>
           <h1 className="mb-2">{form.name}</h1>
 
-          {form.description && (
+          {isRescue && form.description && (
             <p className="text-muted mb-0">
               {form.description}
             </p>
@@ -1215,7 +1311,11 @@ export default function PublicRescueApplication() {
               {questions.map(question => (
                 <div
                   key={question.id}
-                  className="public-rescue-question"
+                  className={
+                    isRescue
+                      ? 'public-rescue-question'
+                      : 'public-surrender-question'
+                  }
                 >
                   {renderQuestion(question)}
                 </div>
@@ -1243,7 +1343,7 @@ export default function PublicRescueApplication() {
               Submitting...
             </>
           ) : (
-            'Submit Rescue Group Application'
+            submitButtonLabel
           )}
         </Button>
       </div>

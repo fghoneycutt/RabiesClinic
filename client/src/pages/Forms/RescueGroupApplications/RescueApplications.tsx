@@ -225,13 +225,6 @@ function RescueApplications() {
                           /rescue/{form.slug}
                         </a>
                       </div>
-
-                      {form.updated_at && (
-                        <div className="mt-1">
-                          <strong>Last Updated:</strong>{' '}
-                          {formatDate(form.updated_at)}
-                        </div>
-                      )}
                     </div>
                   </Col>
 

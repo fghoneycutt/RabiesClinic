@@ -34,11 +34,11 @@ import OwnerProfilePage from './pages/RabiesClinics/OwnerProfilePage';
 
 import SurrenderForms from './pages/Forms/SurrenderForms/SurrenderForms';
 import FormBuilder from './pages/Forms/FormBuilder';
-import PublicSurrenderForm from './pages/Forms/SurrenderForms/PublicSurrenderForm';
-import SurrenderSubmissionReview from './pages/Forms/SurrenderForms/SurrenderSubmissionReview';
+import PublicSurrenderForm from './pages/Forms/PublicForms/PublicSurrenderForm';
+import FormSubmissionReview from './pages/Forms/FormSubmissionReview';
 
 import RescueApplications from './pages/Forms/RescueGroupApplications/RescueApplications';
-import PublicRescueApplication from './pages/Forms/RescueGroupApplications/PublicRescueApplication';
+import PublicRescueApplication from './pages/Forms/PublicForms/PublicRescueApplication';
 
 import LobbySlides from './pages/LobbySlides/LobbySlides';
 // -----------------------------------
@@ -48,9 +48,10 @@ function AppLayout() {
   const location = useLocation();
 
   const hideNavbar =
-    location.pathname === '/register/next-clinic' ||
-    /^\/clinics\/[^/]+\/register$/.test(location.pathname) ||
-    location.pathname.startsWith('/surrender/');
+  location.pathname === '/register/next-clinic' ||
+  /^\/clinics\/[^/]+\/register$/.test(location.pathname) ||
+  location.pathname.startsWith('/surrender/') ||
+  location.pathname.startsWith('/rescue/');
 
   return (
     <>
@@ -133,13 +134,18 @@ function AppLayout() {
             />
 
             <Route
-              path="/surrender-forms/:id/edit"
+              path="/forms/:id/edit"
               element={<FormBuilder/>}
             />
 
             <Route
               path="/surrender-submissions/:id"
-              element={<SurrenderSubmissionReview/>}
+              element={<FormSubmissionReview />}
+            />
+
+            <Route
+              path="/rescue-submissions/:id"
+              element={<FormSubmissionReview />}
             />
             {/* Rescue Group Applications */}
             <Route

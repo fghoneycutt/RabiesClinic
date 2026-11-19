@@ -293,7 +293,30 @@ export default function CreateClinic() {
         padding: '1rem'
       }}
     >
-      <h2 className="mb-4">Create Clinic</h2>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="mb-0">Create Clinic</h2>
+
+        <div className="d-flex gap-2">
+          <Button
+            size="lg"
+            variant="secondary"
+            onClick={() => navigate('/clinic-list')}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            size="lg"
+            onClick={submit}
+            disabled={!canSubmit}
+            style={{
+              cursor: !canSubmit ? 'not-allowed' : 'pointer'
+            }}
+          >
+            Create Clinic
+          </Button>
+        </div>
+      </div>
 
       <Form>
         <Form.Group className="mb-3">
@@ -792,7 +815,15 @@ export default function CreateClinic() {
           </Card.Body>
         </Card>
 
-        <div className="text-end">
+        <div className="d-flex justify-content-end gap-2">
+          <Button
+            size="lg"
+            variant="secondary"
+            onClick={() => navigate('/clinic-list')}
+          >
+            Cancel
+          </Button>
+
           <Button
             size="lg"
             onClick={submit}

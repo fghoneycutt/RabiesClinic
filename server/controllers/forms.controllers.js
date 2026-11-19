@@ -1,5 +1,26 @@
 const pool = require('../db');
 
+
+const crypto = require('crypto');
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const FORM_UPLOADS_BUCKET = 'form-uploads';
+
+const FILE_TYPES = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx'
+};
+
+
 // ==========================================
 // HELPERS
 // ==========================================
@@ -57,6 +78,70 @@ const getOptionValue = (option) => {
 
   return undefined;
 };
+
+
+const getUploadedFilesByQuestion = (files = []) => {
+  const result = {};
+
+  for (const file of files) {
+    if (!file.fieldname.startsWith('file_')) {
+      continue;
+    }
+
+    const questionId = file.fieldname.slice(5);
+
+    if (!questionId) {
+      continue;
+    }
+
+    if (!result[questionId]) {
+      result[questionId] = [];
+    }
+
+    result[questionId].push(file);
+  }
+
+  return result;
+};
+
+const fileMatchesAccept = (file, question) => {
+  const accept =
+    question.fileAccept ??
+    question.options?.fileAccept ??
+    '';
+
+  if (!accept || typeof accept !== 'string') {
+    return true;
+  }
+
+  const acceptedTypes = accept
+    .split(',')
+    .map(value => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (acceptedTypes.length === 0) {
+    return true;
+  }
+
+  const filename = file.originalname.toLowerCase();
+
+  return acceptedTypes.some(type => {
+    if (type.startsWith('.')) {
+      return filename.endsWith(type);
+    }
+
+    if (type.endsWith('/*')) {
+      return file.mimetype.startsWith(type.slice(0, -1));
+    }
+
+    return file.mimetype.toLowerCase() === type;
+  });
+};
+
+const getFileExtension = (file) => {
+  return FILE_TYPES[file.mimetype] || null;
+};
+
 
 // ==========================================
 // PUBLIC FORM DEFINITION HELPERS
@@ -476,7 +561,12 @@ const validateAnswer = (question, answer) => {
 // COMPLETE SUBMISSION VALIDATION
 // ==========================================
 
-const validateSubmission = (definition, responses) => {
+
+const validateSubmission = (
+  definition,
+  responses,
+  uploadedFilesByQuestion = {}
+) => {
   if (!Array.isArray(definition.sections)) {
     return 'The form definition is invalid.';
   }
@@ -486,15 +576,8 @@ const validateSubmission = (definition, responses) => {
   }
 
   const visibleQuestionIds = new Set();
-
-  // Only answers to previously encountered, visible questions
-  // are allowed to activate conditions.
-  //
-  // This prevents someone from submitting an answer to a hidden
-  // question in order to activate another conditional question.
   const visibleResponses = {};
 
-  // Process sections and questions in their defined order.
   for (const section of definition.sections) {
     const sectionVisible = conditionsMatch(
       section.condition,
@@ -531,8 +614,6 @@ const validateSubmission = (definition, responses) => {
 
       const answer = responses[question.id];
 
-      // Special information blocks contain their own required
-      // fields and are always mandatory when present.
       const isSpecialBlock =
         question.type === 'owner_information' ||
         question.type === 'animal_information';
@@ -540,35 +621,74 @@ const validateSubmission = (definition, responses) => {
       const answerRequired =
         question.required || isSpecialBlock;
 
+      // --------------------------------------
+      // FILE UPLOAD QUESTIONS
+      // --------------------------------------
+
+      if (question.type === 'file_upload') {
+        const uploadedFiles =
+          uploadedFilesByQuestion[question.id] || [];
+
+        if (answerRequired && uploadedFiles.length === 0) {
+          return `Please upload the required document: ${question.label || question.id}`;
+        }
+
+        const allowMultiple =
+          question.allowMultipleFiles === true ||
+          question.options?.allowMultipleFiles === true;
+
+        if (!allowMultiple && uploadedFiles.length > 1) {
+          return `Only one file may be uploaded for "${question.label || question.id}".`;
+        }
+
+        for (const file of uploadedFiles) {
+          if (!getFileExtension(file)) {
+            return `The file uploaded for "${question.label || question.id}" has an unsupported format.`;
+          }
+
+          if (!fileMatchesAccept(file, question)) {
+            return `The file uploaded for "${question.label || question.id}" has an unsupported file type.`;
+          }
+        }
+
+        continue;
+      }
+
+      // --------------------------------------
+      // NORMAL QUESTIONS
+      // --------------------------------------
+
       if (answerRequired && isEmptyAnswer(answer)) {
         return `Please complete the required section: ${question.label || question.id}`;
       }
 
-      // Validate any supplied answer.
       if (!isEmptyAnswer(answer)) {
         if (!validateAnswer(question, answer)) {
           return `The answer provided for "${question.label || question.id}" is invalid.`;
         }
-      }
 
-      // Only validated, visible answers may activate later
-      // conditional questions or sections.
-      if (!isEmptyAnswer(answer)) {
         visibleResponses[question.id] = answer;
       }
     }
   }
 
-  // Reject answers to questions that are hidden by branching
-  // or questions that do not exist in the public form.
+  // Reject answers to hidden or nonexistent questions.
   for (const questionId of Object.keys(responses)) {
     if (!visibleQuestionIds.has(questionId)) {
       return 'Your submission contains an answer to an unavailable question. Please refresh the form and try again.';
     }
   }
 
+  // Reject files attached to hidden or nonexistent questions.
+  for (const questionId of Object.keys(uploadedFilesByQuestion)) {
+    if (!visibleQuestionIds.has(questionId)) {
+      return 'Your submission contains a file for an unavailable question. Please refresh the form and try again.';
+    }
+  }
+
   return null;
 };
+
 
 // ==========================================
 // CREATE FORM
@@ -867,54 +987,80 @@ exports.getPublicForm = async (req, res) => {
 // Applicants cannot provide or modify it.
 // ==========================================
 
+
 exports.submitForm = async (req, res) => {
   const { slug } = req.params;
 
-  const {
-    responses,
-    species,
-    surrender_type,
-  } = req.body || {};
-
-  if (!isPlainObject(responses)) {
-    return res.status(400).json({
-      message: 'Form responses must be provided as an object.',
-    });
-  }
-
-  if (
-    species !== undefined &&
-    species !== null &&
-    typeof species !== 'string'
-  ) {
-    return res.status(400).json({
-      message: 'Invalid species value.',
-    });
-  }
-
-  if (
-    surrender_type !== undefined &&
-    surrender_type !== null &&
-    typeof surrender_type !== 'string'
-  ) {
-    return res.status(400).json({
-      message: 'Invalid surrender type.',
-    });
-  }
-
-  if (species && species.length > 50) {
-    return res.status(400).json({
-      message: 'Species value is too long.',
-    });
-  }
-
-  if (surrender_type && surrender_type.length > 100) {
-    return res.status(400).json({
-      message: 'Surrender type value is too long.',
-    });
-  }
+  let submissionId = null;
+  const uploadedStoragePaths = [];
 
   try {
+    let responses = req.body?.responses;
+
+    // Multipart requests send JSON values as strings.
+    if (typeof responses === 'string') {
+      try {
+        responses = JSON.parse(responses);
+      } catch {
+        return res.status(400).json({
+          message: 'Form responses contain invalid JSON.'
+        });
+      }
+    }
+
+    const species = req.body?.species;
+    const surrender_type = req.body?.surrender_type;
+
+    if (!isPlainObject(responses)) {
+      return res.status(400).json({
+        message: 'Form responses must be provided as an object.'
+      });
+    }
+
+    if (
+      species !== undefined &&
+      species !== null &&
+      typeof species !== 'string'
+    ) {
+      return res.status(400).json({
+        message: 'Invalid species value.'
+      });
+    }
+
+    if (
+      surrender_type !== undefined &&
+      surrender_type !== null &&
+      typeof surrender_type !== 'string'
+    ) {
+      return res.status(400).json({
+        message: 'Invalid surrender type.'
+      });
+    }
+
+    if (species && species.length > 50) {
+      return res.status(400).json({
+        message: 'Species value is too long.'
+      });
+    }
+
+    if (surrender_type && surrender_type.length > 100) {
+      return res.status(400).json({
+        message: 'Surrender type value is too long.'
+      });
+    }
+
+    const files = Array.isArray(req.files) ? req.files : [];
+
+    // Every uploaded file must use the expected field naming convention.
+    if (files.some(file => !file.fieldname.startsWith('file_'))) {
+      return res.status(400).json({
+        message: 'An uploaded file has an invalid question reference.'
+      });
+    }
+
+    const uploadedFilesByQuestion =
+      getUploadedFilesByQuestion(files);
+
     const formResult = await pool.query(
       `SELECT id, definition
        FROM forms
@@ -925,7 +1071,7 @@ exports.submitForm = async (req, res) => {
 
     if (formResult.rows.length === 0) {
       return res.status(404).json({
-        message: 'Form not found.',
+        message: 'Form not found.'
       });
     }
 
@@ -936,27 +1082,28 @@ exports.submitForm = async (req, res) => {
       !Array.isArray(form.definition.sections)
     ) {
       return res.status(409).json({
-        message: 'This form has not been configured yet.',
+        message: 'This form has not been configured yet.'
       });
     }
 
-    // Generate the exact public-facing definition that
-    // applicants receive. Staff-only questions are excluded.
     const formSnapshot = getPublicDefinition(
       form.definition
     );
 
     const validationError = validateSubmission(
       formSnapshot,
-      responses
+      responses,
+      uploadedFilesByQuestion
     );
 
     if (validationError) {
       return res.status(400).json({
-        message: validationError,
+        message: validationError
       });
     }
 
+    // Create the submission first so its ID can be used
+    // to organize its documents in Supabase Storage.
     const result = await pool.query(
       `INSERT INTO form_submissions (
          form_id,
@@ -980,18 +1127,106 @@ exports.submitForm = async (req, res) => {
         JSON.stringify(formSnapshot),
         species || null,
         surrender_type || null,
-        JSON.stringify(responses),
+        JSON.stringify(responses)
       ]
     );
 
+    const submission = result.rows[0];
+    submissionId = submission.id;
+
+    // Upload each document and save its metadata.
+    for (const [questionId, questionFiles] of Object.entries(
+      uploadedFilesByQuestion
+    )) {
+      for (const file of questionFiles) {
+        const extension = getFileExtension(file);
+
+        const filename = `${crypto.randomUUID()}.${extension}`;
+
+        const storagePath =
+          `submissions/${submissionId}/${questionId}/${filename}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(FORM_UPLOADS_BUCKET)
+          .upload(storagePath, file.buffer, {
+            contentType: file.mimetype,
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error('Supabase form document upload error:', uploadError);
+          throw new Error('A document could not be uploaded.');
+        }
+
+        uploadedStoragePaths.push(storagePath);
+
+        await pool.query(
+          `INSERT INTO form_submission_files (
+             submission_id,
+             question_id,
+             storage_path,
+             original_name,
+             mime_type,
+             size_bytes
+           )
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            submissionId,
+            questionId,
+            storagePath,
+            file.originalname,
+            file.mimetype,
+            file.size
+          ]
+        );
+      }
+    }
+
     return res.status(201).json({
       message: 'Form submitted successfully.',
-      submission: result.rows[0],
+      submission
     });
+
   } catch (error) {
-    return sendServerError(res, error, 'Error submitting form:');
+    console.error('Error submitting form:', error);
+
+    // Remove any files that were uploaded before the failure.
+    if (uploadedStoragePaths.length > 0) {
+      const { error: cleanupError } = await supabase.storage
+        .from(FORM_UPLOADS_BUCKET)
+        .remove(uploadedStoragePaths);
+
+      if (cleanupError) {
+        console.error(
+          'Could not clean up uploaded form documents:',
+          cleanupError
+        );
+      }
+    }
+
+    // Remove the incomplete submission and its metadata.
+    if (submissionId !== null) {
+      try {
+        await pool.query(
+          `DELETE FROM form_submissions WHERE id = $1`,
+          [submissionId]
+        );
+      } catch (cleanupError) {
+        console.error(
+          'Could not clean up incomplete form submission:',
+          cleanupError
+        );
+      }
+    }
+
+    return sendServerError(
+      res,
+      error,
+      'Error submitting form:'
+    );
   }
 };
+
 
 // ==========================================
 // GET ALL SUBMISSIONS
@@ -1051,12 +1286,13 @@ exports.getSubmissions = async (req, res) => {
 // GET /api/forms/submissions/:id
 // ==========================================
 
+
 exports.getSubmissionById = async (req, res) => {
   const { id } = req.params;
 
   if (!isValidId(id)) {
     return res.status(400).json({
-      message: 'Invalid submission ID.',
+      message: 'Invalid submission ID.'
     });
   }
 
@@ -1075,15 +1311,69 @@ exports.getSubmissionById = async (req, res) => {
 
     if (result.rows.length === 0) {
       return res.status(404).json({
-        message: 'Submission not found.',
+        message: 'Submission not found.'
       });
     }
 
-    return res.status(200).json(result.rows[0]);
+    const submission = result.rows[0];
+
+    const filesResult = await pool.query(
+      `SELECT
+         id,
+         submission_id,
+         question_id,
+         storage_path,
+         original_name,
+         mime_type,
+         size_bytes,
+         uploaded_at
+       FROM form_submission_files
+       WHERE submission_id = $1
+       ORDER BY uploaded_at ASC`,
+      [id]
+    );
+
+    const files = [];
+
+    for (const file of filesResult.rows) {
+      const { data, error } = await supabase.storage
+        .from(FORM_UPLOADS_BUCKET)
+        .createSignedUrl(file.storage_path, 60 * 60);
+
+      if (error) {
+        console.error(
+          'Could not create signed form document URL:',
+          error
+        );
+
+        files.push({
+          ...file,
+          download_url: null
+        });
+
+        continue;
+      }
+
+      files.push({
+        ...file,
+        download_url: data.signedUrl
+      });
+    }
+
+    return res.status(200).json({
+      ...submission,
+      files
+    });
+
   } catch (error) {
-    return sendServerError(res, error, 'Error retrieving submission:');
+    return sendServerError(
+      res,
+      error,
+      'Error retrieving submission:'
+    );
   }
 };
+
 
 // ==========================================
 // UPDATE SUBMISSION STATUS

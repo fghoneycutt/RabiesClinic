@@ -105,7 +105,7 @@ function SurrenderForms() {
 
       const newForm = res.data.form ?? res.data;
 
-      navigate(`/surrender-forms/${newForm.id}/edit`);
+      navigate(`/forms/${newForm.id}/edit`);
     } catch (err: any) {
       console.error(err);
 
@@ -121,7 +121,7 @@ function SurrenderForms() {
           : null;
 
         if (existingForm) {
-          navigate(`/surrender-forms/${existingForm.id}/edit`);
+          navigate(`/forms/${existingForm.id}/edit`);
         } else {
           setError(
             'The surrender form already exists, but could not be retrieved.'
@@ -139,7 +139,7 @@ function SurrenderForms() {
 
   const handleEditForm = () => {
     if (form) {
-      navigate(`/surrender-forms/${form.id}/edit`);
+      navigate(`/forms/${form.id}/edit`);
     }
   };
 
@@ -227,13 +227,6 @@ function SurrenderForms() {
                           /surrender/{form.slug}
                         </a>
                       </div>
-
-                      {form.updated_at && (
-                        <div className="mt-1">
-                          <strong>Last Updated:</strong>{' '}
-                          {formatDate(form.updated_at)}
-                        </div>
-                      )}
                     </div>
                   </Col>
 
