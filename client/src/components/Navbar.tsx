@@ -32,6 +32,7 @@ export default function AppNavbar() {
 
   const navItems = [
     { label: 'Home', path: '/' },
+    { label: 'Rabies Clinics', path: '/clinic-list' },
     { label: 'Surrender Forms', path: '/surrender-forms' },
     { label: 'Rescue Applications', path: '/rescue-applications' },
     { label: 'Lobby Slides', path: '/lobby-slides' },
@@ -108,7 +109,6 @@ export default function AppNavbar() {
             </Navbar.Collapse>
           </>
         )}
-
       </Container>
     </Navbar>
   );

@@ -11,7 +11,7 @@ import PasswordInput from '../components/input/PasswordInput';
 
 export default function LoginPage() {
   useEffect(() => {
-    document.title = 'Login';
+    document.title = 'ShelterHelper Login';
   }, []);
 
   const { login } = useAuth();

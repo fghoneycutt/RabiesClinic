@@ -1,7 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Badge,
   Button,
   Card,
@@ -9,8 +8,16 @@ import {
   Form,
   Modal,
   Row,
-  Spinner
+  Spinner,
+  Toast,
+  ToastContainer
 } from 'react-bootstrap';
+
+import {
+  FaEdit,
+  FaPowerOff,
+  FaTrash
+} from 'react-icons/fa';
 
 import {
   api,
@@ -28,8 +35,6 @@ function LobbySlides() {
   const [slides, setSlides] = useState<LobbySlide[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   const [showModal, setShowModal] = useState(false);
   const [editingSlide, setEditingSlide] = useState<LobbySlide | null>(null);
@@ -42,9 +47,40 @@ function LobbySlides() {
   const [displayOrder, setDisplayOrder] = useState(0);
   const [durationSeconds, setDurationSeconds] = useState(15);
 
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVariant, setToastVariant] = useState<'success' | 'danger'>('success');
+
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [slideToDelete, setSlideToDelete] = useState<LobbySlide | null>(null);
+  const [deletingSlide, setDeletingSlide] = useState(false);
+
+  const notify = (
+    message: string,
+    variant: 'success' | 'danger' = 'success'
+  ) => {
+    setToastMessage(message);
+    setToastVariant(variant);
+    setShowToast(true);
+  };
+
+  const loadSlides = async () => {
+    try {
+      setLoading(true);
+
+      const data = await getLobbySlides();
+      setSlides(data);
+    } catch (err) {
+      console.error('Error loading lobby slides:', err);
+      notify('Unable to load lobby slides.', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadSlides();
@@ -57,21 +93,6 @@ function LobbySlides() {
       }
     };
   }, [imagePreview]);
-
-  const loadSlides = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const data = await getLobbySlides();
-        setSlides(data);
-    } catch (err) {
-      console.error('Error loading lobby slides:', err);
-      setError('Unable to load lobby slides.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const resetForm = () => {
     setTitle('');
@@ -92,8 +113,6 @@ function LobbySlides() {
   const openCreateModal = () => {
     setEditingSlide(null);
     resetForm();
-    setError('');
-    setSuccess('');
     setShowModal(true);
   };
 
@@ -115,8 +134,6 @@ function LobbySlides() {
       fileInputRef.current.value = '';
     }
 
-    setError('');
-    setSuccess('');
     setShowModal(true);
   };
 
@@ -149,26 +166,23 @@ function LobbySlides() {
   const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    setError('');
-    setSuccess('');
-
     if (!title.trim()) {
-      setError('Please enter a slide title.');
+      notify('Please enter a slide title.', 'danger');
       return;
     }
 
     if (!editingSlide && !imageFile) {
-      setError('Please select an image for this slide.');
+      notify('Please select an image for this slide.', 'danger');
       return;
     }
 
     if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
-      setError('The end date must be later than the start date.');
+      notify('The end date must be later than the start date.', 'danger');
       return;
     }
 
     if (durationSeconds < 1 || durationSeconds > 300) {
-      setError('Display duration must be between 1 and 300 seconds.');
+      notify('Display duration must be between 1 and 300 seconds.', 'danger');
       return;
     }
 
@@ -176,7 +190,6 @@ function LobbySlides() {
       setSaving(true);
 
       if (editingSlide) {
-        // Update slide information.
         await updateLobbySlide(editingSlide.id, {
           title: title.trim(),
           description: description.trim() || null,
@@ -191,7 +204,6 @@ function LobbySlides() {
           duration_seconds: Number(durationSeconds)
         });
 
-        // If a replacement image was selected, upload it separately.
         if (imageFile) {
           const formData = new FormData();
           formData.append('image', imageFile);
@@ -202,7 +214,7 @@ function LobbySlides() {
           );
         }
 
-        setSuccess('Slide updated successfully.');
+        notify('Slide updated successfully.');
       } else {
         const formData = new FormData();
 
@@ -223,7 +235,7 @@ function LobbySlides() {
 
         await createLobbySlide(formData);
 
-        setSuccess('Slide created successfully.');
+        notify('Slide created successfully.');
       }
 
       setShowModal(false);
@@ -232,56 +244,67 @@ function LobbySlides() {
     } catch (err: any) {
       console.error('Error saving lobby slide:', err);
 
-      setError(
+      notify(
         err?.response?.data?.message ||
-        'Unable to save the slide. Please try again.'
+        'Unable to save the slide. Please try again.',
+        'danger'
       );
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (slide: LobbySlide) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${slide.title}"? This cannot be undone.`
-    );
+  const handleDelete = (slide: LobbySlide) => {
+    setSlideToDelete(slide);
+    setShowDeleteModal(true);
+  };
 
-    if (!confirmed) return;
+  const confirmDelete = async () => {
+    if (!slideToDelete) return;
 
     try {
-      setError('');
-      setSuccess('');
+      setDeletingSlide(true);
 
-      await deleteLobbySlide(slide.id);
+      await deleteLobbySlide(slideToDelete.id);
 
-      setSuccess('Slide deleted successfully.');
+      setShowDeleteModal(false);
+      setSlideToDelete(null);
+
+      notify('Slide deleted successfully.');
       await loadSlides();
     } catch (err: any) {
       console.error('Error deleting lobby slide:', err);
 
-      setError(
+      notify(
         err?.response?.data?.message ||
-        'Unable to delete the slide.'
+        'Unable to delete the slide.',
+        'danger'
       );
+    } finally {
+      setDeletingSlide(false);
     }
   };
 
   const handleToggleActive = async (slide: LobbySlide) => {
     try {
-      setError('');
-      setSuccess('');
-
       await updateLobbySlide(slide.id, {
         active: !slide.active
       });
+
+      notify(
+        slide.active
+          ? 'Slide deactivated successfully.'
+          : 'Slide activated successfully.'
+      );
 
       await loadSlides();
     } catch (err: any) {
       console.error('Error updating slide status:', err);
 
-      setError(
+      notify(
         err?.response?.data?.message ||
-        'Unable to update slide status.'
+        'Unable to update slide status.',
+        'danger'
       );
     }
   };
@@ -310,6 +333,27 @@ function LobbySlides() {
 
   return (
     <>
+      <ToastContainer
+        position="top-end"
+        className="p-3"
+        style={{ zIndex: 9999 }}
+      >
+        <Toast
+          show={showToast}
+          onClose={() => setShowToast(false)}
+          delay={toastVariant === 'success' ? 3000 : 5000}
+          autohide
+          bg={toastVariant}
+        >
+          <Toast.Header>
+            <strong className="me-auto">ShelterHelper</strong>
+          </Toast.Header>
+          <Toast.Body className="text-white">
+            {toastMessage}
+          </Toast.Body>
+        </Toast>
+      </ToastContainer>
+
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
           <h2 className="mb-1">Lobby Slides</h2>
@@ -322,18 +366,6 @@ function LobbySlides() {
           + Add Slide
         </Button>
       </div>
-
-      {error && (
-        <Alert variant="danger" dismissible onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert variant="success" dismissible onClose={() => setSuccess('')}>
-          {success}
-        </Alert>
-      )}
 
       {loading ? (
         <div className="text-center py-5">
@@ -394,9 +426,6 @@ function LobbySlides() {
 
                   <div className="small text-muted mb-3">
                     <div>
-                      <strong>Order:</strong> {slide.display_order}
-                    </div>
-                    <div>
                       <strong>Duration:</strong> {slide.duration_seconds} seconds
                     </div>
                     <div className="mt-2">
@@ -412,6 +441,7 @@ function LobbySlides() {
                       size="sm"
                       onClick={() => openEditModal(slide)}
                     >
+                      <FaEdit className="me-1" />
                       Edit
                     </Button>
 
@@ -420,6 +450,7 @@ function LobbySlides() {
                       size="sm"
                       onClick={() => handleToggleActive(slide)}
                     >
+                      <FaPowerOff className="me-1" />
                       {slide.active ? 'Deactivate' : 'Activate'}
                     </Button>
 
@@ -428,6 +459,7 @@ function LobbySlides() {
                       size="sm"
                       onClick={() => handleDelete(slide)}
                     >
+                      <FaTrash className="me-1" />
                       Delete
                     </Button>
                   </div>
@@ -457,12 +489,6 @@ function LobbySlides() {
           </Modal.Header>
 
           <Modal.Body>
-            {error && (
-              <Alert variant="danger">
-                {error}
-              </Alert>
-            )}
-
             <Row className="g-3">
               <Col xs={12}>
                 <Form.Group>
@@ -500,9 +526,9 @@ function LobbySlides() {
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     onChange={(e) => {
-                        const target = e.currentTarget as HTMLInputElement;
-                        const file = target.files?.[0] || null;
-                        handleImageChange(file);
+                      const target = e.currentTarget as HTMLInputElement;
+                      const file = target.files?.[0] || null;
+                      handleImageChange(file);
                     }}
                     required={!editingSlide}
                   />
@@ -562,6 +588,7 @@ function LobbySlides() {
                   />
                 </Form.Group>
               </Col>
+
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Display Duration (Seconds)</Form.Label>
@@ -609,6 +636,61 @@ function LobbySlides() {
             </Button>
           </Modal.Footer>
         </Form>
+      </Modal>
+      <Modal
+        show={showDeleteModal}
+        onHide={() => {
+          if (!deletingSlide) {
+            setShowDeleteModal(false);
+            setSlideToDelete(null);
+          }
+        }}
+        centered
+      >
+        <Modal.Header closeButton={!deletingSlide}>
+          <Modal.Title>Delete Lobby Slide</Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          Are you sure you want to delete{' '}
+          <strong>{slideToDelete?.title}</strong>?
+
+          <p className="text-danger small mt-2 mb-0">
+            This action cannot be undone.
+          </p>
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setShowDeleteModal(false);
+              setSlideToDelete(null);
+            }}
+            disabled={deletingSlide}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            variant="danger"
+            onClick={confirmDelete}
+            disabled={deletingSlide}
+          >
+            {deletingSlide ? (
+              <>
+                <Spinner
+                  size="sm"
+                  animation="border"
+                  className="me-2"
+                />
+                Deleting...
+              </>
+            ) : (
+              'Delete Slide'
+            )}
+          </Button>
+        </Modal.Footer>
       </Modal>
     </>
   );
