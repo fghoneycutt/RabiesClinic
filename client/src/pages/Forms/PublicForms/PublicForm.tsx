@@ -1325,12 +1325,6 @@ export default function PublicForm({ variant }: PublicFormProps) {
       <Card className="mb-4">
         <Card.Body>
           <h1 className="mb-2">{form.name}</h1>
-
-          {isRescue && form.description && (
-            <p className="text-muted mb-0">
-              {form.description}
-            </p>
-          )}
         </Card.Body>
       </Card>
 
