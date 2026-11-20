@@ -6,6 +6,7 @@ import Navbar from 'react-bootstrap/Navbar';
 import Nav from 'react-bootstrap/Nav';
 
 import { useAuth } from '../auth/AuthContext';
+import { useState, useEffect } from 'react';
 
 import './AppNavbar.css';
 
@@ -13,6 +14,11 @@ export default function AppNavbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -44,6 +50,8 @@ export default function AppNavbar() {
       variant="dark"
       expand="lg"
       sticky="top"
+      expanded={expanded}
+      onToggle={(nextExpanded) => setExpanded(nextExpanded)}
       className="shelter-navbar"
     >
       <Container fluid="lg">
