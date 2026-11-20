@@ -1,7 +1,17 @@
 const pool = require('../db');
 
-
 const crypto = require('crypto');
+const fs = require('fs/promises');
+const os = require('os');
+const path = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+
+const { PDFDocument } = require('pdf-lib');
+const sharp = require('sharp');
+
+const execFileAsync = promisify(execFile);
+
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(
@@ -52,7 +62,6 @@ const sendServerError = (res, error, message) => {
 };
 
 const allowedStatuses = [
-  'draft',
   'submitted',
   'under_review',
   'approved',
@@ -140,6 +149,180 @@ const fileMatchesAccept = (file, question) => {
 
 const getFileExtension = (file) => {
   return FILE_TYPES[file.mimetype] || null;
+};
+
+// ==========================================
+// COMBINED SUBMISSION PDF HELPERS
+// ==========================================
+
+const convertOfficeDocumentToPdf = async (buffer, extension) => {
+  const tempDirectory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'shelterhelper-pdf-')
+  );
+
+  try {
+    const inputPath = path.join(
+      tempDirectory,
+      `attachment.${extension}`
+    );
+
+    const outputPath = path.join(
+      tempDirectory,
+      'attachment.pdf'
+    );
+
+    await fs.writeFile(inputPath, buffer);
+
+    await execFileAsync(
+      'libreoffice',
+      [
+        '--headless',
+        '--convert-to',
+        'pdf',
+        '--outdir',
+        tempDirectory,
+        inputPath
+      ],
+      {
+        timeout: 120000,
+        maxBuffer: 10 * 1024 * 1024
+      }
+    );
+
+    return await fs.readFile(outputPath);
+
+  } finally {
+    await fs.rm(tempDirectory, {
+      recursive: true,
+      force: true
+    });
+  }
+};
+
+
+const appendPdfBuffer = async (targetPdf, buffer) => {
+  const sourcePdf = await PDFDocument.load(buffer);
+
+  const pages = await targetPdf.copyPages(
+    sourcePdf,
+    sourcePdf.getPageIndices()
+  );
+
+  pages.forEach(page => targetPdf.addPage(page));
+};
+
+
+const appendImageBuffer = async (targetPdf, buffer) => {
+  // Normalize the image to PNG so WebP and other supported
+  // image formats can be embedded consistently.
+  const pngBuffer = await sharp(buffer)
+    .rotate()
+    .png()
+    .toBuffer();
+
+  const image = await targetPdf.embedPng(pngBuffer);
+
+  const page = targetPdf.addPage([612, 792]);
+
+  const margin = 36;
+  const availableWidth = 612 - margin * 2;
+  const availableHeight = 792 - margin * 2;
+
+  const scale = Math.min(
+    availableWidth / image.width,
+    availableHeight / image.height
+  );
+
+  const width = image.width * scale;
+  const height = image.height * scale;
+
+  page.drawImage(image, {
+    x: (612 - width) / 2,
+    y: (792 - height) / 2,
+    width,
+    height
+  });
+};
+
+
+const appendAttachmentToPdf = async (targetPdf, file) => {
+  const { data, error } = await supabase.storage
+    .from(FORM_UPLOADS_BUCKET)
+    .download(file.storage_path);
+
+  if (error || !data) {
+    console.error(
+      'Could not download submission attachment:',
+      file.storage_path,
+      error
+    );
+
+    throw new Error(
+      `Could not retrieve uploaded document: ${file.original_name}`
+    );
+  }
+
+  let buffer = Buffer.from(await data.arrayBuffer());
+
+  const mimeType = file.mime_type?.toLowerCase();
+
+  if (mimeType === 'application/pdf') {
+    await appendPdfBuffer(targetPdf, buffer);
+    return;
+  }
+
+  if (
+    mimeType === 'image/jpeg' ||
+    mimeType === 'image/png' ||
+    mimeType === 'image/webp'
+  ) {
+    await appendImageBuffer(targetPdf, buffer);
+    return;
+  }
+
+  if (
+    mimeType === 'application/msword' ||
+    mimeType ===
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) {
+    const extension = FILE_TYPES[mimeType];
+
+    buffer = await convertOfficeDocumentToPdf(
+      buffer,
+      extension
+    );
+
+    await appendPdfBuffer(targetPdf, buffer);
+    return;
+  }
+
+  throw new Error(
+    `Unsupported attachment format: ${file.original_name}`
+  );
+};
+
+
+const getQuestionOrder = (definition) => {
+  const order = new Map();
+  let index = 0;
+
+  const sections = Array.isArray(definition?.sections)
+    ? definition.sections
+    : [];
+
+  for (const section of sections) {
+    const questions = Array.isArray(section.questions)
+      ? section.questions
+      : [];
+
+    for (const question of questions) {
+      if (question?.id) {
+        order.set(String(question.id), index++);
+      }
+    }
+  }
+
+  return order;
 };
 
 
@@ -620,6 +803,80 @@ const validateSubmission = (
 
       const answerRequired =
         question.required || isSpecialBlock;
+
+      // --------------------------------------
+      // SIGNATURE QUESTIONS
+      // --------------------------------------
+
+      if (question.type === 'signature') {
+        const uploadedFiles =
+          uploadedFilesByQuestion[question.id] || [];
+
+        if (answerRequired) {
+          if (!isPlainObject(answer)) {
+            return `Please provide a signature for "${question.label || question.id}".`;
+          }
+
+          if (answer.method === 'typed') {
+            if (
+              typeof answer.value !== 'string' ||
+              !answer.value.trim()
+            ) {
+              return `Please provide a valid signature for "${question.label || question.id}".`;
+            }
+          } else if (answer.method === 'drawn') {
+            if (uploadedFiles.length === 0) {
+              return `Please provide a drawn signature for "${question.label || question.id}".`;
+            }
+          } else {
+            return `The signature provided for "${question.label || question.id}" is invalid.`;
+          }
+        } else if (!isEmptyAnswer(answer)) {
+          if (
+            !isPlainObject(answer) ||
+            !['typed', 'drawn'].includes(answer.method)
+          ) {
+            return `The signature provided for "${question.label || question.id}" is invalid.`;
+          }
+
+          if (
+            answer.method === 'typed' &&
+            (
+              typeof answer.value !== 'string' ||
+              !answer.value.trim()
+            )
+          ) {
+            return `The signature provided for "${question.label || question.id}" is invalid.`;
+          }
+
+          if (
+            answer.method === 'drawn' &&
+            uploadedFiles.length === 0
+          ) {
+            return `The signature provided for "${question.label || question.id}" is invalid.`;
+          }
+        }
+
+        if (uploadedFiles.length > 1) {
+          return `Only one signature file may be uploaded for "${question.label || question.id}".`;
+        }
+
+        for (const file of uploadedFiles) {
+          if (!getFileExtension(file)) {
+            return `The signature file for "${question.label || question.id}" has an unsupported format.`;
+          }
+
+          if (!fileMatchesAccept(file, question)) {
+            return `The signature file for "${question.label || question.id}" has an unsupported file type.`;
+          }
+        }
+
+        if (!isEmptyAnswer(answer)) {
+          visibleResponses[question.id] = answer;
+        }
+
+        continue;
+      }
 
       // --------------------------------------
       // FILE UPLOAD QUESTIONS
@@ -1259,6 +1516,7 @@ exports.getSubmissions = async (req, res) => {
          fs.form_id,
          fs.species,
          fs.surrender_type,
+         fs.responses,
          fs.status,
          fs.submitted_at,
          fs.updated_at,
@@ -1374,6 +1632,291 @@ exports.getSubmissionById = async (req, res) => {
   }
 };
 
+// ==========================================
+// DELETE SUBMISSION
+// DELETE /api/forms/submissions/:id
+//
+// Deletes the submission, its uploaded documents,
+// and its staff review notes.
+// ==========================================
+
+exports.deleteSubmission = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isValidId(id)) {
+    return res.status(400).json({
+      message: 'Invalid submission ID.',
+    });
+  }
+
+  let client;
+
+  try {
+    // Confirm the submission exists and retrieve its uploaded files.
+    const submissionResult = await pool.query(
+      `SELECT id
+       FROM form_submissions
+       WHERE id = $1`,
+      [id]
+    );
+
+    if (submissionResult.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Submission not found.',
+      });
+    }
+
+    const filesResult = await pool.query(
+      `SELECT storage_path
+       FROM form_submission_files
+       WHERE submission_id = $1`,
+      [id]
+    );
+
+    const storagePaths = filesResult.rows
+      .map(file => file.storage_path)
+      .filter(Boolean);
+
+    // Remove the actual uploaded files from Supabase Storage.
+    if (storagePaths.length > 0) {
+      const { error: storageError } = await supabase.storage
+        .from(FORM_UPLOADS_BUCKET)
+        .remove(storagePaths);
+
+      if (storageError) {
+        console.error(
+          'Could not delete submission documents from Supabase:',
+          storageError
+        );
+
+        return res.status(500).json({
+          message: 'The uploaded documents could not be deleted. The application was not deleted.',
+        });
+      }
+    }
+
+    // Delete the database records in a transaction.
+    client = await pool.connect();
+
+    await client.query('BEGIN');
+
+    await client.query(
+      `DELETE FROM form_submission_notes
+       WHERE submission_id = $1`,
+      [id]
+    );
+
+    await client.query(
+      `DELETE FROM form_submission_files
+       WHERE submission_id = $1`,
+      [id]
+    );
+
+    const deleteResult = await client.query(
+      `DELETE FROM form_submissions
+       WHERE id = $1
+       RETURNING id`,
+      [id]
+    );
+
+    if (deleteResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+
+      return res.status(404).json({
+        message: 'Submission not found.',
+      });
+    }
+
+    await client.query('COMMIT');
+
+    return res.status(200).json({
+      message: 'Application and associated documents deleted successfully.',
+      id: deleteResult.rows[0].id,
+    });
+
+  } catch (error) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error(
+          'Error rolling back submission deletion:',
+          rollbackError
+        );
+      }
+    }
+
+    return sendServerError(
+      res,
+      error,
+      'Error deleting submission:'
+    );
+
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+};
+
+// ==========================================
+// GENERATE COMBINED SUBMISSION PDF
+// POST /api/forms/submissions/:id/combined-pdf
+//
+// Receives:
+// reviewPdf: PDF generated by the frontend
+//
+// Returns:
+// One PDF containing the review followed by
+// all uploaded submission documents.
+// ==========================================
+
+
+exports.generateCombinedSubmissionPdf = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isValidId(id)) {
+    return res.status(400).json({
+      message: 'Invalid submission ID.'
+    });
+  }
+
+  if (!req.file || !req.file.buffer) {
+    return res.status(400).json({
+      message: 'The submission review PDF is required.'
+    });
+  }
+
+  try {
+    // Validate the incoming review PDF.
+    let combinedPdf;
+
+    try {
+      combinedPdf = await PDFDocument.load(req.file.buffer);
+    } catch {
+      return res.status(400).json({
+        message: 'The submitted review document is not a valid PDF.'
+      });
+    }
+
+    // Retrieve the submission and its saved form snapshot.
+    const submissionResult = await pool.query(
+      `SELECT
+         fs.id,
+         fs.form_snapshot,
+         f.name AS form_name
+       FROM form_submissions fs
+       JOIN forms f ON f.id = fs.form_id
+       WHERE fs.id = $1`,
+      [id]
+    );
+
+    if (submissionResult.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Submission not found.'
+      });
+    }
+
+    const submission = submissionResult.rows[0];
+
+    // Identify signature questions from the saved form definition.
+    const signatureQuestionIds = new Set();
+
+    const sections = submission.form_snapshot?.sections ?? [];
+
+    for (const section of sections) {
+      for (const question of section.questions ?? []) {
+        if (question.type === 'signature') {
+          signatureQuestionIds.add(String(question.id));
+        }
+      }
+    }
+
+    // Retrieve all uploaded document metadata.
+    const filesResult = await pool.query(
+      `SELECT
+         id,
+         question_id,
+         storage_path,
+         original_name,
+         mime_type,
+         uploaded_at
+       FROM form_submission_files
+       WHERE submission_id = $1
+       ORDER BY uploaded_at ASC, id ASC`,
+      [id]
+    );
+
+    // Exclude signature images from the appended documents.
+    const documentFiles = filesResult.rows.filter(
+      file => !signatureQuestionIds.has(String(file.question_id))
+    );
+
+    // Determine the original question order from the
+    // form definition saved when the application was submitted.
+    const questionOrder = getQuestionOrder(
+      submission.form_snapshot
+    );
+
+    // Sort attachments by question order, then upload order.
+    documentFiles.sort((a, b) => {
+      const orderA =
+        questionOrder.get(String(a.question_id)) ??
+        Number.MAX_SAFE_INTEGER;
+
+      const orderB =
+        questionOrder.get(String(b.question_id)) ??
+        Number.MAX_SAFE_INTEGER;
+
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+
+      const dateA = new Date(a.uploaded_at).getTime();
+      const dateB = new Date(b.uploaded_at).getTime();
+
+      if (dateA !== dateB) {
+        return dateA - dateB;
+      }
+
+      return Number(a.id) - Number(b.id);
+    });
+
+    // Append each uploaded document after the review.
+    // Signature images are intentionally excluded.
+    for (const file of documentFiles) {
+      await appendAttachmentToPdf(combinedPdf, file);
+    }
+
+    // Generate the final PDF.
+    const pdfBytes = await combinedPdf.save();
+
+    const filename = `submission-${id}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"`
+    );
+
+    res.setHeader(
+      'Content-Length',
+      pdfBytes.length
+    );
+
+    return res.status(200).send(Buffer.from(pdfBytes));
+
+  } catch (error) {
+    return sendServerError(
+      res,
+      error,
+      'Error generating combined submission PDF:'
+    );
+  }
+};
+
+
 
 // ==========================================
 // UPDATE SUBMISSION STATUS
@@ -1423,5 +1966,206 @@ exports.updateSubmissionStatus = async (req, res) => {
     });
   } catch (error) {
     return sendServerError(res, error, 'Error updating submission status:');
+  }
+};
+
+exports.getSubmissionNotes = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isValidId(id)) {
+    return res.status(400).json({
+      message: 'Invalid submission ID.',
+    });
+  }
+
+  try {
+    const submission = await pool.query(
+      'SELECT id FROM form_submissions WHERE id = $1',
+      [id]
+    );
+
+    if (submission.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Submission not found.',
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT
+        n.id,
+        n.submission_id,
+        n.note,
+        n.created_by,
+        n.created_at,
+        n.updated_by,
+        n.updated_at,
+        creator.name AS created_by_name,
+        editor.name AS updated_by_name
+      FROM form_submission_notes n
+      LEFT JOIN users creator ON creator.id = n.created_by
+      LEFT JOIN users editor ON editor.id = n.updated_by
+      WHERE n.submission_id = $1
+      ORDER BY n.created_at ASC, n.id ASC`,
+      [id]
+    );
+
+    return res.status(200).json({
+      notes: result.rows,
+    });
+  } catch (error) {
+    return sendServerError(res, error, 'Error retrieving submission notes:');
+  }
+};
+
+exports.addSubmissionNote = async (req, res) => {
+  const { id } = req.params;
+  const { note } = req.body || {};
+
+  if (!isValidId(id)) {
+    return res.status(400).json({
+      message: 'Invalid submission ID.',
+    });
+  }
+
+  if (typeof note !== 'string' || !note.trim()) {
+    return res.status(400).json({
+      message: 'A note is required.',
+    });
+  }
+
+  try {
+    const submission = await pool.query(
+      'SELECT id FROM form_submissions WHERE id = $1',
+      [id]
+    );
+
+    if (submission.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Submission not found.',
+      });
+    }
+
+    const result = await pool.query(
+      `WITH inserted AS (
+        INSERT INTO form_submission_notes (
+          submission_id,
+          note,
+          created_by
+        )
+        VALUES ($1, $2, $3)
+        RETURNING *
+      )
+      SELECT
+        inserted.*,
+        creator.name AS created_by_name,
+        NULL::text AS updated_by_name
+      FROM inserted
+      LEFT JOIN public.users creator
+        ON creator.id = inserted.created_by`,
+      [
+        id,
+        note.trim(),
+        req.user?.id || null,
+      ]
+    );
+
+    return res.status(201).json({
+      message: 'Note added successfully.',
+      note: result.rows[0],
+    });
+  } catch (error) {
+    return sendServerError(res, error, 'Error adding submission note:');
+  }
+};
+
+exports.updateSubmissionNote = async (req, res) => {
+  const { id, noteId } = req.params;
+  const { note } = req.body || {};
+
+  if (!isValidId(id) || !isValidId(noteId)) {
+    return res.status(400).json({
+      message: 'Invalid submission or note ID.',
+    });
+  }
+
+  if (typeof note !== 'string' || !note.trim()) {
+    return res.status(400).json({
+      message: 'A note is required.',
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `WITH updated AS (
+        UPDATE form_submission_notes
+        SET
+          note = $1,
+          updated_by = $2,
+          updated_at = NOW()
+        WHERE id = $3
+          AND submission_id = $4
+        RETURNING *
+      )
+      SELECT
+        updated.*,
+        creator.name AS created_by_name,
+        editor.name AS updated_by_name
+      FROM updated
+      LEFT JOIN public.users creator
+        ON creator.id = updated.created_by
+      LEFT JOIN public.users editor
+        ON editor.id = updated.updated_by`,
+      [
+        note.trim(),
+        req.user?.id || null,
+        noteId,
+        id
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Note not found.',
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Note updated successfully.',
+      note: result.rows[0],
+    });
+  } catch (error) {
+    return sendServerError(res, error, 'Error updating submission note:');
+  }
+};
+
+exports.deleteSubmissionNote = async (req, res) => {
+  const { id, noteId } = req.params;
+
+  if (!isValidId(id) || !isValidId(noteId)) {
+    return res.status(400).json({
+      message: 'Invalid submission or note ID.',
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `DELETE FROM form_submission_notes
+       WHERE id = $1
+         AND submission_id = $2
+       RETURNING id`,
+      [noteId, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Note not found.',
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Note deleted successfully.',
+    });
+  } catch (error) {
+    return sendServerError(res, error, 'Error deleting submission note:');
   }
 };

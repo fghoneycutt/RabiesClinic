@@ -5,6 +5,7 @@ const multer = require('multer');
 const router = express.Router();
 
 const formsController = require('../controllers/forms.controllers');
+const { authenticate } = require('../middleware/auth.middleware');
 
 // ==========================================
 // FILE UPLOAD CONFIGURATION
@@ -56,6 +57,25 @@ const handleUpload = (req, res, next) => {
 };
 
 // ==========================================
+// REVIEW PDF UPLOAD CONFIGURATION
+// ==========================================
+
+const reviewPdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20 MB
+    files: 1
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype !== 'application/pdf') {
+      return cb(new Error('The review document must be a PDF.'));
+    }
+
+    cb(null, true);
+  }
+});
+
+// ==========================================
 // FORM MANAGEMENT
 // ==========================================
 
@@ -89,10 +109,24 @@ router.get('/submissions', formsController.getSubmissions);
 // Retrieve an individual submission and its document links
 router.get('/submissions/:id', formsController.getSubmissionById);
 
+// Generate a combined PDF containing the review and uploaded documents
+router.post(
+  '/submissions/:id/combined-pdf',
+  reviewPdfUpload.single('reviewPdf'),
+  formsController.generateCombinedSubmissionPdf
+);
+
 // Update submission status
 router.patch(
   '/submissions/:id/status',
   formsController.updateSubmissionStatus
+);
+
+// Delete a submission and all associated uploaded documents
+router.delete(
+  '/submissions/:id',
+  authenticate,
+  formsController.deleteSubmission
 );
 
 // ==========================================
@@ -104,5 +138,36 @@ router.get('/:id', formsController.getFormById);
 
 // Update the current form definition
 router.put('/:id', formsController.updateForm);
+
+// ==========================================
+// STAFF REVIEW NOTES
+// ==========================================
+
+// Authentication ensures req.user is populated
+// so created_by and updated_by can be recorded.
+
+router.get(
+  '/submissions/:id/notes',
+  authenticate,
+  formsController.getSubmissionNotes
+);
+
+router.post(
+  '/submissions/:id/notes',
+  authenticate,
+  formsController.addSubmissionNote
+);
+
+router.patch(
+  '/submissions/:id/notes/:noteId',
+  authenticate,
+  formsController.updateSubmissionNote
+);
+
+router.delete(
+  '/submissions/:id/notes/:noteId',
+  authenticate,
+  formsController.deleteSubmissionNote
+);
 
 module.exports = router;

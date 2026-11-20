@@ -41,7 +41,8 @@ type QuestionType =
   | 'file_upload'
   | 'content'
   | 'owner_information'
-  | 'animal_information';
+  | 'animal_information'
+  | 'signature';
 
 interface Condition {
   questionId: string;
@@ -111,6 +112,7 @@ const questionTypes: { value: QuestionType; label: string }[] = [
   { value: 'content', label: 'Information / Text' },
   { value: 'owner_information', label: 'Owner Information' },
   { value: 'animal_information', label: 'Animal Information' },
+  { value: 'signature', label: 'Signature' },
 ];
 
 const choiceTypes: QuestionType[] = ['radio', 'checkbox', 'dropdown'];
@@ -124,6 +126,7 @@ const canBeBranchingSource = (question: Question) =>
   !question.staffOnly &&
   question.type !== 'content' &&
   question.type !== 'file_upload' &&
+  question.type !== 'signature' &&
   !isSpecialBlock(question.type);
 
 const getDefaultOptions = (type: QuestionType): string[] => {
@@ -1761,6 +1764,22 @@ function FormBuilder() {
                                             )
                                           }
                                         />
+                                      </div>
+                                    )}
+                                    {question.type === 'signature' && (
+                                      <div className="border rounded p-3 bg-light mb-3">
+                                        <h6 className="mb-2">Signature Settings</h6>
+
+                                        <p className="text-muted small mb-2">
+                                          Applicants will be able to provide their signature using any of
+                                          the following methods:
+                                        </p>
+
+                                        <ul className="small mb-0">
+                                          <li>Type their name using a signature-style font</li>
+                                          <li>Draw their signature using a mouse, stylus, or touchscreen</li>
+                                          <li>Upload an image of their signature</li>
+                                        </ul>
                                       </div>
                                     )}
 

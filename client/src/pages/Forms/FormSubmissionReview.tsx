@@ -8,12 +8,16 @@ import {
   Card,
   Col,
   Container,
+  Form,
   Row,
-  Spinner
+  Spinner,
+  Toast,
+  ToastContainer
 } from 'react-bootstrap';
 
 import { api } from '../../api/api';
 import './SurrenderForms/SurrenderSubmissionReview.css';
+import html2pdf from 'html2pdf.js';
 
 type Condition = {
   questionId: string;
@@ -69,6 +73,26 @@ type Submission = {
   form_definition?: FormDefinition;
 };
 
+type SubmissionNote = {
+  id: number;
+  submission_id: number;
+  note: string;
+  created_by?: string | null;
+  created_by_name?: string | null;
+  created_at: string;
+  updated_by?: string | null;
+  updated_by_name?: string | null;
+  updated_at?: string | null;
+};
+
+const submissionStatuses = [
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'under_review', label: 'Under Review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'denied', label: 'Denied' },
+  { value: 'withdrawn', label: 'Withdrawn' }
+];
+
 const isEmpty = (value: any): boolean => {
   if (value === null || value === undefined || value === '') return true;
 
@@ -121,7 +145,13 @@ const formatDate = (value?: string) => {
 
   if (Number.isNaN(date.getTime())) return value;
 
-  return date.toLocaleString();
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
 };
 
 const humanize = (value: string) =>
@@ -226,6 +256,80 @@ function AnswerValue({
   value: any;
   files: SubmissionFile[];
 }) {
+
+  if (question.type === 'signature') {
+    const signature = value;
+
+    if (!signature || typeof signature !== 'object') {
+      return (
+        <div className="review-answer">
+          No signature provided.
+        </div>
+      );
+    }
+
+    if (signature.method === 'typed') {
+      return (
+        <div className="review-answer">
+          <div
+            style={{
+              fontFamily: 'cursive',
+              fontSize: '1.8rem',
+              fontStyle: 'italic',
+              padding: '8px 0'
+            }}
+          >
+            {signature.value}
+          </div>
+        </div>
+      );
+    }
+
+    if (signature.method === 'drawn') {
+      const signatureFile = files[0];
+
+      if (!signatureFile) {
+        return (
+          <div className="review-answer">
+            Signature image unavailable.
+          </div>
+        );
+      }
+
+      return (
+        <div className="review-answer">
+          {signatureFile.download_url ? (
+            <div>
+              <img
+                src={signatureFile.download_url}
+                alt="Submitted signature"
+                crossOrigin="anonymous"
+                style={{
+                  display: 'block',
+                  maxWidth: '100%',
+                  maxHeight: '160px',
+                  objectFit: 'contain',
+                  objectPosition: 'left center',
+                  margin: '8px 0'
+                }}
+              />
+            </div>
+          ) : (
+            <span>
+              Signature image unavailable.
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="review-answer">
+        Unrecognized signature format.
+      </div>
+    );
+  }
+
   if (question.type === 'file_upload') {
     return (
       <div className="review-answer">
@@ -333,6 +437,34 @@ export default function FormSubmissionReview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState('');
+
+  const [selectedStatus, setSelectedStatus] = useState('submitted');
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [statusError, setStatusError] = useState('');
+
+  const [notes, setNotes] = useState<SubmissionNote[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [loadingNotes, setLoadingNotes] = useState(true);
+  const [savingNote, setSavingNote] = useState(false);
+  const [notesError, setNotesError] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
+
+  const submissionTitle = submission?.form_name || defaultTitle;
+
+  const rescueGroupName = isRescue
+    ? (
+        typeof submission?.responses?.['1793977460689-z0hmyg0'] === 'string'
+          ? submission.responses['1793977460689-z0hmyg0'].trim()
+          : ''
+      ) || 'Rescue Group'
+    : '';
+
   useEffect(() => {
     const loadSubmission = async () => {
       try {
@@ -340,7 +472,10 @@ export default function FormSubmissionReview() {
         setError('');
 
         const response = await api.get(`/forms/submissions/${id}`);
-        setSubmission(response.data);
+        const fetchedSubmission = response.data.submission ?? response.data;
+
+        setSubmission(fetchedSubmission);
+        setSelectedStatus(fetchedSubmission.status || 'submitted');
       } catch (err: any) {
         console.error('Failed to load form submission:', err);
         setError(
@@ -357,6 +492,177 @@ export default function FormSubmissionReview() {
     }
   }, [id]);
 
+  useEffect(() => {
+    const loadNotes = async () => {
+      try {
+        setLoadingNotes(true);
+        setNotesError('');
+
+        const response = await api.get(
+          `/forms/submissions/${id}/notes`
+        );
+
+        setNotes(response.data.notes ?? []);
+      } catch (err: any) {
+        console.error('Failed to load submission notes:', err);
+        setNotesError(
+          err.response?.data?.message ||
+          'Unable to load staff notes.'
+        );
+      } finally {
+        setLoadingNotes(false);
+      }
+    };
+
+    if (id) {
+      loadNotes();
+    }
+  }, [id]);
+
+  const handleStatusChange = async (nextStatus: string) => {
+    if (!id || !submission || savingStatus) return;
+
+    const previousStatus = submission.status;
+
+    setSelectedStatus(nextStatus);
+    setStatusMessage('');
+    setStatusError('');
+
+    if (nextStatus === previousStatus) return;
+
+    try {
+      setSavingStatus(true);
+
+      const response = await api.patch(
+        `/forms/submissions/${id}/status`,
+        { status: nextStatus }
+      );
+
+      const updatedSubmission =
+        response.data.submission ?? response.data;
+
+      const savedStatus = updatedSubmission.status || nextStatus;
+
+      setSubmission(prev =>
+        prev
+          ? { ...prev, status: savedStatus }
+          : prev
+      );
+
+      setSelectedStatus(savedStatus);
+      setStatusMessage('Status saved.');
+    } catch (err: any) {
+      console.error('Failed to update submission status:', err);
+
+      setSelectedStatus(previousStatus);
+
+      setStatusError(
+        err.response?.data?.message ||
+        'Unable to update application status. Please try again.'
+      );
+    } finally {
+      setSavingStatus(false);
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!id || !newNote.trim() || savingNote) return;
+
+    try {
+      setSavingNote(true);
+      setNotesError('');
+
+      const response = await api.post(
+        `/forms/submissions/${id}/notes`,
+        { note: newNote.trim() }
+      );
+
+      const savedNote = response.data.note;
+
+      setNotes(prev => [...prev, savedNote]);
+      setNewNote('');
+    } catch (err: any) {
+      console.error('Failed to add submission note:', err);
+
+      setNotesError(
+        err.response?.data?.message ||
+        'Unable to save staff note.'
+      );
+    } finally {
+      setSavingNote(false);
+    }
+  };
+  const handleEditNote = async (noteId: number) => {
+  if (!id || !editingNoteText.trim() || savingEdit) return;
+
+  try {
+    setSavingEdit(true);
+    setNotesError('');
+
+    const response = await api.patch(
+      `/forms/submissions/${id}/notes/${noteId}`,
+      { note: editingNoteText.trim() }
+    );
+
+    const updatedNote = response.data.note;
+
+    setNotes(prev =>
+      prev.map(note =>
+        note.id === noteId ? updatedNote : note
+      )
+    );
+
+    setEditingNoteId(null);
+    setEditingNoteText('');
+  } catch (err: any) {
+    console.error('Failed to update submission note:', err);
+
+    setNotesError(
+      err.response?.data?.message ||
+      'Unable to update staff note.'
+    );
+  } finally {
+    setSavingEdit(false);
+  }
+};
+
+  const handleDeleteNote = async (noteId: number) => {
+    if (!id || deletingNoteId !== null) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to permanently delete this staff note?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingNoteId(noteId);
+      setNotesError('');
+
+      await api.delete(
+        `/forms/submissions/${id}/notes/${noteId}`
+      );
+
+      setNotes(prev =>
+        prev.filter(note => note.id !== noteId)
+      );
+
+      if (editingNoteId === noteId) {
+        setEditingNoteId(null);
+        setEditingNoteText('');
+      }
+    } catch (err: any) {
+      console.error('Failed to delete submission note:', err);
+
+      setNotesError(
+        err.response?.data?.message ||
+        'Unable to delete staff note.'
+      );
+    } finally {
+      setDeletingNoteId(null);
+    }
+  };
+
   const visibleSections = useMemo(() => {
     if (!submission?.form_definition?.sections) return [];
 
@@ -372,8 +678,14 @@ export default function FormSubmissionReview() {
           if (question.type === 'content') return false;
           if (!conditionsMatch(question.condition, responses)) return false;
 
-          if (question.type === 'file_upload') {
-            return files.some(file => file.question_id === question.id);
+          if (
+            question.type === 'file_upload' ||
+            question.type === 'signature'
+          ) {
+            return (
+              !isEmpty(responses[question.id]) ||
+              files.some(file => file.question_id === question.id)
+            );
           }
 
           return !isEmpty(responses[question.id]);
@@ -382,8 +694,147 @@ export default function FormSubmissionReview() {
       .filter(section => section.questions.length > 0);
   }, [submission]);
 
-  const handlePrint = () => {
-    window.print();
+  useEffect(() => {
+    if (!submission) return;
+
+    document.title = isRescue
+      ? `${rescueGroupName} - Rescue Group Application`
+      : submissionTitle;
+
+    return () => {
+      document.title = 'ShelterHelper';
+    };
+  }, [submission, isRescue, rescueGroupName, submissionTitle]);
+
+  const handlePrint = async () => {
+    if (!id || generatingPdf) return;
+
+    const reviewElement = document.querySelector(
+      '.review-document'
+    ) as HTMLElement | null;
+
+    if (!reviewElement) {
+      setPdfError('Could not locate the submission review.');
+      return;
+    }
+
+    const newWindow = window.open('', '_blank');
+
+    if (!newWindow) {
+      setPdfError(
+        'Your browser blocked the PDF window. Please allow pop-ups for this site and try again.'
+      );
+      return;
+    }
+
+    try {
+      setGeneratingPdf(true);
+      setPdfError('');
+
+      newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Preparing PDF...</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                color: #444;
+              }
+            </style>
+          </head>
+          <body>
+            Preparing submission PDF...
+          </body>
+        </html>
+      `);
+      newWindow.document.close();
+
+      const options = {
+        margin: 0.4,
+        filename: isRescue
+          ? `${rescueGroupName} - Rescue Group Application.pdf`
+          : `submission-${id}-review.pdf`,
+        image: {
+          type: 'jpeg' as const,
+          quality: 0.98
+        },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          scrollY: 0
+        },
+        jsPDF: {
+          unit: 'in',
+          format: 'letter',
+          orientation: 'portrait' as const
+        },
+        pagebreak: {
+          mode: ['css', 'legacy'],
+          avoid: [
+            '.review-section-card',
+            '.review-summary-card',
+            '.review-question',
+            '.review-animal-block'
+          ]
+        }
+      };
+
+      const reviewPdf: Blob = await html2pdf()
+        .set(options)
+        .from(reviewElement)
+        .outputPdf('blob');
+
+      const formData = new FormData();
+
+      formData.append(
+        'reviewPdf',
+        reviewPdf,
+        isRescue
+          ? `${rescueGroupName} - Rescue Group Application.pdf`
+          : `submission-${id}-review.pdf`
+      );
+
+      const response = await api.post(
+        `/forms/submissions/${id}/combined-pdf`,
+        formData,
+        {
+          responseType: 'blob'
+        }
+      );
+
+      const combinedPdf = new Blob(
+        [response.data],
+        { type: 'application/pdf' }
+      );
+
+      const pdfUrl = window.URL.createObjectURL(combinedPdf);
+
+      newWindow.location.href = pdfUrl;
+
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(pdfUrl);
+      }, 60000);
+
+    } catch (err: any) {
+      console.error('Failed to generate combined submission PDF:', err);
+
+      if (!newWindow.closed) {
+        newWindow.close();
+      }
+
+      setPdfError(
+        'Unable to generate the combined PDF. Please try again.'
+      );
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   if (loading) {
@@ -412,11 +863,9 @@ export default function FormSubmissionReview() {
     );
   }
 
-  const submissionTitle = submission.form_name || defaultTitle;
-
   return (
-    <Container className="py-4 surrender-review-page">
-      <div className="review-toolbar">
+    <Container fluid className="py-4 surrender-review-page">
+      <div className="review-toolbar mb-3">
         <Button
           variant="outline-secondary"
           onClick={() => navigate(backPath)}
@@ -424,106 +873,391 @@ export default function FormSubmissionReview() {
           &larr; Back to Submissions
         </Button>
 
-        <Button variant="primary" onClick={handlePrint}>
-          <i className="bi bi-file-earmark-pdf me-2" />
-          Print / Save PDF
+        <Button
+          variant="primary"
+          onClick={handlePrint}
+          disabled={generatingPdf}
+        >
+          {generatingPdf ? (
+            <>
+              <Spinner
+                animation="border"
+                size="sm"
+                className="me-2"
+              />
+              Preparing PDF...
+            </>
+          ) : (
+            <>
+              <i className="bi bi-file-earmark-pdf me-2" />
+              Print / Save PDF
+            </>
+          )}
         </Button>
       </div>
 
-      <div className="review-document">
-        <div className="review-document-header">
-          <div>
-            <h1>{submissionTitle}</h1>
-            <p className="review-document-subtitle">
-              Submission #{submission.id}
-            </p>
-          </div>
+      {pdfError && (
+        <Alert
+          variant="danger"
+          dismissible
+          onClose={() => setPdfError('')}
+          className="mt-3"
+        >
+          {pdfError}
+        </Alert>
+      )}
 
-          <Badge
-            bg={getStatusVariant(submission.status)}
-            className="review-status"
-          >
-            {formatStatus(submission.status)}
-          </Badge>
-        </div>
+      <Row className="g-4 align-items-start">
+        {/* MAIN APPLICATION COLUMN */}
+        <Col lg={8} xl={9}>
+          <Card className="shadow-sm mb-4">
+            <Card.Body>
+              <Form.Group>
+                <Form.Label className="fw-semibold">
+                  Application Status
+                </Form.Label>
 
-        <Card className="review-summary-card mb-4">
-          <Card.Body>
-            <Row>
-              <Col
-                md={isRescue ? 12 : 4}
-                className="review-summary-item"
-              >
-                <div className="review-field-label">Date Submitted</div>
-                <div className="review-field-value">
-                  {formatDate(submission.submitted_at)}
+                <Form.Select
+                  value={selectedStatus}
+                  onChange={event =>
+                    handleStatusChange(event.target.value)
+                  }
+                  disabled={savingStatus}
+                >
+                  {submissionStatuses.map(status => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+
+              {savingStatus && (
+                <div className="text-muted small mt-2">
+                  <Spinner
+                    animation="border"
+                    size="sm"
+                    className="me-2"
+                  />
+                  Saving status...
                 </div>
-              </Col>
-
-              {!isRescue && (
-                <>
-                  <Col md={4} className="review-summary-item">
-                    <div className="review-field-label">Animal Species</div>
-                    <div className="review-field-value">
-                      {submission.species || 'Not provided'}
-                    </div>
-                  </Col>
-
-                  <Col md={4} className="review-summary-item">
-                    <div className="review-field-label">Surrender Type</div>
-                    <div className="review-field-value">
-                      {submission.surrender_type || 'Not provided'}
-                    </div>
-                  </Col>
-                </>
               )}
-            </Row>
-          </Card.Body>
-        </Card>
 
-        {visibleSections.length === 0 ? (
-          <Alert variant="info">
-            No answered questions were found for this submission.
-          </Alert>
-        ) : (
-          visibleSections.map((section, sectionIndex) => (
-            <Card className="review-section-card mb-4" key={section.id}>
-              <Card.Header>
-                <span className="review-section-number">
-                  Section {sectionIndex + 1}
-                </span>
+              {statusError && (
+                <Alert variant="danger" className="mt-3 mb-0">
+                  {statusError}
+                </Alert>
+              )}
+            </Card.Body>
+          </Card>
 
-                <h2>{section.title}</h2>
+          {/* APPLICATION DOCUMENT */}
+          <div className="review-document">
+            <div className="review-document-header">
+              <div>
+                <h1>
+                  {isRescue
+                    ? `${rescueGroupName} - Rescue Group Application`
+                    : submissionTitle}
+                </h1>
+              </div>
+            </div>
 
-                {section.description && <p>{section.description}</p>}
+            <Card className="review-summary-card mb-4">
+              <Card.Body>
+                <Row>
+                  <Col
+                    md={isRescue ? 12 : 4}
+                    className="review-summary-item"
+                  >
+                    <div className="review-field-label">
+                      Date Submitted
+                    </div>
+                    <div className="review-field-value">
+                      {formatDate(submission.submitted_at)}
+                    </div>
+                  </Col>
+
+                  {!isRescue && (
+                    <>
+                      <Col md={4} className="review-summary-item">
+                        <div className="review-field-label">
+                          Animal Species
+                        </div>
+                        <div className="review-field-value">
+                          {submission.species || 'Not provided'}
+                        </div>
+                      </Col>
+
+                      <Col md={4} className="review-summary-item">
+                        <div className="review-field-label">
+                          Surrender Type
+                        </div>
+                        <div className="review-field-value">
+                          {submission.surrender_type || 'Not provided'}
+                        </div>
+                      </Col>
+                    </>
+                  )}
+                </Row>
+              </Card.Body>
+            </Card>
+
+            {visibleSections.length === 0 ? (
+              <Alert variant="info">
+                No answered questions were found for this submission.
+              </Alert>
+            ) : (
+              visibleSections.map((section, sectionIndex) => (
+                <Card
+                  className="review-section-card mb-4"
+                  key={section.id}
+                >
+                  <Card.Header>
+                    <span className="review-section-number">
+                      Section {sectionIndex + 1}
+                    </span>
+
+                    <h2>{section.title}</h2>
+
+                    {section.description && (
+                      <p>{section.description}</p>
+                    )}
+                  </Card.Header>
+
+                  <Card.Body>
+                    {section.questions.map(question => (
+                      <div
+                        className="review-question"
+                        key={question.id}
+                      >
+                        <div className="review-question-label">
+                          {question.label}
+                        </div>
+
+                        <AnswerValue
+                          question={question}
+                          value={submission.responses?.[question.id]}
+                          files={(submission.files ?? []).filter(
+                            file => file.question_id === question.id
+                          )}
+                        />
+                      </div>
+                    ))}
+                  </Card.Body>
+                </Card>
+              ))
+            )}
+          </div>
+        </Col>
+
+        {/* STICKY STAFF NOTES SIDEBAR */}
+        <Col lg={4} xl={3} className="staff-notes-column">
+          <div className="staff-notes-sticky">
+            <Card className="shadow-sm">
+              <Card.Header className="bg-light">
+                <h4 className="mb-0">Staff Review Notes</h4>
               </Card.Header>
 
               <Card.Body>
-                {section.questions.map(question => (
-                  <div className="review-question" key={question.id}>
-                    <div className="review-question-label">
-                      {question.label}
-                    </div>
+                {notesError && (
+                  <Alert variant="danger">
+                    {notesError}
+                  </Alert>
+                )}
 
-                    <AnswerValue
-                      question={question}
-                      value={submission.responses?.[question.id]}
-                      files={(submission.files ?? []).filter(
-                        file => file.question_id === question.id
-                      )}
-                    />
+                {loadingNotes ? (
+                  <div className="text-center py-4">
+                    <Spinner animation="border" size="sm" />
+                    <div className="text-muted mt-2">
+                      Loading notes...
+                    </div>
                   </div>
-                ))}
+                ) : notes.length === 0 ? (
+                  <p className="text-muted mb-3">
+                    No staff notes have been added yet.
+                  </p>
+                ) : (
+                  <div className="mb-4">
+                    {notes.map(note => (
+                      <div
+                        key={note.id}
+                        className="border rounded p-3 mb-3"
+                      >
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <div>
+                            <strong>
+                              {note.created_by_name || 'Unknown Staff Member'}
+                            </strong>
+
+                            <div className="text-muted small">
+                              {formatDate(note.created_at)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {editingNoteId === note.id ? (
+                          <>
+                            <Form.Control
+                              as="textarea"
+                              rows={4}
+                              value={editingNoteText}
+                              onChange={event =>
+                                setEditingNoteText(event.target.value)
+                              }
+                              disabled={savingEdit}
+                              className="mb-3"
+                            />
+
+                            <div className="d-flex justify-content-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline-secondary"
+                                onClick={() => {
+                                  setEditingNoteId(null);
+                                  setEditingNoteText('');
+                                }}
+                                disabled={savingEdit}
+                              >
+                                Cancel
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="primary"
+                                onClick={() => handleEditNote(note.id)}
+                                disabled={savingEdit || !editingNoteText.trim()}
+                              >
+                                {savingEdit ? (
+                                  <>
+                                    <Spinner
+                                      animation="border"
+                                      size="sm"
+                                      className="me-2"
+                                    />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  'Save Changes'
+                                )}
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ whiteSpace: 'pre-wrap' }}>
+                              {note.note}
+                            </div>
+
+                            <div className="d-flex justify-content-end gap-2 mt-3">
+                              <Button
+                                size="sm"
+                                variant="outline-primary"
+                                onClick={() => {
+                                  setEditingNoteId(note.id);
+                                  setEditingNoteText(note.note);
+                                }}
+                                disabled={deletingNoteId !== null || editingNoteId !== null}
+                              >
+                                <i className="bi bi-pencil me-1" />
+                                Edit
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="outline-danger"
+                                onClick={() => handleDeleteNote(note.id)}
+                                disabled={deletingNoteId !== null || editingNoteId !== null}
+                              >
+                                {deletingNoteId === note.id ? (
+                                  <>
+                                    <Spinner
+                                      animation="border"
+                                      size="sm"
+                                      className="me-1"
+                                    />
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <i className="bi bi-trash me-1" />
+                                    Delete
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Form.Group className="mb-3">
+                  <Form.Label className="fw-semibold">
+                    Add a Note
+                  </Form.Label>
+
+                  <Form.Control
+                    as="textarea"
+                    rows={4}
+                    placeholder="Enter internal notes about this application..."
+                    value={newNote}
+                    onChange={event => setNewNote(event.target.value)}
+                    disabled={savingNote}
+                  />
+                </Form.Group>
+
+                <div className="d-flex justify-content-end">
+                  <Button
+                    variant="primary"
+                    onClick={handleAddNote}
+                    disabled={
+                      savingNote ||
+                      !newNote.trim() ||
+                      editingNoteId !== null ||
+                      deletingNoteId !== null
+                    }
+                  >
+                    {savingNote ? (
+                      <>
+                        <Spinner
+                          animation="border"
+                          size="sm"
+                          className="me-2"
+                        />
+                        Saving...
+                      </>
+                    ) : (
+                      'Add Note'
+                    )}
+                  </Button>
+                </div>
               </Card.Body>
             </Card>
-          ))
-        )}
-
-        <div className="review-document-footer">
-          <div>{submissionTitle}</div>
-          <div>Submission #{submission.id}</div>
-        </div>
-      </div>
+          </div>
+        </Col>
+      </Row>
+      <ToastContainer
+        position="top-end"
+        className="p-3"
+        style={{ zIndex: 2000 }}
+      >
+        <Toast
+          show={!!statusMessage}
+          onClose={() => setStatusMessage('')}
+          delay={2500}
+          autohide
+          bg="success"
+        >
+          <Toast.Header>
+            <strong className="me-auto">Application Updated</strong>
+          </Toast.Header>
+          <Toast.Body className="text-white">
+            Status saved successfully.
+          </Toast.Body>
+        </Toast>
+      </ToastContainer>
     </Container>
   );
 }

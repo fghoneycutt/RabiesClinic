@@ -7,6 +7,9 @@ import Button from 'react-bootstrap/Button';
 import Card from 'react-bootstrap/Card';
 import Form from 'react-bootstrap/Form';
 import Spinner from 'react-bootstrap/Spinner';
+import Container from 'react-bootstrap/Container';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
 
 import { api } from '../../../api/api';
 
@@ -17,6 +20,10 @@ import type {
   OwnerDraft,
   AnimalDraft
 } from '../../../types/intake';
+
+import SignatureInput, {
+  type SignatureValue
+} from '../../../components/input/SignatureInput'
 
 type FormVariant = 'rescue' | 'surrender';
 
@@ -36,7 +43,8 @@ type QuestionType =
   | 'content'
   | 'owner_information'
   | 'animal_information'
-  | 'file_upload';
+  | 'file_upload'
+  | 'signature';
 
 interface Condition {
   questionId: string;
@@ -891,13 +899,34 @@ export default function PublicForm({ variant }: PublicFormProps) {
                       Remove
                     </Button>
                   </div>
+                
                 ))}
               </div>
             )}
           </Form.Group>
         );
       }
+            case 'signature': {
+        const signatureValue = value as SignatureValue | null;
 
+        return (
+          <Form.Group className="mb-3">
+            <SignatureInput
+              label={label}
+              value={signatureValue}
+              disabled={submitting}
+              onChange={(nextValue) =>
+                updateResponse(question.id, nextValue)
+              }
+            />
+            {question.required && (
+              <Form.Text className="text-muted">
+                A signature is required.
+              </Form.Text>
+            )}
+          </Form.Group>
+        );
+      }
       default:
         return null;
     }
@@ -942,6 +971,30 @@ export default function PublicForm({ variant }: PublicFormProps) {
         }
 
         const answer = responses[question.id];
+
+                if (question.type === 'signature') {
+          const signature = answer as SignatureValue | null;
+
+          if (question.required && !signature) {
+            errors.push(`"${question.label}" requires a signature.`);
+            return;
+          }
+
+          if (signature?.method === 'typed' && !signature.value.trim()) {
+            errors.push(`"${question.label}" requires a valid signature.`);
+            return;
+          }
+
+          if (
+            signature &&
+            signature.method !== 'typed' &&
+            signature.file.size > MAX_FILE_SIZE
+          ) {
+            errors.push(`"${question.label}" signature must be 10 MB or smaller.`);
+          }
+
+          return;
+        }
 
         if (question.type === 'file_upload') {
           const files: File[] = Array.isArray(answer) ? answer : [];
@@ -1078,6 +1131,26 @@ export default function PublicForm({ variant }: PublicFormProps) {
           publicResponses[question.id] = (
             responses[question.id] || []
           ).slice(0, count);
+
+          return;
+        }
+                if (question.type === 'signature') {
+          const signature = responses[question.id] as SignatureValue | null;
+
+          if (!signature) return;
+
+          if (signature.method === 'typed') {
+            publicResponses[question.id] = signature;
+          } else {
+            publicResponses[question.id] = {
+              method: signature.method
+            };
+
+            filesToUpload.push({
+              questionId: question.id,
+              file: signature.file
+            });
+          }
 
           return;
         }
@@ -1258,7 +1331,9 @@ export default function PublicForm({ variant }: PublicFormProps) {
   }
 
   return (
-    <div className="public-form-narrow">
+    <Container className="py-3">
+  <Row className="justify-content-center">
+    <Col xs={12} md={10} lg={9} xl={8}>
       <Card className="mb-4">
         <Card.Body>
           <h1 className="mb-2">{form.name}</h1>
@@ -1347,6 +1422,8 @@ export default function PublicForm({ variant }: PublicFormProps) {
           )}
         </Button>
       </div>
-    </div>
+    </Col>
+  </Row>
+</Container>
   );
 }

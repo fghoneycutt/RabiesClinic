@@ -1,6 +1,6 @@
 
 .surrender-review-page {
-  max-width: 1100px;
+  max-width: none;
 }
 
 .review-toolbar {
@@ -210,4 +210,17 @@
     color: #000 !important;
     background: transparent !important;
   }
+}
+
+.staff-notes-column {
+  position: relative;
+  align-self: stretch;
+}
+
+.staff-notes-sticky {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 20px;
+  z-index: 100;
+  align-self: flex-start;
 }

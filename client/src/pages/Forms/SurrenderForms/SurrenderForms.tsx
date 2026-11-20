@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Row,
   Col,
@@ -9,6 +9,8 @@ import {
   Alert,
   Table,
   Badge,
+  Tabs,
+  Tab,
 } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -35,6 +37,14 @@ interface Submission {
   submitted_at?: string;
 }
 
+const submissionStatuses = [
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'under_review', label: 'Under Review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'denied', label: 'Denied' },
+  { value: 'withdrawn', label: 'Withdrawn' },
+];
+
 function SurrenderForms() {
   const navigate = useNavigate();
 
@@ -44,6 +54,7 @@ function SurrenderForms() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
+  const [activeStatus, setActiveStatus] = useState('submitted');
 
   document.title = 'Surrender Forms';
 
@@ -146,11 +157,30 @@ function SurrenderForms() {
   const formatDate = (date?: string) => {
     if (!date) return '—';
 
-    return new Date(date).toLocaleString();
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) return '—';
+
+    return parsedDate.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const normalizeStatus = (status?: string) => {
+    const normalized = (status || 'submitted').toLowerCase();
+
+    if (normalized === 'rejected') return 'denied';
+    if (normalized === 'completed') return 'approved';
+
+    return normalized;
   };
 
   const formatStatus = (status?: string) => {
-    const normalized = (status || 'submitted').toLowerCase();
+    const normalized = normalizeStatus(status);
 
     const variants: Record<string, string> = {
       submitted: 'primary',
@@ -158,15 +188,49 @@ function SurrenderForms() {
       approved: 'success',
       denied: 'danger',
       withdrawn: 'secondary',
-      rejected: 'danger',
-      completed: 'success',
+    };
+
+    const labels: Record<string, string> = {
+      submitted: 'Submitted',
+      under_review: 'Under Review',
+      approved: 'Approved',
+      denied: 'Denied',
+      withdrawn: 'Withdrawn',
     };
 
     return (
       <Badge bg={variants[normalized] || 'secondary'}>
-        {normalized.replace(/_/g, ' ')}
+        {labels[normalized] || normalized.replace(/_/g, ' ')}
       </Badge>
     );
+  };
+
+  // Sort submissions oldest first.
+  const sortedSubmissions = useMemo(() => {
+    return [...submissions].sort((a, b) => {
+      const dateA = new Date(
+        a.submitted_at || a.created_at || 0
+      ).getTime();
+
+      const dateB = new Date(
+        b.submitted_at || b.created_at || 0
+      ).getTime();
+
+      const safeDateA = Number.isNaN(dateA) ? 0 : dateA;
+      const safeDateB = Number.isNaN(dateB) ? 0 : dateB;
+
+      return safeDateA - safeDateB;
+    });
+  }, [submissions]);
+
+  const getSubmissionsByStatus = (status: string) => {
+    return sortedSubmissions.filter(
+      (submission) => normalizeStatus(submission.status) === status
+    );
+  };
+
+  const getStatusCount = (status: string) => {
+    return getSubmissionsByStatus(status).length;
   };
 
   return (
@@ -281,70 +345,106 @@ function SurrenderForms() {
           </div>
 
           <Card className="shadow-sm">
-            {submissions.length === 0 ? (
-              <Card.Body className="text-center py-5">
-                <h5>No Submissions Yet</h5>
-                <p className="text-muted mb-0">
-                  Submitted surrender applications will appear here.
-                </p>
-              </Card.Body>
-            ) : (
-              <Table responsive hover className="mb-0 align-middle">
-                <thead className="table-light">
-                  <tr>
-                    <th>Submission</th>
-                    <th>Date Submitted</th>
-                    <th>Animal</th>
-                    <th>Surrender Type</th>
-                    <th>Status</th>
-                    <th className="text-end">Action</th>
-                  </tr>
-                </thead>
+            <Card.Body>
+              <Tabs
+                activeKey={activeStatus}
+                onSelect={(key) => {
+                  if (key) setActiveStatus(key);
+                }}
+                className="mb-3"
+              >
+                {submissionStatuses.map((status) => {
+                  const statusSubmissions = getSubmissionsByStatus(
+                    status.value
+                  );
 
-                <tbody>
-                  {submissions.map((submission) => (
-                    <tr key={submission.id}>
-                      <td>
-                        <strong>#{submission.id}</strong>
-                      </td>
-
-                      <td>
-                        {formatDate(
-                          submission.submitted_at ||
-                          submission.created_at
-                        )}
-                      </td>
-
-                      <td>
-                        {submission.species
-                          ? submission.species.charAt(0).toUpperCase() +
-                            submission.species.slice(1)
-                          : '—'}
-                      </td>
-
-                      <td>
-                        {submission.surrender_type || '—'}
-                      </td>
-
-                      <td>
-                        {formatStatus(submission.status)}
-                      </td>
-
-                      <td className="text-end">
-                        <Button
-                          as={Link as any}
-                          to={`/surrender-submissions/${submission.id}`}
-                          variant="outline-primary"
-                          size="sm"
+                  return (
+                    <Tab
+                      key={status.value}
+                      eventKey={status.value}
+                      title={
+                        <span>
+                          {status.label}{' '}
+                          <Badge bg="secondary">
+                            {statusSubmissions.length}
+                          </Badge>
+                        </span>
+                      }
+                    >
+                      {statusSubmissions.length === 0 ? (
+                        <div className="text-center py-5">
+                          <h5>No {status.label} Submissions</h5>
+                          <p className="text-muted mb-0">
+                            Surrender applications with this status will
+                            appear here.
+                          </p>
+                        </div>
+                      ) : (
+                        <Table
+                          responsive
+                          hover
+                          className="mb-0 align-middle"
                         >
-                          Review
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            )}
+                          <thead className="table-light">
+                            <tr>
+                              <th>Submission</th>
+                              <th>Date Submitted</th>
+                              <th>Animal</th>
+                              <th>Surrender Type</th>
+                              <th>Status</th>
+                              <th className="text-end">Action</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {statusSubmissions.map((submission) => (
+                              <tr key={submission.id}>
+                                <td>
+                                  <strong>#{submission.id}</strong>
+                                </td>
+
+                                <td>
+                                  {formatDate(
+                                    submission.submitted_at ||
+                                    submission.created_at
+                                  )}
+                                </td>
+
+                                <td>
+                                  {submission.species
+                                    ? submission.species.charAt(0).toUpperCase() +
+                                      submission.species.slice(1)
+                                    : '—'}
+                                </td>
+
+                                <td>
+                                  {submission.surrender_type || '—'}
+                                </td>
+
+                                <td>
+                                  {formatStatus(submission.status)}
+                                </td>
+
+                                <td className="text-end">
+                                  <Button
+                                    as={Link as any}
+                                    to={`/surrender-submissions/${submission.id}`}
+                                    variant="outline-primary"
+                                    size="sm"
+                                  >
+                                    Review
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      )}
+                    </Tab>
+                  );
+                })}
+              </Tabs>
+            </Card.Body>
           </Card>
         </>
       )}
