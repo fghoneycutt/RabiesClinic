@@ -228,11 +228,6 @@ function SurrenderForms() {
       (submission) => normalizeStatus(submission.status) === status
     );
   };
-
-  const getStatusCount = (status: string) => {
-    return getSubmissionsByStatus(status).length;
-  };
-
   return (
     <>
       <Row className="align-items-center mb-4">

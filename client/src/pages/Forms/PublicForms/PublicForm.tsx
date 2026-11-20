@@ -1217,8 +1217,6 @@ export default function PublicForm({ variant }: PublicFormProps) {
     try {
       setSubmitting(true);
 
-      let response;
-
       if (filesToUpload.length > 0) {
         const formData = new FormData();
 
@@ -1242,16 +1240,6 @@ export default function PublicForm({ variant }: PublicFormProps) {
             file.name
           );
         });
-
-        response = await api.post(
-          `/forms/public/${slug}/submit`,
-          formData
-        );
-      } else {
-        response = await api.post(
-          `/forms/public/${slug}/submit`,
-          payload
-        );
       }
 
       setSubmitted(true);

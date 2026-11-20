@@ -294,9 +294,6 @@ function RescueApplications() {
     );
   };
 
-  const getStatusCount = (status: string) => {
-    return getSubmissionsByStatus(status).length;
-  };
   const getRescueGroupName = (submission: Submission) => {
     return (
       submission.responses?.['1793977460689-z0hmyg0'] ||

@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
-  Badge,
   Button,
   Card,
   Col,
@@ -226,26 +225,6 @@ const formatAnimalValue = (key: string, value: any): string => {
 
   return formatScalar(value);
 };
-
-const getStatusVariant = (status: string) => {
-  switch (status) {
-    case 'submitted':
-      return 'primary';
-    case 'under_review':
-      return 'warning';
-    case 'approved':
-      return 'success';
-    case 'denied':
-      return 'danger';
-    case 'withdrawn':
-      return 'secondary';
-    default:
-      return 'secondary';
-  }
-};
-
-const formatStatus = (status: string) =>
-  humanize(status || 'Unknown');
 
 function AnswerValue({
   question,
