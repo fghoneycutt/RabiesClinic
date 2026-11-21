@@ -7,7 +7,9 @@ function signToken(user) {
     {
       id: user.id,
       email: user.email,
-      role: user.role
+      role: user.role,
+      organization_id: user.organization_id,
+      platform_role: user.platform_role
     },
     JWT_SECRET,
     { expiresIn: '7d' }

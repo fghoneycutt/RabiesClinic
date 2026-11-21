@@ -23,7 +23,7 @@ import type {
 
 import SignatureInput, {
   type SignatureValue
-} from '../../../components/input/SignatureInput'
+} from '../../../components/input/SignatureInput';
 
 type FormVariant = 'rescue' | 'surrender';
 
@@ -90,6 +90,11 @@ interface PublicFormData {
 
 type Responses = Record<string, any>;
 
+interface FileToUpload {
+  questionId: string;
+  file: File;
+}
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const emptyOwner: OwnerDraft = {
@@ -125,8 +130,15 @@ const createEmptyAnimal = (): AnimalDraft => ({
 
 const isEmpty = (value: any): boolean => {
   if (value === null || value === undefined) return true;
-  if (typeof value === 'string') return value.trim() === '';
-  if (Array.isArray(value)) return value.length === 0;
+
+  if (typeof value === 'string') {
+    return value.trim() === '';
+  }
+
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+
   return false;
 };
 
@@ -268,10 +280,21 @@ const validateOwner = (owner: OwnerDraft): string[] => {
     errors.push('A valid 10-digit phone number is required.');
   }
 
-  if (!owner.address.trim()) errors.push('Street address is required.');
-  if (!owner.city.trim()) errors.push('City is required.');
-  if (!owner.county.trim()) errors.push('County is required.');
-  if (!owner.state.trim()) errors.push('State or province is required.');
+  if (!owner.address.trim()) {
+    errors.push('Street address is required.');
+  }
+
+  if (!owner.city.trim()) {
+    errors.push('City is required.');
+  }
+
+  if (!owner.county.trim()) {
+    errors.push('County is required.');
+  }
+
+  if (!owner.state.trim()) {
+    errors.push('State or province is required.');
+  }
 
   if (!/^\d{5}$/.test(owner.zip_code)) {
     errors.push('A valid 5-digit ZIP code is required.');
@@ -339,10 +362,6 @@ export default function PublicForm({ variant }: PublicFormProps) {
     ? 'Loading rescue group application...'
     : 'Loading surrender form...';
 
-  const loadFailureMessage = isRescue
-    ? 'This rescue group application could not be found or is not currently available.'
-    : 'This surrender form could not be found or is not currently available.';
-
   const submissionTitle = isRescue
     ? 'Application Received'
     : 'Submission Received';
@@ -370,8 +389,20 @@ export default function PublicForm({ variant }: PublicFormProps) {
     document.title = title;
   }, [title]);
 
+  // Load the public form definition.
   useEffect(() => {
+    let cancelled = false;
+
     const loadForm = async () => {
+      setLoading(true);
+      setLoadError('');
+      setForm(null);
+      setResponses({});
+      setOwner({ ...emptyOwner });
+      setSubmitError('');
+      setValidationErrors([]);
+      setSubmitted(false);
+
       if (!slug) {
         setLoadError('A form link was not provided.');
         setLoading(false);
@@ -379,25 +410,35 @@ export default function PublicForm({ variant }: PublicFormProps) {
       }
 
       try {
-        setLoading(true);
-        setLoadError('');
-
         const response = await api.get(`/forms/public/${slug}`);
+
+        if (cancelled) return;
 
         setForm(response.data);
       } catch (error: any) {
-        console.error(`Unable to load public ${variant} form:`, error);
+        if (cancelled) return;
+
+        console.error(`Unable to load ${variant} form:`, error);
 
         setLoadError(
-          error.response?.data?.message || loadFailureMessage
+          error.response?.data?.message ||
+          (isRescue
+            ? 'This rescue group application could not be found or is not currently available.'
+            : 'This surrender form could not be found or is not currently available.')
         );
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     loadForm();
-  }, [slug, variant]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, variant, isRescue]);
 
   const sections = form?.definition?.sections || [];
 
@@ -899,14 +940,14 @@ export default function PublicForm({ variant }: PublicFormProps) {
                       Remove
                     </Button>
                   </div>
-                
                 ))}
               </div>
             )}
           </Form.Group>
         );
       }
-            case 'signature': {
+
+      case 'signature': {
         const signatureValue = value as SignatureValue | null;
 
         return (
@@ -915,10 +956,11 @@ export default function PublicForm({ variant }: PublicFormProps) {
               label={label}
               value={signatureValue}
               disabled={submitting}
-              onChange={(nextValue) =>
+              onChange={nextValue =>
                 updateResponse(question.id, nextValue)
               }
             />
+
             {question.required && (
               <Form.Text className="text-muted">
                 A signature is required.
@@ -927,6 +969,7 @@ export default function PublicForm({ variant }: PublicFormProps) {
           </Form.Group>
         );
       }
+
       default:
         return null;
     }
@@ -935,7 +978,9 @@ export default function PublicForm({ variant }: PublicFormProps) {
   const validateForm = (): string[] => {
     const errors: string[] = [];
 
-    if (!form) return ['The form is not available.'];
+    if (!form) {
+      return ['The form is not available.'];
+    }
 
     visibleSections.forEach(section => {
       getVisibleQuestions(section, responses).forEach(question => {
@@ -972,7 +1017,7 @@ export default function PublicForm({ variant }: PublicFormProps) {
 
         const answer = responses[question.id];
 
-                if (question.type === 'signature') {
+        if (question.type === 'signature') {
           const signature = answer as SignatureValue | null;
 
           if (question.required && !signature) {
@@ -990,7 +1035,9 @@ export default function PublicForm({ variant }: PublicFormProps) {
             signature.method !== 'typed' &&
             signature.file.size > MAX_FILE_SIZE
           ) {
-            errors.push(`"${question.label}" signature must be 10 MB or smaller.`);
+            errors.push(
+              `"${question.label}" signature must be 10 MB or smaller.`
+            );
           }
 
           return;
@@ -1095,7 +1142,7 @@ export default function PublicForm({ variant }: PublicFormProps) {
   };
 
   const handleSubmit = async () => {
-    if (!form || submitting) return;
+    if (!form || !slug || submitting) return;
 
     setSubmitError('');
     setValidationErrors([]);
@@ -1110,11 +1157,7 @@ export default function PublicForm({ variant }: PublicFormProps) {
 
     // Only include answers to visible, public questions.
     const publicResponses: Responses = {};
-
-    const filesToUpload: {
-      questionId: string;
-      file: File;
-    }[] = [];
+    const filesToUpload: FileToUpload[] = [];
 
     visibleSections.forEach(section => {
       getVisibleQuestions(section, responses).forEach(question => {
@@ -1134,7 +1177,8 @@ export default function PublicForm({ variant }: PublicFormProps) {
 
           return;
         }
-                if (question.type === 'signature') {
+
+        if (question.type === 'signature') {
           const signature = responses[question.id] as SignatureValue | null;
 
           if (!signature) return;
@@ -1176,7 +1220,8 @@ export default function PublicForm({ variant }: PublicFormProps) {
       });
     });
 
-    const payload: Responses & {
+    const payload: {
+      responses: Responses;
       species?: string;
       surrender_type?: string;
     } = {
@@ -1240,8 +1285,19 @@ export default function PublicForm({ variant }: PublicFormProps) {
             file.name
           );
         });
+
+        await api.post(
+          `/forms/public/${slug}/submit`,
+          formData
+        );
+      } else {
+        await api.post(
+          `/forms/public/${slug}/submit`,
+          payload
+        );
       }
 
+      // Only show confirmation after the server successfully responds.
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error: any) {
@@ -1251,6 +1307,8 @@ export default function PublicForm({ variant }: PublicFormProps) {
         error.response?.data?.message ||
         'Your form could not be submitted. Please review your answers and try again.'
       );
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSubmitting(false);
     }
@@ -1320,92 +1378,101 @@ export default function PublicForm({ variant }: PublicFormProps) {
 
   return (
     <Container className="py-3">
-  <Row className="justify-content-center">
-    <Col xs={12} md={10} lg={9} xl={8}>
-      <Card className="mb-4">
-        <Card.Body>
-          <h1 className="mb-2">{form.name}</h1>
-        </Card.Body>
-      </Card>
-
-      {validationErrors.length > 0 && (
-        <Alert variant="danger">
-          <Alert.Heading>Please correct the following:</Alert.Heading>
-
-          <ul className="mb-0">
-            {validationErrors.map((error, index) => (
-              <li key={`${index}-${error}`}>{error}</li>
-            ))}
-          </ul>
-        </Alert>
-      )}
-
-      {submitError && (
-        <Alert variant="danger">
-          {submitError}
-        </Alert>
-      )}
-
-      {visibleSections.map(section => {
-        const questions = getVisibleQuestions(section, responses);
-
-        if (questions.length === 0) return null;
-
-        return (
-          <Card key={section.id} className="mb-4">
+      <Row className="justify-content-center">
+        <Col xs={12} md={10} lg={9} xl={8}>
+          <Card className="mb-4">
             <Card.Body>
-              <h3 className="mb-2">{section.title}</h3>
+              <h1 className="mb-2">{form.name}</h1>
 
-              {section.description && (
-                <p className="text-muted mb-4">
-                  {replaceAnimalPlaceholder(
-                    section.description,
-                    getSelectedSpecies()
-                  )}
+              {form.description && (
+                <p className="text-muted mb-0">
+                  {form.description}
                 </p>
               )}
-
-              {questions.map(question => (
-                <div
-                  key={question.id}
-                  className={
-                    isRescue
-                      ? 'public-rescue-question'
-                      : 'public-surrender-question'
-                  }
-                >
-                  {renderQuestion(question)}
-                </div>
-              ))}
             </Card.Body>
           </Card>
-        );
-      })}
 
-      <div className="d-flex justify-content-end mt-4">
-        <Button
-          variant="primary"
-          size="lg"
-          disabled={submitting || validateForm().length > 0}
-          onClick={handleSubmit}
-        >
-          {submitting ? (
-            <>
-              <Spinner
-                as="span"
-                animation="border"
-                size="sm"
-                className="me-2"
-              />
-              Submitting...
-            </>
-          ) : (
-            submitButtonLabel
+          {validationErrors.length > 0 && (
+            <Alert variant="danger">
+              <Alert.Heading>
+                Please correct the following:
+              </Alert.Heading>
+
+              <ul className="mb-0">
+                {validationErrors.map((error, index) => (
+                  <li key={`${index}-${error}`}>{error}</li>
+                ))}
+              </ul>
+            </Alert>
           )}
-        </Button>
-      </div>
-    </Col>
-  </Row>
-</Container>
+
+          {submitError && (
+            <Alert variant="danger">
+              {submitError}
+            </Alert>
+          )}
+
+          {visibleSections.map(section => {
+            const questions = getVisibleQuestions(section, responses);
+
+            if (questions.length === 0) return null;
+
+            return (
+              <Card key={section.id} className="mb-4">
+                <Card.Body>
+                  <h3 className="mb-2">{section.title}</h3>
+
+                  {section.description && (
+                    <p className="text-muted mb-4">
+                      {replaceAnimalPlaceholder(
+                        section.description,
+                        getSelectedSpecies()
+                      )}
+                    </p>
+                  )}
+
+                  {questions.map(question => (
+                    <div
+                      key={question.id}
+                      className={
+                        isRescue
+                          ? 'public-rescue-question'
+                          : 'public-surrender-question'
+                      }
+                    >
+                      {renderQuestion(question)}
+                    </div>
+                  ))}
+                </Card.Body>
+              </Card>
+            );
+          })}
+
+          <div className="d-flex justify-content-end mt-4">
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              disabled={submitting}
+              onClick={handleSubmit}
+            >
+              {submitting ? (
+                <>
+                  <Spinner
+                    as="span"
+                    animation="border"
+                    size="sm"
+                    className="me-2"
+                  />
+                  Submitting...
+                </>
+              ) : (
+                submitButtonLabel
+              )}
+            </Button>
+          </div>
+        </Col>
+      </Row>
+    </Container>
   );
 }

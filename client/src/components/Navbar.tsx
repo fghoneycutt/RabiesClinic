@@ -8,12 +8,21 @@ import Nav from 'react-bootstrap/Nav';
 import { useAuth } from '../auth/AuthContext';
 import { useState, useEffect } from 'react';
 
+import OrganizationSwitcher from './OrganizationSwitcher';
+
 import './AppNavbar.css';
 
 export default function AppNavbar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+
+  const {
+    user,
+    logout,
+    isPlatformAdmin,
+    isOrganizationAdmin,
+  } = useAuth();
+
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -37,12 +46,35 @@ export default function AppNavbar() {
   };
 
   const navItems = [
-    { label: 'Home', path: '/' },
-    { label: 'Rabies Clinics', path: '/clinic-list' },
-    { label: 'Surrender Forms', path: '/surrender-forms' },
-    { label: 'Rescue Applications', path: '/rescue-applications' },
-    { label: 'Lobby Slides', path: '/lobby-slides' },
+    {
+      label: 'Rabies Clinics',
+      path: '/clinic-list',
+      moduleKey: 'rabies_clinics'
+    },
+    {
+      label: 'Surrender Forms',
+      path: '/surrender-forms',
+      moduleKey: 'surrender_forms'
+    },
+    {
+      label: 'Rescue Applications',
+      path: '/rescue-applications',
+      moduleKey: 'rescue_applications'
+    },
+    {
+      label: 'Lobby Slides',
+      path: '/lobby-slides',
+      moduleKey: 'lobby_slides'
+    },
   ];
+
+  const enabledModules = user?.enabled_modules || [];
+
+  const visibleNavItems = isPlatformAdmin
+    ? navItems
+    : navItems.filter((item) =>
+        enabledModules.includes(item.moduleKey)
+      );
 
   return (
     <Navbar
@@ -76,7 +108,7 @@ export default function AppNavbar() {
 
               {/* Navigation */}
               <Nav className="shelter-nav mx-lg-auto">
-                {navItems.map((item) => (
+                {visibleNavItems.map((item) => (
                   <Nav.Link
                     key={item.path}
                     as={Link}
@@ -89,7 +121,8 @@ export default function AppNavbar() {
                   </Nav.Link>
                 ))}
 
-                {user.role === 'admin' && (
+                {/* Organization administration */}
+                {isOrganizationAdmin && (
                   <Nav.Link
                     as={Link}
                     to="/admin/users"
@@ -100,10 +133,31 @@ export default function AppNavbar() {
                     User Management
                   </Nav.Link>
                 )}
+
+                {/* Platform administration */}
+                {isPlatformAdmin && (
+                  <Nav.Link
+                    as={Link}
+                    to="/platform-admin"
+                    className={`shelter-nav-link ${
+                      isActive('/platform-admin') ? 'active' : ''
+                    }`}
+                  >
+                    Platform Administration
+                  </Nav.Link>
+                )}
               </Nav>
 
               {/* User actions */}
               <div className="navbar-actions">
+
+                {/* Organization switcher - platform admins only */}
+                {isPlatformAdmin && (
+                  <div className="navbar-organization-switcher">
+                    <OrganizationSwitcher />
+                  </div>
+                )}
+
                 <Button
                   variant="outline-light"
                   className="navbar-logout"

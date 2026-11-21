@@ -261,7 +261,7 @@ export default function CreateClinic() {
         }
       };
 
-      await api.post('/clinics', {
+      const response = await api.post('/clinics', {
         name: form.name,
         location_name: form.location_name,
         address: form.address,
@@ -278,7 +278,13 @@ export default function CreateClinic() {
         notes: form.notes || null
       });
 
-      navigate('/');
+      const createdClinic = response.data.clinic;
+
+      if (!createdClinic?.id) {
+        throw new Error('Clinic was created, but the response did not include a clinic ID.');
+      }
+
+      navigate(`/clinics/${createdClinic.id}`);
     } catch (err) {
       console.error(err);
       alert('Failed to create clinic');

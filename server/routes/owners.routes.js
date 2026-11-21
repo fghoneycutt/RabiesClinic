@@ -1,8 +1,18 @@
+
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole } = require('../middleware/auth.middleware');
+
+const {
+  authenticate,
+  resolveOrganizationContext,
+  requireRole
+} = require('../middleware/auth.middleware');
 
 const ownersController = require('../controllers/owners.controller');
+
+// All owner routes require authentication and organization context.
+router.use(authenticate);
+router.use(resolveOrganizationContext);
 
 // CREATE OWNER
 router.post(
@@ -31,8 +41,7 @@ router.put(
 // DELETE OWNER
 router.delete(
   '/:id',
-  authenticate,
-  requireRole('admin', 'staff'),
+  requireRole('admin'),
   ownersController.deleteOwner
 );
 

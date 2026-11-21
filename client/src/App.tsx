@@ -41,6 +41,9 @@ import RescueApplications from './pages/Forms/RescueGroupApplications/RescueAppl
 import PublicRescueApplication from './pages/Forms/PublicForms/PublicRescueApplication';
 
 import LobbySlides from './pages/LobbySlides/LobbySlides';
+
+import PlatformAdminPage from './pages/PlatformAdmin/PlatformAdminPage';
+import RoleProtectedRoute from './auth/RoleProtectedRoute';
 // -----------------------------------
 // APP LAYOUT
 // -----------------------------------
@@ -157,6 +160,12 @@ function AppLayout() {
               path="/lobby-slides"
               element={<LobbySlides />}
             />
+            <Route element={<RoleProtectedRoute requirePlatformAdmin />}>
+              <Route
+                path="/platform-admin"
+                element={<PlatformAdminPage />}
+              />
+            </Route>
 
             {/* Logged-in users get actual 404 page */}
             <Route

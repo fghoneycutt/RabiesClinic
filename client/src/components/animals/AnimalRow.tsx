@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { api } from '../../api/api';
 
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -223,6 +224,44 @@ export default function AnimalRow({
   const cancelEdit = () => {
     setDraftAnimal(animal);
     toggleAnimalEdit(animal.id);
+  };
+
+  const generateCertificate = async () => {
+    const pdfWindow = window.open('', '_blank');
+
+    try {
+      const response = await api.get(
+        `/vaccinations/${latestRabies?.id}/certificate`,
+        { responseType: 'blob' }
+      );
+
+      const pdfBlob = new Blob(
+        [response.data],
+        { type: 'application/pdf' }
+      );
+
+      const pdfUrl = window.URL.createObjectURL(pdfBlob);
+
+      if (pdfWindow) {
+        pdfWindow.location.href = pdfUrl;
+      } else {
+        window.location.href = pdfUrl;
+      }
+
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(pdfUrl);
+      }, 60000);
+
+    } catch (err) {
+      pdfWindow?.close();
+
+      console.error(
+        'Failed to generate rabies certificate:',
+        err
+      );
+
+      alert('Failed to generate rabies certificate.');
+    }
   };
 
 
@@ -457,9 +496,7 @@ export default function AnimalRow({
               <Button
                 size="sm"
                 variant="outline-secondary"
-                href={`${import.meta.env.VITE_API_URL}/api/vaccinations/${latestRabies?.id}/certificate`}
-                target="_blank"
-                rel="noopener noreferrer"
+                onClick={generateCertificate}
               >
                 <i className="fas fa-file-pdf text-danger" />
               </Button>

@@ -1,6 +1,29 @@
+
 const db = require('../db');
 const { hashPassword, comparePassword } = require('../auth/password');
-const { signToken, verifyToken } = require('../auth/jwt');
+const { signToken } = require('../auth/jwt');
+
+// -----------------------------
+// GET ENABLED ORGANIZATION MODULES
+// -----------------------------
+async function getEnabledModules(organizationId) {
+  if (!organizationId) {
+    return [];
+  }
+
+  const result = await db.query(
+    `
+      SELECT module_key
+      FROM organization_modules
+      WHERE organization_id = $1
+        AND enabled = true
+      ORDER BY module_key
+    `,
+    [organizationId]
+  );
+
+  return result.rows.map(row => row.module_key);
+}
 
 // -----------------------------
 // LOGIN
@@ -10,7 +33,11 @@ async function login(req, res) {
 
   try {
     const result = await db.query(
-      'SELECT * FROM users WHERE email = $1',
+      `
+        SELECT *
+        FROM users
+        WHERE LOWER(email) = LOWER($1)
+      `,
       [email]
     );
 
@@ -26,6 +53,8 @@ async function login(req, res) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    const enabledModules = await getEnabledModules(user.organization_id);
+
     const token = signToken(user);
 
     return res.json({
@@ -33,7 +62,11 @@ async function login(req, res) {
       user: {
         id: user.id,
         email: user.email,
-        role: user.role
+        name: user.name,
+        role: user.role,
+        organization_id: user.organization_id,
+        platform_role: user.platform_role,
+        enabled_modules: enabledModules
       }
     });
 
@@ -47,7 +80,6 @@ async function login(req, res) {
 // REGISTER
 // -----------------------------
 async function register(req, res) {
-
   const {
     email,
     password,
@@ -57,34 +89,42 @@ async function register(req, res) {
   } = req.body;
 
   try {
-    // 🔥 CHECK IF USERS EXIST
-    const userCount = await db.query('SELECT COUNT(*) FROM users');
-    const isFirstUser = userCount.rows[0].count === '0';
-
-    // 🔐 IF NOT FIRST USER → REQUIRE AUTH
-    if (!isFirstUser) {
-      const header = req.headers.authorization;
-
-      if (!header || !header.startsWith('Bearer ')) {
-        return res.status(401).json({ message: 'Missing token' });
-      }
-
-      const token = header.split(' ')[1];
-      const decoded = verifyToken(token);
-
-      if (decoded.role !== 'admin') {
-        return res.status(403).json({ message: 'Admin only' });
-      }
+    // Require an organization administrator
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        message: 'Organization administrator access required'
+      });
     }
 
-    // ❗ check existing user
+    if (!req.user.organization_id) {
+      return res.status(400).json({
+        message: 'Administrator account has no organization assigned.'
+      });
+    }
+
+    // Only allow organization-level roles
+    const allowedRoles = ['staff', 'admin'];
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        message: 'Invalid user role.'
+      });
+    }
+
+    // Check existing email across all organizations
     const existing = await db.query(
-      'SELECT id FROM users WHERE email = $1',
+      `
+        SELECT id
+        FROM users
+        WHERE LOWER(email) = LOWER($1)
+      `,
       [email]
     );
 
     if (existing.rows.length > 0) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({
+        message: 'User already exists'
+      });
     }
 
     const password_hash = await hashPassword(password);
@@ -92,25 +132,30 @@ async function register(req, res) {
     const result = await db.query(
       `
         INSERT INTO users (
+          organization_id,
           email,
           password_hash,
           role,
           name,
           license_number
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING
           id,
+          organization_id,
           email,
           role,
           name,
           license_number
       `,
-      [email,
-      password_hash,
-      role,
-      name,
-      license_number]
+      [
+        req.user.organization_id,
+        email,
+        password_hash,
+        role,
+        name,
+        license_number
+      ]
     );
 
     return res.status(201).json(result.rows[0]);
@@ -121,17 +166,22 @@ async function register(req, res) {
   }
 }
 
+// -----------------------------
+// CURRENT USER
+// -----------------------------
 async function me(req, res) {
   try {
     const result = await db.query(
       `
-      SELECT
-        id,
-        email,
-        role,
-        name
-      FROM users
-      WHERE id = $1
+        SELECT
+          id,
+          email,
+          role,
+          name,
+          organization_id,
+          platform_role
+        FROM users
+        WHERE id = $1
       `,
       [req.user.id]
     );
@@ -139,19 +189,24 @@ async function me(req, res) {
     const user = result.rows[0];
 
     if (!user) {
-      return res
-        .status(404)
-        .json({ message: 'User not found' });
+      return res.status(404).json({
+        message: 'User not found'
+      });
     }
 
-    return res.json(user);
+    const enabledModules = await getEnabledModules(user.organization_id);
+
+    return res.json({
+      ...user,
+      enabled_modules: enabledModules
+    });
 
   } catch (err) {
     console.error('ME ERROR:', err);
 
-    return res
-      .status(500)
-      .json({ message: 'Server error' });
+    return res.status(500).json({
+      message: 'Server error'
+    });
   }
 }
 

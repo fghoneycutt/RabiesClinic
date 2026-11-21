@@ -219,7 +219,7 @@ export default function AddRabiesModal({
 
       const res = await api.post(`/vaccinations/${animalId}`, payload);
 
-      onSave(res.data);
+      onSave(res.data.vaccination);
       onHide();
     } catch (err: any) {
       console.error('Failed to save vaccination:', err?.response?.data || err);

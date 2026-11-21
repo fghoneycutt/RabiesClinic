@@ -1,18 +1,37 @@
+
 const express = require('express');
 const router = express.Router();
 
 const controller = require('../controllers/auth.controller');
-const { authenticate, requireRole } = require('../middleware/auth.middleware');
 
-// public
+const {
+  authenticate,
+  requireOrganizationAdmin
+} = require('../middleware/auth.middleware');
+
+// -----------------------------
+// LOGIN
+// -----------------------------
 router.post('/login', controller.login);
 
-// TEMP: admin-only registration
+// -----------------------------
+// REGISTER USER
+// Organization administrator only
+// -----------------------------
 router.post(
   '/register',
-  controller.register,
+  authenticate,
+  requireOrganizationAdmin,
+  controller.register
 );
 
-router.get('/me', authenticate, controller.me);
+// -----------------------------
+// CURRENT USER
+// -----------------------------
+router.get(
+  '/me',
+  authenticate,
+  controller.me
+);
 
 module.exports = router;

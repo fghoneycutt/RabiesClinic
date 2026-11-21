@@ -1,7 +1,17 @@
+
 const express = require('express');
 const router = express.Router();
 
+const {
+  authenticate,
+  resolveOrganizationContext
+} = require('../middleware/auth.middleware');
+
 const animalsController = require('../controllers/animals.controller');
+
+// All animal routes require authentication and organization context.
+router.use(authenticate);
+router.use(resolveOrganizationContext);
 
 // CREATE ANIMAL (legacy / general)
 router.post(
@@ -27,6 +37,10 @@ router.post(
   animalsController.createAnimalForOwner
 );
 
-router.delete('/:id', animalsController.deleteAnimal);
+// DELETE ANIMAL
+router.delete(
+  '/:id',
+  animalsController.deleteAnimal
+);
 
 module.exports = router;

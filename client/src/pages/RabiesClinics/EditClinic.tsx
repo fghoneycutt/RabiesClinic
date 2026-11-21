@@ -236,7 +236,7 @@ export default function EditClinic() {
   const deleteClinic = async () => {
     try {
       await api.delete(`/clinics/${id}`);
-      navigate('/');
+      navigate('/clinic-list');
     } catch (err) {
       console.error(err);
       alert('Failed to delete clinic');

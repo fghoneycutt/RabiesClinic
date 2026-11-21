@@ -1,7 +1,16 @@
+
 const pool = require('../db');
 
-
 exports.createIntake = async (req, res) => {
+  const organizationId = req.organizationId;
+
+  if (!organizationId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Organization context is required.'
+    });
+  }
+
   const {
     owner,
     owner_id,
@@ -9,29 +18,99 @@ exports.createIntake = async (req, res) => {
     clinic_id
   } = req.body;
 
-  const client = await pool.connect();
+  if (!Array.isArray(animals)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Animals must be provided as an array.'
+    });
+  }
 
   const clean = (value) =>
     value === '' || value === undefined
       ? null
       : value;
 
+  const client = await pool.connect();
+  let transactionStarted = false;
+
   try {
     await client.query('BEGIN');
+    transactionStarted = true;
 
-    let finalOwnerId = owner_id;
+    // ------------------------
+    // VERIFY CLINIC
+    // ------------------------
+    if (clinic_id) {
+      const clinicResult = await client.query(
+        `
+          SELECT id
+          FROM clinics
+          WHERE id = $1
+            AND organization_id = $2
+        `,
+        [clinic_id, organizationId]
+      );
+
+      if (clinicResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        transactionStarted = false;
+
+        return res.status(404).json({
+          success: false,
+          message: 'Clinic not found.'
+        });
+      }
+    }
+
+    let finalOwnerId = owner_id || null;
+
+    // ------------------------
+    // VERIFY EXISTING OWNER
+    // ------------------------
+    if (finalOwnerId) {
+      const ownerResult = await client.query(
+        `
+          SELECT id
+          FROM owners
+          WHERE id = $1
+            AND organization_id = $2
+        `,
+        [finalOwnerId, organizationId]
+      );
+
+      if (ownerResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        transactionStarted = false;
+
+        return res.status(404).json({
+          success: false,
+          message: 'Owner not found.'
+        });
+      }
+    }
 
     // ------------------------
     // CASE 1: FIND OR CREATE OWNER
     // ------------------------
     if (!finalOwnerId) {
+      if (!owner?.first_name || !owner?.last_name) {
+        await client.query('ROLLBACK');
+        transactionStarted = false;
+
+        return res.status(400).json({
+          success: false,
+          message: 'Owner first and last names are required.'
+        });
+      }
+
       const conditions = [];
       const params = [
         owner.first_name,
-        owner.last_name
+        owner.last_name,
+        organizationId
       ];
 
-      let paramIndex = 3;
+      let paramIndex = 4;
 
       if (owner.phone?.trim()) {
         conditions.push(`phone = $${paramIndex}`);
@@ -56,15 +135,15 @@ exports.createIntake = async (req, res) => {
       if (conditions.length > 0) {
         existingOwner = await client.query(
           `
-          SELECT id
-          FROM owners
-          WHERE
-            LOWER(first_name) = LOWER($1)
-            AND LOWER(last_name) = LOWER($2)
-            AND (
-              ${conditions.join(' OR ')}
-            )
-          LIMIT 1
+            SELECT id
+            FROM owners
+            WHERE organization_id = $3
+              AND LOWER(first_name) = LOWER($1)
+              AND LOWER(last_name) = LOWER($2)
+              AND (
+                ${conditions.join(' OR ')}
+              )
+            LIMIT 1
           `,
           params
         );
@@ -75,24 +154,27 @@ exports.createIntake = async (req, res) => {
       } else {
         const ownerResult = await client.query(
           `
-          INSERT INTO owners (
-            first_name,
-            last_name,
-            email,
-            phone,
-            address,
-            secondary_address,
-            city,
-            county,
-            state,
-            zip_code
-          )
-          VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10
-          )
-          RETURNING id
+            INSERT INTO owners (
+              organization_id,
+              first_name,
+              last_name,
+              email,
+              phone,
+              address,
+              secondary_address,
+              city,
+              county,
+              state,
+              zip_code
+            )
+            VALUES (
+              $1,$2,$3,$4,$5,$6,
+              $7,$8,$9,$10,$11
+            )
+            RETURNING id
           `,
           [
+            organizationId,
             owner.first_name,
             owner.last_name,
             clean(owner.email),
@@ -112,24 +194,22 @@ exports.createIntake = async (req, res) => {
 
     // ------------------------------------------------------------
     // FETCH ALL HISTORICAL ANIMALS FOR THIS OWNER
+    // WITHIN THIS ORGANIZATION
     // ------------------------------------------------------------
-    let existingAnimals = [];
-
-    if (finalOwnerId) {
-      const existingAnimalsResult = await client.query(
-        `
+    const existingAnimalsResult = await client.query(
+      `
         SELECT
           id,
           name,
           species
         FROM animals
         WHERE owner_id = $1
-        `,
-        [finalOwnerId]
-      );
+          AND organization_id = $2
+      `,
+      [finalOwnerId, organizationId]
+    );
 
-      existingAnimals = existingAnimalsResult.rows;
-    }
+    const existingAnimals = existingAnimalsResult.rows;
 
     // ------------------------
     // CASE 2: PROCESS ANIMALS
@@ -151,28 +231,30 @@ exports.createIntake = async (req, res) => {
         // ------------------------
         await client.query(
           `
-          UPDATE animals
-          SET
-            clinic_id = $1,
+            UPDATE animals
+            SET
+              clinic_id = $1,
 
-            sex = $2,
-            primary_breed = $3,
-            secondary_breed = $4,
+              sex = $2,
+              primary_breed = $3,
+              secondary_breed = $4,
 
-            altered_status = $5,
+              altered_status = $5,
 
-            age_years = $6,
-            age_months = $7,
-            approximate_weight = $8,
+              age_years = $6,
+              age_months = $7,
+              approximate_weight = $8,
 
-            primary_color = $9,
-            secondary_color = $10,
-            pattern = $11,
+              primary_color = $9,
+              secondary_color = $10,
+              pattern = $11,
 
-            microchip_number = $12,
-            microchip_issuer = $13
+              microchip_number = $12,
+              microchip_issuer = $13
 
-          WHERE id = $14
+            WHERE id = $14
+              AND organization_id = $15
+              AND owner_id = $16
           `,
           [
             clinic_id,
@@ -194,47 +276,52 @@ exports.createIntake = async (req, res) => {
             clean(animal.microchip_number),
             clean(animal.microchip_issuer),
 
-            matchedAnimal.id
+            matchedAnimal.id,
+            organizationId,
+            finalOwnerId
           ]
         );
+
       } else {
         // ------------------------
         // INSERT NEW ANIMAL
         // ------------------------
         await client.query(
           `
-          INSERT INTO animals (
-            owner_id,
-            clinic_id,
+            INSERT INTO animals (
+              organization_id,
+              owner_id,
+              clinic_id,
 
-            name,
-            species,
-            sex,
+              name,
+              species,
+              sex,
 
-            altered_status,
+              altered_status,
 
-            primary_breed,
-            secondary_breed,
+              primary_breed,
+              secondary_breed,
 
-            age_years,
-            age_months,
-            approximate_weight,
+              age_years,
+              age_months,
+              approximate_weight,
 
-            primary_color,
-            secondary_color,
+              primary_color,
+              secondary_color,
 
-            pattern,
+              pattern,
 
-            microchip_number,
-            microchip_issuer
-          )
-          VALUES (
-            $1,$2,$3,$4,$5,
-            $6,$7,$8,$9,$10,
-            $11,$12,$13,$14,$15,$16
-          )
+              microchip_number,
+              microchip_issuer
+            )
+            VALUES (
+              $1,$2,$3,$4,$5,$6,
+              $7,$8,$9,$10,$11,$12,
+              $13,$14,$15,$16,$17
+            )
           `,
           [
+            organizationId,
             finalOwnerId,
             clinic_id,
 
@@ -264,20 +351,29 @@ exports.createIntake = async (req, res) => {
     }
 
     await client.query('COMMIT');
+    transactionStarted = false;
 
-    res.json({
+    return res.json({
       success: true,
       owner_id: finalOwnerId
     });
+
   } catch (err) {
-    await client.query('ROLLBACK');
+    if (transactionStarted) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('INTAKE ROLLBACK ERROR:', rollbackError);
+      }
+    }
 
-    console.error(err);
+    console.error('CREATE INTAKE ERROR:', err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to process intake'
     });
+
   } finally {
     client.release();
   }

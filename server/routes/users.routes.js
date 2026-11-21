@@ -1,9 +1,16 @@
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 
 const controller = require('../controllers/users.controller');
-const { authenticate, requireRole } = require('../middleware/auth.middleware');
+
+const {
+  authenticate,
+  resolveOrganizationContext,
+  requireRole
+} = require('../middleware/auth.middleware');
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -11,43 +18,37 @@ const upload = multer({
   }
 });
 
-// ADMIN ONLY
-router.post('/', authenticate, requireRole('admin'), controller.createUser);
+// All user routes require authentication
+// and an active organization context.
+router.use(authenticate);
+router.use(resolveOrganizationContext);
 
-router.put('/:id', authenticate, requireRole('admin'), controller.editUser);
+// ADMIN ONLY
+router.post('/', requireRole('admin'), controller.createUser);
+
+router.put('/:id', requireRole('admin'), controller.editUser);
 
 router.put(
   '/:id/password',
-  authenticate,
   requireRole('admin'),
   controller.resetPassword
 );
 
 router.post(
   '/:id/signature',
-  authenticate,
   requireRole('admin'),
   upload.single('signature'),
   controller.uploadSignature
 );
 
-router.get(
-  '/:id/signature',
-  authenticate,
-  controller.getSignature
-);
+// Any authenticated user can retrieve a signature.
+// Controller must verify organization ownership.
+router.get('/:id/signature', controller.getSignature);
 
-router.get(
-  '/',
-  authenticate,
-  controller.listUsers
-);
+// List users within the active organization.
+router.get('/', controller.listUsers);
 
-router.delete(
-  '/:id',
-  authenticate,
-  requireRole('admin'),
-  controller.deleteUser
-);
+// ADMIN ONLY
+router.delete('/:id', requireRole('admin'), controller.deleteUser);
 
 module.exports = router;

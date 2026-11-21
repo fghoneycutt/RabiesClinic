@@ -952,6 +952,11 @@ const validateSubmission = (
 // POST /api/forms
 // ==========================================
 
+// ==========================================
+// CREATE FORM
+// POST /api/forms
+// ==========================================
+
 exports.createForm = async (req, res) => {
   const {
     name,
@@ -960,9 +965,15 @@ exports.createForm = async (req, res) => {
     form_type
   } = req.body || {};
 
+  if (!req.organizationId) {
+    return res.status(400).json({
+      message: 'An organization must be selected.'
+    });
+  }
+
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({
-      message: 'A form name is required.',
+      message: 'A form name is required.'
     });
   }
 
@@ -979,7 +990,7 @@ exports.createForm = async (req, res) => {
 
   if (!allowedFormTypes.includes(formType)) {
     return res.status(400).json({
-      message: 'Invalid form type.',
+      message: 'Invalid form type.'
     });
   }
 
@@ -991,7 +1002,7 @@ exports.createForm = async (req, res) => {
 
   if (!formSlug) {
     return res.status(400).json({
-      message: 'A valid form slug could not be generated.',
+      message: 'A valid form slug could not be generated.'
     });
   }
 
@@ -1001,22 +1012,24 @@ exports.createForm = async (req, res) => {
     typeof description !== 'string'
   ) {
     return res.status(400).json({
-      message: 'Form description must be text.',
+      message: 'Form description must be text.'
     });
   }
 
   try {
     const result = await pool.query(
       `INSERT INTO forms (
+        organization_id,
         name,
         slug,
         description,
         form_type,
         definition
       )
-      VALUES ($1, $2, $3, $4, '{}'::jsonb)
+      VALUES ($1, $2, $3, $4, $5, '{}'::jsonb)
       RETURNING *`,
       [
+        req.organizationId,
         name.trim(),
         formSlug,
         description || null,
@@ -1028,14 +1041,19 @@ exports.createForm = async (req, res) => {
       message: 'Form created successfully.',
       form: result.rows[0],
     });
+
   } catch (error) {
     if (error.code === '23505') {
       return res.status(409).json({
-        message: 'A form with that slug already exists.',
+        message: 'A form with that slug already exists.'
       });
     }
 
-    return sendServerError(res, error, 'Error creating form:');
+    return sendServerError(
+      res,
+      error,
+      'Error creating form:'
+    );
   }
 };
 
@@ -1245,6 +1263,14 @@ exports.getPublicForm = async (req, res) => {
 // ==========================================
 
 
+// ==========================================
+// SUBMIT PUBLIC FORM
+// POST /api/forms/public/:slug/submit
+//
+// Supports JSON and multipart/form-data.
+// Organization is determined by the public form's slug.
+// ==========================================
+
 exports.submitForm = async (req, res) => {
   const { slug } = req.params;
 
@@ -1252,6 +1278,10 @@ exports.submitForm = async (req, res) => {
   const uploadedStoragePaths = [];
 
   try {
+    // --------------------------------------
+    // PARSE RESPONSES
+    // --------------------------------------
+
     let responses = req.body?.responses;
 
     // Multipart requests send JSON values as strings.
@@ -1306,10 +1336,19 @@ exports.submitForm = async (req, res) => {
       });
     }
 
-    const files = Array.isArray(req.files) ? req.files : [];
+    // --------------------------------------
+    // PROCESS UPLOADED FILES
+    // --------------------------------------
 
-    // Every uploaded file must use the expected field naming convention.
-    if (files.some(file => !file.fieldname.startsWith('file_'))) {
+    const files = Array.isArray(req.files)
+      ? req.files
+      : [];
+
+    if (
+      files.some(
+        file => !file.fieldname.startsWith('file_')
+      )
+    ) {
       return res.status(400).json({
         message: 'An uploaded file has an invalid question reference.'
       });
@@ -1318,8 +1357,15 @@ exports.submitForm = async (req, res) => {
     const uploadedFilesByQuestion =
       getUploadedFilesByQuestion(files);
 
+    // --------------------------------------
+    // RETRIEVE FORM AND ORGANIZATION
+    // --------------------------------------
+
     const formResult = await pool.query(
-      `SELECT id, definition
+      `SELECT
+         id,
+         organization_id,
+         definition
        FROM forms
        WHERE slug = $1
        LIMIT 1`,
@@ -1334,6 +1380,17 @@ exports.submitForm = async (req, res) => {
 
     const form = formResult.rows[0];
 
+    if (!form.organization_id) {
+      console.error(
+        'Public form has no organization ID:',
+        form.id
+      );
+
+      return res.status(409).json({
+        message: 'This form is not associated with an organization.'
+      });
+    }
+
     if (
       !isPlainObject(form.definition) ||
       !Array.isArray(form.definition.sections)
@@ -1342,6 +1399,10 @@ exports.submitForm = async (req, res) => {
         message: 'This form has not been configured yet.'
       });
     }
+
+    // --------------------------------------
+    // VALIDATE SUBMISSION
+    // --------------------------------------
 
     const formSnapshot = getPublicDefinition(
       form.definition
@@ -1359,10 +1420,13 @@ exports.submitForm = async (req, res) => {
       });
     }
 
-    // Create the submission first so its ID can be used
-    // to organize its documents in Supabase Storage.
+    // --------------------------------------
+    // CREATE SUBMISSION
+    // --------------------------------------
+
     const result = await pool.query(
       `INSERT INTO form_submissions (
+         organization_id,
          form_id,
          form_snapshot,
          species,
@@ -1372,14 +1436,21 @@ exports.submitForm = async (req, res) => {
        )
        VALUES (
          $1,
-         $2::jsonb,
-         $3,
+         $2,
+         $3::jsonb,
          $4,
-         $5::jsonb,
+         $5,
+         $6::jsonb,
          'submitted'
        )
-       RETURNING id, form_id, status, submitted_at`,
+       RETURNING
+         id,
+         organization_id,
+         form_id,
+         status,
+         submitted_at`,
       [
+        form.organization_id,
         form.id,
         JSON.stringify(formSnapshot),
         species || null,
@@ -1391,12 +1462,21 @@ exports.submitForm = async (req, res) => {
     const submission = result.rows[0];
     submissionId = submission.id;
 
-    // Upload each document and save its metadata.
+    // --------------------------------------
+    // UPLOAD DOCUMENTS
+    // --------------------------------------
+
     for (const [questionId, questionFiles] of Object.entries(
       uploadedFilesByQuestion
     )) {
       for (const file of questionFiles) {
         const extension = getFileExtension(file);
+
+        if (!extension) {
+          throw new Error(
+            `Unsupported uploaded file format: ${file.originalname}`
+          );
+        }
 
         const filename = `${crypto.randomUUID()}.${extension}`;
 
@@ -1411,14 +1491,22 @@ exports.submitForm = async (req, res) => {
           });
 
         if (uploadError) {
-          console.error('Supabase form document upload error:', uploadError);
-          throw new Error('A document could not be uploaded.');
+          console.error(
+            'Supabase form document upload error:',
+            uploadError
+          );
+
+          throw new Error(
+            `A document could not be uploaded: ${file.originalname}`
+          );
         }
 
         uploadedStoragePaths.push(storagePath);
 
+        // Save uploaded document metadata.
         await pool.query(
           `INSERT INTO form_submission_files (
+             organization_id,
              submission_id,
              question_id,
              storage_path,
@@ -1426,8 +1514,9 @@ exports.submitForm = async (req, res) => {
              mime_type,
              size_bytes
            )
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
+            form.organization_id,
             submissionId,
             questionId,
             storagePath,
@@ -1439,15 +1528,25 @@ exports.submitForm = async (req, res) => {
       }
     }
 
+    // --------------------------------------
+    // SUCCESS
+    // --------------------------------------
+
     return res.status(201).json({
       message: 'Form submitted successfully.',
       submission
     });
 
   } catch (error) {
-    console.error('Error submitting form:', error);
+    console.error(
+      'Error submitting form:',
+      error
+    );
 
-    // Remove any files that were uploaded before the failure.
+    // --------------------------------------
+    // CLEAN UP UPLOADED STORAGE FILES
+    // --------------------------------------
+
     if (uploadedStoragePaths.length > 0) {
       const { error: cleanupError } = await supabase.storage
         .from(FORM_UPLOADS_BUCKET)
@@ -1461,13 +1560,18 @@ exports.submitForm = async (req, res) => {
       }
     }
 
-    // Remove the incomplete submission and its metadata.
+    // --------------------------------------
+    // CLEAN UP INCOMPLETE SUBMISSION
+    // --------------------------------------
+
     if (submissionId !== null) {
       try {
         await pool.query(
-          `DELETE FROM form_submissions WHERE id = $1`,
+          `DELETE FROM form_submissions
+           WHERE id = $1`,
           [submissionId]
         );
+
       } catch (cleanupError) {
         console.error(
           'Could not clean up incomplete form submission:',
@@ -1938,6 +2042,12 @@ exports.updateSubmissionStatus = async (req, res) => {
     });
   }
 
+  if (!req.organizationId) {
+    return res.status(400).json({
+      message: 'An organization must be selected.',
+    });
+  }
+
   if (!allowedStatuses.includes(status)) {
     return res.status(400).json({
       message: 'Invalid submission status.',
@@ -1950,8 +2060,9 @@ exports.updateSubmissionStatus = async (req, res) => {
        SET status = $1,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $2
+         AND organization_id = $3
        RETURNING *`,
-      [status, id]
+      [status, id, req.organizationId]
     );
 
     if (result.rows.length === 0) {
@@ -1964,8 +2075,13 @@ exports.updateSubmissionStatus = async (req, res) => {
       message: 'Submission status updated successfully.',
       submission: result.rows[0],
     });
+
   } catch (error) {
-    return sendServerError(res, error, 'Error updating submission status:');
+    return sendServerError(
+      res,
+      error,
+      'Error updating submission status:'
+    );
   }
 };
 
@@ -1978,10 +2094,19 @@ exports.getSubmissionNotes = async (req, res) => {
     });
   }
 
+  if (!req.organizationId) {
+    return res.status(400).json({
+      message: 'An organization must be selected.',
+    });
+  }
+
   try {
     const submission = await pool.query(
-      'SELECT id FROM form_submissions WHERE id = $1',
-      [id]
+      `SELECT id
+       FROM form_submissions
+       WHERE id = $1
+         AND organization_id = $2`,
+      [id, req.organizationId]
     );
 
     if (submission.rows.length === 0) {
@@ -1994,6 +2119,7 @@ exports.getSubmissionNotes = async (req, res) => {
       `SELECT
         n.id,
         n.submission_id,
+        n.organization_id,
         n.note,
         n.created_by,
         n.created_at,
@@ -2002,18 +2128,26 @@ exports.getSubmissionNotes = async (req, res) => {
         creator.name AS created_by_name,
         editor.name AS updated_by_name
       FROM form_submission_notes n
-      LEFT JOIN users creator ON creator.id = n.created_by
-      LEFT JOIN users editor ON editor.id = n.updated_by
+      LEFT JOIN users creator
+        ON creator.id = n.created_by
+      LEFT JOIN users editor
+        ON editor.id = n.updated_by
       WHERE n.submission_id = $1
+        AND n.organization_id = $2
       ORDER BY n.created_at ASC, n.id ASC`,
-      [id]
+      [id, req.organizationId]
     );
 
     return res.status(200).json({
       notes: result.rows,
     });
+
   } catch (error) {
-    return sendServerError(res, error, 'Error retrieving submission notes:');
+    return sendServerError(
+      res,
+      error,
+      'Error retrieving submission notes:'
+    );
   }
 };
 
@@ -2027,6 +2161,12 @@ exports.addSubmissionNote = async (req, res) => {
     });
   }
 
+  if (!req.organizationId) {
+    return res.status(400).json({
+      message: 'An organization must be selected.',
+    });
+  }
+
   if (typeof note !== 'string' || !note.trim()) {
     return res.status(400).json({
       message: 'A note is required.',
@@ -2035,8 +2175,11 @@ exports.addSubmissionNote = async (req, res) => {
 
   try {
     const submission = await pool.query(
-      'SELECT id FROM form_submissions WHERE id = $1',
-      [id]
+      `SELECT id
+       FROM form_submissions
+       WHERE id = $1
+         AND organization_id = $2`,
+      [id, req.organizationId]
     );
 
     if (submission.rows.length === 0) {
@@ -2048,11 +2191,12 @@ exports.addSubmissionNote = async (req, res) => {
     const result = await pool.query(
       `WITH inserted AS (
         INSERT INTO form_submission_notes (
+          organization_id,
           submission_id,
           note,
           created_by
         )
-        VALUES ($1, $2, $3)
+        VALUES ($1, $2, $3, $4)
         RETURNING *
       )
       SELECT
@@ -2063,6 +2207,7 @@ exports.addSubmissionNote = async (req, res) => {
       LEFT JOIN public.users creator
         ON creator.id = inserted.created_by`,
       [
+        req.organizationId,
         id,
         note.trim(),
         req.user?.id || null,
@@ -2073,8 +2218,13 @@ exports.addSubmissionNote = async (req, res) => {
       message: 'Note added successfully.',
       note: result.rows[0],
     });
+
   } catch (error) {
-    return sendServerError(res, error, 'Error adding submission note:');
+    return sendServerError(
+      res,
+      error,
+      'Error adding submission note:'
+    );
   }
 };
 
@@ -2085,6 +2235,12 @@ exports.updateSubmissionNote = async (req, res) => {
   if (!isValidId(id) || !isValidId(noteId)) {
     return res.status(400).json({
       message: 'Invalid submission or note ID.',
+    });
+  }
+
+  if (!req.organizationId) {
+    return res.status(400).json({
+      message: 'An organization must be selected.',
     });
   }
 
@@ -2101,9 +2257,10 @@ exports.updateSubmissionNote = async (req, res) => {
         SET
           note = $1,
           updated_by = $2,
-          updated_at = NOW()
+          updated_at = CURRENT_TIMESTAMP
         WHERE id = $3
           AND submission_id = $4
+          AND organization_id = $5
         RETURNING *
       )
       SELECT
@@ -2119,7 +2276,8 @@ exports.updateSubmissionNote = async (req, res) => {
         note.trim(),
         req.user?.id || null,
         noteId,
-        id
+        id,
+        req.organizationId
       ]
     );
 
@@ -2133,8 +2291,13 @@ exports.updateSubmissionNote = async (req, res) => {
       message: 'Note updated successfully.',
       note: result.rows[0],
     });
+
   } catch (error) {
-    return sendServerError(res, error, 'Error updating submission note:');
+    return sendServerError(
+      res,
+      error,
+      'Error updating submission note:'
+    );
   }
 };
 
@@ -2147,13 +2310,20 @@ exports.deleteSubmissionNote = async (req, res) => {
     });
   }
 
+  if (!req.organizationId) {
+    return res.status(400).json({
+      message: 'An organization must be selected.',
+    });
+  }
+
   try {
     const result = await pool.query(
       `DELETE FROM form_submission_notes
        WHERE id = $1
          AND submission_id = $2
+         AND organization_id = $3
        RETURNING id`,
-      [noteId, id]
+      [noteId, id, req.organizationId]
     );
 
     if (result.rows.length === 0) {
@@ -2165,7 +2335,12 @@ exports.deleteSubmissionNote = async (req, res) => {
     return res.status(200).json({
       message: 'Note deleted successfully.',
     });
+
   } catch (error) {
-    return sendServerError(res, error, 'Error deleting submission note:');
+    return sendServerError(
+      res,
+      error,
+      'Error deleting submission note:'
+    );
   }
 };

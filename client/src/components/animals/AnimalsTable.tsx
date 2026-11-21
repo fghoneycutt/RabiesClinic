@@ -3,6 +3,7 @@ import Button from 'react-bootstrap/Button';
 import Card from 'react-bootstrap/Card';
 import './AnimalTable.css';
 import { useState } from 'react';
+import { api } from '../../api/api';
 
 import {
   faPlus
@@ -90,14 +91,42 @@ export default function AnimalsTable({
       animal.vaccinations &&
       animal.vaccinations.length > 0
   );
-  const printAllCertificates = () => {
+  const printAllCertificates = async () => {
+    const pdfWindow = window.open('', '_blank');
 
-    window.open(
-      `${import.meta.env.VITE_API_URL}/api/vaccinations/owner/${ownerId}/clinic/${clinic.id}/certificates`,
-      '_blank',
-      'noopener,noreferrer'
-    );
+    try {
+      const response = await api.get(
+        `/vaccinations/owner/${ownerId}/clinic/${clinic.id}/certificates`,
+        { responseType: 'blob' }
+      );
 
+      const pdfBlob = new Blob(
+        [response.data],
+        { type: 'application/pdf' }
+      );
+
+      const pdfUrl = window.URL.createObjectURL(pdfBlob);
+
+      if (pdfWindow) {
+        pdfWindow.location.href = pdfUrl;
+      } else {
+        window.location.href = pdfUrl;
+      }
+
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(pdfUrl);
+      }, 60000);
+
+    } catch (err) {
+      pdfWindow?.close();
+
+      console.error(
+        'Failed to generate rabies certificates:',
+        err
+      );
+
+      alert('Failed to generate rabies certificates.');
+    }
   };
 
   return (

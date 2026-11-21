@@ -1,6 +1,9 @@
+
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL;
+
+export const ACTIVE_ORGANIZATION_STORAGE_KEY = 'activeOrganizationId';
 
 export const api = axios.create({
   baseURL: `${API_URL}/api`
@@ -8,14 +11,21 @@ export const api = axios.create({
 
 // ------------------------------------
 // REQUEST INTERCEPTOR
-// Automatically attach JWT token
+// Automatically attach JWT and organization context
 // ------------------------------------
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    const organizationId = localStorage.getItem(
+      ACTIVE_ORGANIZATION_STORAGE_KEY
+    );
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    if (organizationId) {
+      config.headers['X-Organization-Id'] = organizationId;
     }
 
     return config;
@@ -58,7 +68,6 @@ export const registerUser = async (data: {
   const res = await api.post('/auth/register', data);
   return res.data;
 };
-
 
 export interface LobbySlide {
   id: number;

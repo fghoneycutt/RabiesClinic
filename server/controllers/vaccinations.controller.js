@@ -1,3 +1,4 @@
+
 const pool = require('../db');
 const { generateRabiesForm } = require('../utils/generateRabiesForm');
 const { PDFDocument } = require('pdf-lib');
@@ -17,13 +18,25 @@ const ALLOWED_FIELDS = new Set([
   'date_time_due'
 ]);
 
+// -----------------------------
+// CREATE VACCINATION
+// -----------------------------
 async function createVaccination(req, res) {
   const client = await pool.connect();
-  
+
   try {
+    const organizationId = req.organizationId;
+
+    if (!organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Organization context is required.'
+      });
+    }
+
     const {
       animal_id,
-      clinic_id, // Read from body purely for the animals sync step
+      clinic_id,
       vaccine_type,
       product,
       rabies_tag_number,
@@ -37,192 +50,342 @@ async function createVaccination(req, res) {
       manufacturer
     } = req.body;
 
+    if (!animal_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Animal ID is required.'
+      });
+    }
+
     await client.query('BEGIN');
 
-    // fallback: derive from product if missing
+    // Verify animal belongs to the active organization.
+    const animalResult = await client.query(
+      `
+        SELECT id
+        FROM animals
+        WHERE id = $1
+          AND organization_id = $2
+      `,
+      [animal_id, organizationId]
+    );
+
+    if (animalResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+
+      return res.status(404).json({
+        success: false,
+        message: 'Animal not found.'
+      });
+    }
+
+    // Verify clinic belongs to the active organization, if supplied.
+    if (clinic_id) {
+      const clinicResult = await client.query(
+        `
+          SELECT id
+          FROM clinics
+          WHERE id = $1
+            AND organization_id = $2
+        `,
+        [clinic_id, organizationId]
+      );
+
+      if (clinicResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+
+        return res.status(404).json({
+          success: false,
+          message: 'Clinic not found.'
+        });
+      }
+    }
+
+    // Extract manufacturer from product when not explicitly supplied.
     function extractManufacturer(productString) {
       if (!productString) return null;
 
       const match = productString.match(/\(([^)]+)\)$/);
-      if (match) return match[1].trim();
+
+      if (match) {
+        return match[1].trim();
+      }
 
       if (productString.includes(' - ')) {
-        return productString.split(' - ').slice(1).join(' - ').trim();
+        return productString
+          .split(' - ')
+          .slice(1)
+          .join(' - ')
+          .trim();
       }
 
       return null;
     }
 
-    const finalManufacturer = manufacturer || extractManufacturer(product);
+    const finalManufacturer =
+      manufacturer || extractManufacturer(product);
 
-    // 1. Insert the vaccination record (clinic_id removed)
+    // Insert vaccination with organization ownership.
     const result = await client.query(
       `
-      INSERT INTO vaccinations (
+        INSERT INTO vaccinations (
+          organization_id,
+          animal_id,
+          vaccine_type,
+          product,
+          rabies_tag_number,
+          lot_number,
+          product_expiration_date,
+          notes,
+          vaccinated_by,
+          supervising_veterinarian,
+          date_time_administered,
+          date_time_due,
+          manufacturer
+        )
+        VALUES (
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13
+        )
+        RETURNING *
+      `,
+      [
+        organizationId,
         animal_id,
         vaccine_type,
         product,
-        rabies_tag_number,
-        lot_number,
-        product_expiration_date,
-        notes,
-        vaccinated_by,
-        supervising_veterinarian,
+        rabies_tag_number || null,
+        lot_number || null,
+        product_expiration_date || null,
+        notes || null,
+        vaccinated_by || null,
+        supervising_veterinarian || null,
         date_time_administered,
-        date_time_due,
-        manufacturer
-      )
-      VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-      )
-      RETURNING *
-      `,
-      [
-        animal_id,                // $1
-        vaccine_type,             // $2
-        product,                  // $3
-        rabies_tag_number,        // $4
-        lot_number,               // $5
-        product_expiration_date,  // $6
-        notes,                    // $7
-        vaccinated_by,            // $8
-        supervising_veterinarian, // $9
-        date_time_administered,   // $10
-        date_time_due,            // $12
-        finalManufacturer         // $12
+        date_time_due || null,
+        finalManufacturer
       ]
     );
 
-    // 2. Synchronize the Animal's clinic_id if it's different
-    if (clinic_id && animal_id) {
+    // Synchronize the animal's clinic_id when a clinic was supplied.
+    if (clinic_id) {
       await client.query(
         `
-        UPDATE animals
-        SET clinic_id = $1
-        WHERE id = $2 AND clinic_id IS DISTINCT FROM $1
+          UPDATE animals
+          SET clinic_id = $1
+          WHERE id = $2
+            AND organization_id = $3
+            AND clinic_id IS DISTINCT FROM $1
         `,
-        [clinic_id, animal_id]
+        [clinic_id, animal_id, organizationId]
       );
     }
 
     await client.query('COMMIT');
-    return res.json(result.rows[0]);
+
+    return res.status(201).json({
+      success: true,
+      vaccination: result.rows[0]
+    });
 
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error(err);
+
+    console.error('CREATE VACCINATION ERROR:', err);
+
     return res.status(500).json({
-      message: 'Failed to create vaccination'
+      success: false,
+      message: 'Failed to create vaccination.'
     });
+
   } finally {
     client.release();
   }
 }
 
+// -----------------------------
+// UPDATE VACCINATION
+// -----------------------------
 async function updateVaccination(req, res) {
-  const { id } = req.params;
   const client = await pool.connect();
 
   try {
-    await client.query('BEGIN');
+    const organizationId = req.organizationId;
+    const { id } = req.params;
 
-    // 1. Filter body down to allowed fields
-    ALLOWED_FIELDS.add('manufacturer');
+    if (!organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Organization context is required.'
+      });
+    }
+
+    // Only permit explicitly approved fields.
     const allowedBody = Object.fromEntries(
-      Object.entries(req.body).filter(([key]) => ALLOWED_FIELDS.has(key))
+      Object.entries(req.body).filter(([key]) =>
+        ALLOWED_FIELDS.has(key)
+      )
     );
 
     const keys = Object.keys(allowedBody);
     const values = Object.values(allowedBody);
 
     if (keys.length === 0) {
-      client.release();
-      return res.status(400).json({ message: 'No valid fields provided' });
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields provided.'
+      });
     }
 
-    // 2. Perform the vaccination update
-    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
-    const vacQuery = `
-      UPDATE vaccinations
-      SET ${setClause}
-      WHERE id = $${keys.length + 1}
-      RETURNING *
-    `;
-    const vacResult = await client.query(vacQuery, [...values, id]);
+    await client.query('BEGIN');
 
-    if (vacResult.rows.length === 0) {
+    // Verify vaccination belongs to the active organization.
+    const existingResult = await client.query(
+      `
+        SELECT id
+        FROM vaccinations
+        WHERE id = $1
+          AND organization_id = $2
+      `,
+      [id, organizationId]
+    );
+
+    if (existingResult.rows.length === 0) {
       await client.query('ROLLBACK');
-      client.release();
-      return res.status(404).json({ message: 'Vaccination record not found' });
+
+      return res.status(404).json({
+        success: false,
+        message: 'Vaccination record not found.'
+      });
     }
 
-    const updatedVaccine = vacResult.rows[0];
-
-    // 3. Sync the Animal's clinic_id if it differs
-    // We match the vaccination to the animal via the animal_id foreign key
-    if (updatedVaccine.clinic_id && updatedVaccine.animal_id) {
-      await client.query(
+    // If animal_id is being changed, verify the new animal.
+    if (allowedBody.animal_id) {
+      const animalResult = await client.query(
         `
-        UPDATE animals
-        SET clinic_id = $1
-        WHERE id = $2 AND clinic_id IS DISTINCT FROM $1
+          SELECT id
+          FROM animals
+          WHERE id = $1
+            AND organization_id = $2
         `,
-        [updatedVaccine.clinic_id, updatedVaccine.animal_id]
+        [allowedBody.animal_id, organizationId]
       );
+
+      if (animalResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+
+        return res.status(404).json({
+          success: false,
+          message: 'Animal not found.'
+        });
+      }
+    }
+
+    const setClause = keys
+      .map((key, index) => `"${key}" = $${index + 1}`)
+      .join(', ');
+
+    const result = await client.query(
+      `
+        UPDATE vaccinations
+        SET ${setClause}
+        WHERE id = $${keys.length + 1}
+          AND organization_id = $${keys.length + 2}
+        RETURNING *
+      `,
+      [...values, id, organizationId]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+
+      return res.status(404).json({
+        success: false,
+        message: 'Vaccination record not found.'
+      });
     }
 
     await client.query('COMMIT');
-    return res.json(updatedVaccine);
+
+    return res.json({
+      success: true,
+      vaccination: result.rows[0]
+    });
 
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error(err);
-    return res.status(500).json({ message: 'Failed to update vaccination' });
+
+    console.error('UPDATE VACCINATION ERROR:', err);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update vaccination.'
+    });
+
   } finally {
     client.release();
   }
 }
 
+// -----------------------------
+// DELETE VACCINATION
+// -----------------------------
 async function deleteVaccination(req, res) {
   try {
+    const organizationId = req.organizationId;
     const { id } = req.params;
+
+    if (!organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Organization context is required.'
+      });
+    }
 
     const result = await pool.query(
       `
-      DELETE FROM vaccinations
-      WHERE id = $1
-      RETURNING *
+        DELETE FROM vaccinations
+        WHERE id = $1
+          AND organization_id = $2
+        RETURNING *
       `,
-      [id]
+      [id, organizationId]
     );
 
     if (result.rowCount === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Vaccination not found'
+        message: 'Vaccination not found.'
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       deleted: result.rows[0]
     });
 
   } catch (err) {
-    console.error(err);
+    console.error('DELETE VACCINATION ERROR:', err);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: 'Failed to delete vaccination',
+      message: 'Failed to delete vaccination.',
       error: err.message
     });
   }
 }
 
-async function generateRabiesCertificatePdf(vaccinationId) {
-
+// -----------------------------
+// GENERATE RABIES CERTIFICATE PDF
+// -----------------------------
+async function generateRabiesCertificatePdf(
+  vaccinationId,
+  organizationId
+) {
   if (!vaccinationId) {
-    throw new Error('Vaccination ID parameter is required');
+    throw new Error('Vaccination ID parameter is required.');
+  }
+
+  if (!organizationId) {
+    throw new Error('Organization context is required.');
   }
 
   const query = `
@@ -266,6 +429,7 @@ async function generateRabiesCertificatePdf(vaccinationId) {
       o.city AS owner_city,
       o.state AS owner_state,
       o.zip_code AS owner_zip,
+
       c.offerings -> v.vaccine_type ->> 'dose_type' AS dose_type,
 
       c.name AS clinic_name,
@@ -275,23 +439,34 @@ async function generateRabiesCertificatePdf(vaccinationId) {
       c.zip_code AS clinic_zip
 
     FROM public.vaccinations v
+
     INNER JOIN public.animals a
       ON v.animal_id = a.id
+      AND v.organization_id = a.organization_id
+
     INNER JOIN public.owners o
       ON a.owner_id = o.id
+      AND a.organization_id = o.organization_id
+
     LEFT JOIN public.clinics c
       ON a.clinic_id = c.id
+      AND a.organization_id = c.organization_id
+
     LEFT JOIN public.users u
       ON v.vaccinated_by = u.name
+      AND v.organization_id = u.organization_id
 
-    WHERE
-      v.id = $1
+    WHERE v.id = $1
+      AND v.organization_id = $2
       AND v.is_active = true
 
     LIMIT 1;
   `;
 
-  const result = await pool.query(query, [vaccinationId]);
+  const result = await pool.query(
+    query,
+    [vaccinationId, organizationId]
+  );
 
   if (result.rows.length === 0) {
     throw new Error(
@@ -315,6 +490,7 @@ async function generateRabiesCertificatePdf(vaccinationId) {
     animal: {
       name: row.animal_name,
       species: row.species || '—',
+
       colors: [
         row.primary_color,
         row.secondary_color,
@@ -347,9 +523,7 @@ async function generateRabiesCertificatePdf(vaccinationId) {
       approximate_weight: row.approximate_weight,
 
       microchip: row.microchip_number || '—',
-
-      microchipManufacturer:
-        row.microchip_issuer || ''
+      microchipManufacturer: row.microchip_issuer || ''
     },
 
     vaccine: {
@@ -358,24 +532,23 @@ async function generateRabiesCertificatePdf(vaccinationId) {
       lotNumber: row.lot_number || '—',
       serialNumber: '—',
 
-      expirationDate:
-        row.product_expiration_date
-          ? new Date(row.product_expiration_date)
-              .toISOString()
-              .split('T')[0]
-          : '—',
+      expirationDate: row.product_expiration_date
+        ? new Date(row.product_expiration_date)
+            .toISOString()
+            .split('T')[0]
+        : '—',
 
-      dateVaccinated:
-        new Date(row.date_time_administered)
-          .toISOString()
-          .split('T')[0],
+      dateVaccinated: row.date_time_administered
+        ? new Date(row.date_time_administered)
+            .toISOString()
+            .split('T')[0]
+        : '—',
 
-      nextDueDate:
-        row.date_time_due
-          ? new Date(row.date_time_due)
-              .toISOString()
-              .split('T')[0]
-          : '—',
+      nextDueDate: row.date_time_due
+        ? new Date(row.date_time_due)
+            .toISOString()
+            .split('T')[0]
+        : '—',
 
       doseType: row.dose_type || '—',
 
@@ -385,42 +558,50 @@ async function generateRabiesCertificatePdf(vaccinationId) {
 
     vet: {
       name: row.vaccinated_by || '—',
+
       licenseNumber:
         row.vaccinated_by_license_number || '—',
 
       address:
         'Person County Animal Services - 2103 Chub Lake Rd, Roxboro, NC 27574',
 
-      administeredBy:
-        row.vaccinated_by || '—',
+      administeredBy: row.vaccinated_by || '—',
 
-      signature:
-        row.vaccinated_by_signature || null
+      signature: row.vaccinated_by_signature || null
     },
 
     clinic: {
-      rabiesTagNumber:
-        row.vac_tag || '—'
+      rabiesTagNumber: row.vac_tag || '—'
     }
   };
 
   return await generateRabiesForm(data);
 }
 
+// -----------------------------
+// GENERATE SINGLE RABIES CERTIFICATE
+// -----------------------------
 async function generateRabiesCertificate(req, res) {
   try {
-
+    const organizationId = req.organizationId;
     const vaccinationId = req.params.id;
 
-    if (!vaccinationId) {
+    if (!organizationId) {
       return res.status(400).json({
-        message: 'Vaccination ID parameter is required'
+        message: 'Organization context is required.'
       });
     }
 
-    const pdfBytes =
-      await generateRabiesCertificatePdf(vaccinationId);
+    if (!vaccinationId) {
+      return res.status(400).json({
+        message: 'Vaccination ID parameter is required.'
+      });
+    }
 
+    const pdfBytes = await generateRabiesCertificatePdf(
+      vaccinationId,
+      organizationId
+    );
 
     res.setHeader(
       'Content-Type',
@@ -432,47 +613,83 @@ async function generateRabiesCertificate(req, res) {
       'inline; filename=rabies_certificate.pdf'
     );
 
-    res.send(Buffer.from(pdfBytes));
-
+    return res.send(Buffer.from(pdfBytes));
 
   } catch (error) {
-
     console.error(
-      'Critical generation routine fault:',
+      'GENERATE RABIES CERTIFICATE ERROR:',
       error
     );
 
-    res.status(500).json({
-      message: 'Failed to generate rabies certificate'
+    return res.status(500).json({
+      message: 'Failed to generate rabies certificate.'
     });
-
   }
 }
 
+// -----------------------------
+// GENERATE ALL RABIES CERTIFICATES FOR OWNER
+// -----------------------------
 async function generateOwnerRabiesCertificates(req, res) {
   try {
-
+    const organizationId = req.organizationId;
     const ownerId = req.params.ownerId;
     const clinicId = req.params.clinicId;
 
+    if (!organizationId) {
+      return res.status(400).json({
+        message: 'Organization context is required.'
+      });
+    }
 
     if (!ownerId) {
       return res.status(400).json({
-        message: 'Owner ID parameter is required'
+        message: 'Owner ID parameter is required.'
       });
     }
-
 
     if (!clinicId) {
       return res.status(400).json({
-        message: 'Clinic ID parameter is required'
+        message: 'Clinic ID parameter is required.'
       });
     }
 
+    // Verify owner belongs to the active organization.
+    const ownerResult = await pool.query(
+      `
+        SELECT id
+        FROM owners
+        WHERE id = $1
+          AND organization_id = $2
+      `,
+      [ownerId, organizationId]
+    );
 
+    if (ownerResult.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Owner not found.'
+      });
+    }
 
-    // Find active rabies vaccinations ONLY for this owner's animals
-    // registered to THIS clinic
+    // Verify clinic belongs to the active organization.
+    const clinicResult = await pool.query(
+      `
+        SELECT id
+        FROM clinics
+        WHERE id = $1
+          AND organization_id = $2
+      `,
+      [clinicId, organizationId]
+    );
+
+    if (clinicResult.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Clinic not found.'
+      });
+    }
+
+    // Find active rabies vaccinations for this owner's animals
+    // registered to this clinic, within the active organization.
     const query = `
       SELECT
         v.id
@@ -481,10 +698,12 @@ async function generateOwnerRabiesCertificates(req, res) {
 
       INNER JOIN public.animals a
         ON v.animal_id = a.id
+        AND v.organization_id = a.organization_id
 
-      WHERE
-        a.owner_id = $1
+      WHERE a.owner_id = $1
         AND a.clinic_id = $2
+        AND v.organization_id = $3
+        AND a.organization_id = $3
         AND v.is_active = true
         AND v.vaccine_type IN (
           'rabies_1_year',
@@ -496,16 +715,10 @@ async function generateOwnerRabiesCertificates(req, res) {
         v.date_time_administered DESC;
     `;
 
-
     const result = await pool.query(
       query,
-      [
-        ownerId,
-        clinicId
-      ]
+      [ownerId, clinicId, organizationId]
     );
-
-
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -513,78 +726,51 @@ async function generateOwnerRabiesCertificates(req, res) {
       });
     }
 
+    // Create blank PDF container.
+    const mergedPdf = await PDFDocument.create();
 
-
-    // Create blank PDF container
-    const mergedPdf =
-      await PDFDocument.create();
-
-
-
-    // Generate each certificate and append pages
+    // Generate each certificate and append its pages.
     for (const row of result.rows) {
+      const pdfBytes = await generateRabiesCertificatePdf(
+        row.id,
+        organizationId
+      );
 
-      const pdfBytes =
-        await generateRabiesCertificatePdf(row.id);
+      const pdf = await PDFDocument.load(pdfBytes);
 
-
-
-      const pdf =
-        await PDFDocument.load(pdfBytes);
-
-
-
-      const copiedPages =
-        await mergedPdf.copyPages(
-          pdf,
-          pdf.getPageIndices()
-        );
-
-
+      const copiedPages = await mergedPdf.copyPages(
+        pdf,
+        pdf.getPageIndices()
+      );
 
       copiedPages.forEach(page => {
         mergedPdf.addPage(page);
       });
-
     }
 
-
-
-    const mergedBytes =
-      await mergedPdf.save();
-
-
+    const mergedBytes = await mergedPdf.save();
 
     res.setHeader(
       'Content-Type',
       'application/pdf'
     );
 
-
     res.setHeader(
       'Content-Disposition',
       `inline; filename=rabies_certificates_owner_${ownerId}_clinic_${clinicId}.pdf`
     );
 
-
-    res.send(
-      Buffer.from(mergedBytes)
-    );
-
-
+    return res.send(Buffer.from(mergedBytes));
 
   } catch (error) {
-
     console.error(
-      'Critical multi-certificate generation fault:',
+      'GENERATE OWNER RABIES CERTIFICATES ERROR:',
       error
     );
 
-
-    res.status(500).json({
-      message: 'Failed to generate owner rabies certificates'
+    return res.status(500).json({
+      message: 'Failed to generate owner rabies certificates.'
     });
-
   }
 }
 
