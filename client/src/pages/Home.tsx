@@ -61,7 +61,6 @@ const availableModules: ModuleDefinition[] = [
 
 function Home() {
   const {
-    user,
     isPlatformAdmin,
     enabledModules,
     selectedOrganizationId,
