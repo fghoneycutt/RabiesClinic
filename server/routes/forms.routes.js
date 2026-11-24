@@ -5,7 +5,18 @@ const multer = require('multer');
 const router = express.Router();
 
 const formsController = require('../controllers/forms.controllers');
-const { authenticate } = require('../middleware/auth.middleware');
+
+const {
+  authenticate,
+  resolveOrganizationContext
+} = require('../middleware/auth.middleware');
+
+const {
+  requireFormModuleFromBody,
+  requireFormModuleFromFormId,
+  requireFormModuleFromSubmissionId,
+  requirePublicFormModuleFromSlug
+} = require('../middleware/module.middleware');
 
 // ==========================================
 // FILE UPLOAD CONFIGURATION
@@ -14,7 +25,7 @@ const { authenticate } = require('../middleware/auth.middleware');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB per file
+    fileSize: 10 * 1024 * 1024,
     files: 20
   },
   fileFilter: (req, file, cb) => {
@@ -39,7 +50,29 @@ const upload = multer({
   }
 });
 
-// Convert Multer errors into readable responses.
+// ==========================================
+// REVIEW PDF UPLOAD CONFIGURATION
+// ==========================================
+
+const reviewPdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024,
+    files: 1
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype !== 'application/pdf') {
+      return cb(new Error('The review document must be a PDF.'));
+    }
+
+    cb(null, true);
+  }
+});
+
+// ==========================================
+// UPLOAD ERROR HANDLING
+// ==========================================
+
 const handleUpload = (req, res, next) => {
   upload.any()(req, res, (error) => {
     if (error) {
@@ -56,118 +89,165 @@ const handleUpload = (req, res, next) => {
   });
 };
 
-// ==========================================
-// REVIEW PDF UPLOAD CONFIGURATION
-// ==========================================
-
-const reviewPdfUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 20 * 1024 * 1024, // 20 MB
-    files: 1
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype !== 'application/pdf') {
-      return cb(new Error('The review document must be a PDF.'));
+const handleReviewPdfUpload = (req, res, next) => {
+  reviewPdfUpload.single('reviewPdf')(req, res, (error) => {
+    if (error) {
+      return res.status(400).json({
+        message: error.code === 'LIMIT_FILE_SIZE'
+          ? 'The review PDF must be 20 MB or smaller.'
+          : error.code === 'LIMIT_FILE_COUNT'
+            ? 'Only one review PDF may be uploaded.'
+            : error.message || 'Review PDF upload failed.'
+      });
     }
 
-    cb(null, true);
-  }
-});
+    next();
+  });
+};
+
+// ==========================================
+// STAFF AUTHENTICATION AND ORGANIZATION
+// ==========================================
+
+const staffAccess = [
+  authenticate,
+  resolveOrganizationContext
+];
 
 // ==========================================
 // FORM MANAGEMENT
 // ==========================================
 
-// Create a new form (including its form_type)
-router.post('/', formsController.createForm);
-
-// List forms, optionally filtered by form_type
-router.get('/', formsController.getForms);
-
-// ==========================================
-// PUBLIC FORM ROUTES
-// ==========================================
-
-// Retrieve the current form definition for public use
-router.get('/public/:slug', formsController.getPublicForm);
-
-// Submit an application, including any uploaded documents
+// Create a form.
 router.post(
-  '/public/:slug/submit',
-  handleUpload,
-  formsController.submitForm
+  '/',
+  ...staffAccess,
+  requireFormModuleFromBody,
+  formsController.createForm
+);
+
+// List forms.
+router.get(
+  '/',
+  ...staffAccess,
+  formsController.getForms
 );
 
 // ==========================================
 // SUBMISSION MANAGEMENT
+// Keep these routes ABOVE /:id.
 // ==========================================
 
-// List submissions
-router.get('/submissions', formsController.getSubmissions);
+// List submissions.
+router.get(
+  '/submissions',
+  ...staffAccess,
+  formsController.getSubmissions
+);
 
-// Retrieve an individual submission and its document links
-router.get('/submissions/:id', formsController.getSubmissionById);
+// Retrieve an individual submission.
+router.get(
+  '/submissions/:id',
+  ...staffAccess,
+  requireFormModuleFromSubmissionId,
+  formsController.getSubmissionById
+);
 
-// Generate a combined PDF containing the review and uploaded documents
+// Generate a combined review PDF.
 router.post(
   '/submissions/:id/combined-pdf',
-  reviewPdfUpload.single('reviewPdf'),
+  ...staffAccess,
+  requireFormModuleFromSubmissionId,
+  handleReviewPdfUpload,
   formsController.generateCombinedSubmissionPdf
 );
 
-// Update submission status
+// Update submission status.
 router.patch(
   '/submissions/:id/status',
+  ...staffAccess,
+  requireFormModuleFromSubmissionId,
   formsController.updateSubmissionStatus
 );
 
-// Delete a submission and all associated uploaded documents
+// Delete a submission and associated uploaded documents.
 router.delete(
   '/submissions/:id',
-  authenticate,
+  ...staffAccess,
+  requireFormModuleFromSubmissionId,
   formsController.deleteSubmission
 );
-
-// ==========================================
-// INDIVIDUAL FORM MANAGEMENT
-// ==========================================
-
-// Retrieve a specific form and its current definition
-router.get('/:id', formsController.getFormById);
-
-// Update the current form definition
-router.put('/:id', formsController.updateForm);
 
 // ==========================================
 // STAFF REVIEW NOTES
 // ==========================================
 
-// Authentication ensures req.user is populated
-// so created_by and updated_by can be recorded.
-
 router.get(
   '/submissions/:id/notes',
-  authenticate,
+  ...staffAccess,
+  requireFormModuleFromSubmissionId,
   formsController.getSubmissionNotes
 );
 
 router.post(
   '/submissions/:id/notes',
-  authenticate,
+  ...staffAccess,
+  requireFormModuleFromSubmissionId,
   formsController.addSubmissionNote
 );
 
 router.patch(
   '/submissions/:id/notes/:noteId',
-  authenticate,
+  ...staffAccess,
+  requireFormModuleFromSubmissionId,
   formsController.updateSubmissionNote
 );
 
 router.delete(
   '/submissions/:id/notes/:noteId',
-  authenticate,
+  ...staffAccess,
+  requireFormModuleFromSubmissionId,
   formsController.deleteSubmissionNote
+);
+
+// ==========================================
+// PUBLIC FORM ROUTES
+// ==========================================
+
+// Public endpoints remain unauthenticated.
+// Middleware verifies the form's organization and module.
+router.get(
+  '/public/:slug',
+  requirePublicFormModuleFromSlug,
+  formsController.getPublicForm
+);
+
+router.post(
+  '/public/:slug/submit',
+  requirePublicFormModuleFromSlug,
+  handleUpload,
+  formsController.submitForm
+);
+
+// ==========================================
+// INDIVIDUAL FORM ROUTES
+// Keep these AFTER /submissions.
+// ==========================================
+
+// Retrieve a specific form.
+router.get(
+  '/:id',
+  ...staffAccess,
+  requireFormModuleFromFormId,
+  formsController.getFormById
+);
+
+// Update a specific form.
+router.put(
+  '/:id',
+  ...staffAccess,
+  requireFormModuleFromFormId,
+  formsController.updateForm
 );
 
 module.exports = router;

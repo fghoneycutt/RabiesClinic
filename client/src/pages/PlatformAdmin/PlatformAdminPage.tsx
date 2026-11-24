@@ -9,8 +9,12 @@ import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Badge from 'react-bootstrap/Badge';
-import Modal from 'react-bootstrap/Modal';
-import Form from 'react-bootstrap/Form';
+import OrganizationFormModal from './OrganizationFormModal';
+
+import type {
+  OrganizationFormData,
+  OrganizationFormRecord
+} from './OrganizationFormModal';
 
 import { api } from '../../api/api';
 
@@ -27,14 +31,7 @@ type PlatformOverview = {
   };
 };
 
-type Organization = {
-  id: string;
-  name: string;
-  slug: string;
-  is_active: boolean;
-  user_count: number;
-  enabled_modules: string[];
-};
+type Organization = OrganizationFormRecord;
 
 type Module = {
   key: string;
@@ -56,10 +53,6 @@ export default function PlatformAdminPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingOrganization, setEditingOrganization] =
     useState<Organization | null>(null);
-
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [selectedModules, setSelectedModules] = useState<string[]>([]);
 
   useEffect(() => {
     document.title = 'Platform Administration';
@@ -106,60 +99,28 @@ export default function PlatformAdminPage() {
 
   const openCreateModal = () => {
     setEditingOrganization(null);
-    setName('');
-    setSlug('');
-    setSelectedModules([]);
     setError(null);
     setShowModal(true);
   };
 
   const openEditModal = (organization: Organization) => {
     setEditingOrganization(organization);
-    setName(organization.name);
-    setSlug(organization.slug);
-    setSelectedModules(organization.enabled_modules || []);
     setError(null);
     setShowModal(true);
   };
 
   const closeModal = () => {
     if (saving) return;
+
     setShowModal(false);
-  };
-
-  // ==========================================
-  // FORM HANDLERS
-  // ==========================================
-
-  const handleSlugChange = (value: string) => {
-    setSlug(
-      value
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9-]+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '')
-    );
-  };
-
-  const toggleModule = (moduleKey: string) => {
-    setSelectedModules((current) =>
-      current.includes(moduleKey)
-        ? current.filter((key) => key !== moduleKey)
-        : [...current, moduleKey]
-    );
+    setError(null);
   };
 
   // ==========================================
   // SAVE ORGANIZATION
   // ==========================================
 
-  const handleSave = async () => {
-    if (!name.trim() || !slug.trim()) {
-      setError('Organization name and slug are required.');
-      return;
-    }
-
+  const handleSave = async (data: OrganizationFormData) => {
     try {
       setSaving(true);
       setError(null);
@@ -169,27 +130,27 @@ export default function PlatformAdminPage() {
         await api.put(
           `/admin/organizations/${editingOrganization.id}`,
           {
-            name: name.trim(),
-            slug: slug.trim()
+            name: data.name,
+            slug: data.slug,
+            primary_contact_name: data.primary_contact_name,
+            primary_contact_email: data.primary_contact_email,
+            primary_contact_phone: data.primary_contact_phone,
+            physical_address: data.physical_address
           }
         );
 
         await api.put(
           `/admin/organizations/${editingOrganization.id}/modules`,
           {
-            module_keys: selectedModules
+            module_keys: data.module_keys
           }
         );
 
-        setSuccess(`${name.trim()} was updated successfully.`);
+        setSuccess(`${data.name} was updated successfully.`);
       } else {
-        await api.post('/admin/organizations', {
-          name: name.trim(),
-          slug: slug.trim(),
-          module_keys: selectedModules
-        });
+        await api.post('/admin/organizations', data);
 
-        setSuccess(`${name.trim()} was created successfully.`);
+        setSuccess(`${data.name} was created successfully.`);
       }
 
       setShowModal(false);
@@ -410,6 +371,9 @@ export default function PlatformAdminPage() {
                     <thead>
                       <tr>
                         <th>Organization</th>
+                        <th>Primary Contact</th>
+                        <th>Phone</th>
+                        <th>Physical Address</th>
                         <th>Status</th>
                         <th>Users</th>
                         <th>Enabled Modules</th>
@@ -428,6 +392,37 @@ export default function PlatformAdminPage() {
                             <small className="text-muted">
                               {organization.slug}
                             </small>
+                          </td>
+                          <td>
+                            <div className="fw-semibold">
+                              {organization.primary_contact_name || (
+                                <span className="text-muted">Not provided</span>
+                              )}
+                            </div>
+
+                            {organization.primary_contact_email && (
+                              <a href={`mailto:${organization.primary_contact_email}`}>
+                                <small>{organization.primary_contact_email}</small>
+                              </a>
+                            )}
+                          </td>
+
+                          <td>
+                            {organization.primary_contact_phone ? (
+                              <a href={`tel:${organization.primary_contact_phone}`}>
+                                {organization.primary_contact_phone}
+                              </a>
+                            ) : (
+                              <span className="text-muted">Not provided</span>
+                            )}
+                          </td>
+
+                          <td>
+                            <div style={{ minWidth: '180px', maxWidth: '260px' }}>
+                              {organization.physical_address || (
+                                <span className="text-muted">Not provided</span>
+                              )}
+                            </div>
                           </td>
 
                           <td>
@@ -565,138 +560,15 @@ export default function PlatformAdminPage() {
           </Row>
         </>
       )}
-
-      {/* CREATE / EDIT ORGANIZATION MODAL */}
-
-      <Modal
+      <OrganizationFormModal
         show={showModal}
+        organization={editingOrganization}
+        modules={modules}
+        saving={saving}
+        error={error}
         onHide={closeModal}
-        size="lg"
-        centered
-      >
-        <Modal.Header closeButton={!saving}>
-          <Modal.Title>
-            {editingOrganization
-              ? 'Edit Organization'
-              : 'Create Organization'}
-          </Modal.Title>
-        </Modal.Header>
-
-        <Modal.Body>
-          {error && (
-            <Alert variant="danger">
-              {error}
-            </Alert>
-          )}
-
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>
-                Organization Name
-              </Form.Label>
-
-              <Form.Control
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Example: Person County Animal Services"
-                required
-              />
-            </Form.Group>
-
-            <Form.Group>
-              <Form.Label>
-                Organization Slug
-              </Form.Label>
-
-              <Form.Control
-                type="text"
-                value={slug}
-                onChange={(e) => handleSlugChange(e.target.value)}
-                placeholder="person-county"
-                required
-              />
-
-              <Form.Text className="text-muted">
-                A unique identifier for this organization.
-                Use lowercase letters, numbers, and hyphens.
-              </Form.Text>
-            </Form.Group>
-
-            <hr className="my-4" />
-
-            <h6 className="mb-1">
-              Module Access
-            </h6>
-
-            <p className="text-muted small">
-              Select the features this organization should have access to.
-            </p>
-
-            {modules.length === 0 ? (
-              <p className="text-muted">
-                No modules are currently available.
-              </p>
-            ) : (
-              <div className="border rounded p-3">
-                {modules.map((module) => (
-                  <Form.Check
-                    key={module.key}
-                    type="checkbox"
-                    id={`module-${module.key}`}
-                    className="mb-3"
-                    checked={selectedModules.includes(module.key)}
-                    onChange={() => toggleModule(module.key)}
-                    label={
-                      <div>
-                        <div className="fw-semibold">
-                          {module.name}
-                        </div>
-
-                        {module.description && (
-                          <small className="text-muted">
-                            {module.description}
-                          </small>
-                        )}
-                      </div>
-                    }
-                  />
-                ))}
-              </div>
-            )}
-          </Form>
-        </Modal.Body>
-
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={closeModal}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-
-          <Button
-            onClick={handleSave}
-            disabled={saving || !name.trim() || !slug.trim()}
-          >
-            {saving ? (
-              <>
-                <Spinner
-                  size="sm"
-                  animation="border"
-                  className="me-2"
-                />
-                Saving...
-              </>
-            ) : (
-              editingOrganization
-                ? 'Save Changes'
-                : 'Create Organization'
-            )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        onSave={handleSave}
+      />
     </>
   );
 }

@@ -51,10 +51,10 @@ exports.getPlatformOverview = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // GET ALL ORGANIZATIONS
 // ==========================================
+
 exports.getOrganizations = async (req, res) => {
   try {
     const result = await pool.query(`
@@ -65,6 +65,10 @@ exports.getOrganizations = async (req, res) => {
         o.is_active,
         o.created_at,
         o.updated_at,
+        o.primary_contact_name,
+        o.primary_contact_email,
+        o.primary_contact_phone,
+        o.physical_address,
 
         COUNT(DISTINCT u.id)::int AS user_count,
 
@@ -98,7 +102,6 @@ exports.getOrganizations = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // GET ALL AVAILABLE MODULES
 // ==========================================
@@ -128,8 +131,17 @@ exports.getModules = async (req, res) => {
 // ==========================================
 // CREATE ORGANIZATION
 // ==========================================
+
 exports.createOrganization = async (req, res) => {
-  const { name, slug, module_keys = [] } = req.body;
+  const {
+    name,
+    slug,
+    module_keys = [],
+    primary_contact_name,
+    primary_contact_email,
+    primary_contact_phone,
+    physical_address
+  } = req.body;
 
   if (
     typeof name !== 'string' ||
@@ -139,6 +151,21 @@ exports.createOrganization = async (req, res) => {
   ) {
     return res.status(400).json({
       message: 'Organization name and slug are required.'
+    });
+  }
+
+  if (
+    typeof primary_contact_name !== 'string' ||
+    !primary_contact_name.trim() ||
+    typeof primary_contact_email !== 'string' ||
+    !primary_contact_email.trim() ||
+    typeof primary_contact_phone !== 'string' ||
+    !primary_contact_phone.trim() ||
+    typeof physical_address !== 'string' ||
+    !physical_address.trim()
+  ) {
+    return res.status(400).json({
+      message: 'All primary contact fields are required.'
     });
   }
 
@@ -193,11 +220,25 @@ exports.createOrganization = async (req, res) => {
 
     const organizationResult = await client.query(
       `
-      INSERT INTO organizations (name, slug)
-      VALUES ($1, $2)
+      INSERT INTO organizations (
+        name,
+        slug,
+        primary_contact_name,
+        primary_contact_email,
+        primary_contact_phone,
+        physical_address
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
       `,
-      [normalizedName, normalizedSlug]
+      [
+        normalizedName,
+        normalizedSlug,
+        primary_contact_name.trim(),
+        primary_contact_email.trim(),
+        primary_contact_phone.trim(),
+        physical_address.trim()
+      ]
     );
 
     const organization = organizationResult.rows[0];
@@ -243,13 +284,21 @@ exports.createOrganization = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // UPDATE ORGANIZATION DETAILS
 // ==========================================
+
 exports.updateOrganization = async (req, res) => {
   const { id } = req.params;
-  const { name, slug } = req.body;
+
+  const {
+    name,
+    slug,
+    primary_contact_name,
+    primary_contact_email,
+    primary_contact_phone,
+    physical_address
+  } = req.body;
 
   if (
     typeof name !== 'string' ||
@@ -259,6 +308,21 @@ exports.updateOrganization = async (req, res) => {
   ) {
     return res.status(400).json({
       message: 'Organization name and slug are required.'
+    });
+  }
+
+  if (
+    typeof primary_contact_name !== 'string' ||
+    !primary_contact_name.trim() ||
+    typeof primary_contact_email !== 'string' ||
+    !primary_contact_email.trim() ||
+    typeof primary_contact_phone !== 'string' ||
+    !primary_contact_phone.trim() ||
+    typeof physical_address !== 'string' ||
+    !physical_address.trim()
+  ) {
+    return res.status(400).json({
+      message: 'All primary contact fields are required.'
     });
   }
 
@@ -277,11 +341,23 @@ exports.updateOrganization = async (req, res) => {
       SET
         name = $1,
         slug = $2,
+        primary_contact_name = $3,
+        primary_contact_email = $4,
+        primary_contact_phone = $5,
+        physical_address = $6,
         updated_at = NOW()
-      WHERE id = $3
+      WHERE id = $7
       RETURNING *
       `,
-      [name.trim(), normalizedSlug, id]
+      [
+        name.trim(),
+        normalizedSlug,
+        primary_contact_name.trim(),
+        primary_contact_email.trim(),
+        primary_contact_phone.trim(),
+        physical_address.trim(),
+        id
+      ]
     );
 
     if (result.rows.length === 0) {
@@ -306,7 +382,6 @@ exports.updateOrganization = async (req, res) => {
     });
   }
 };
-
 
 // ==========================================
 // ACTIVATE / DEACTIVATE ORGANIZATION

@@ -201,3 +201,46 @@
     width: 100%;
   }
 }
+
+
+.module-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.module-dropdown-item.disabled-module {
+  opacity: 0.75;
+}
+
+.module-dropdown-item .badge {
+  white-space: nowrap;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.navbar-organization-switcher {
+  min-width: 220px;
+}
+
+@media (max-width: 991.98px) {
+  .navbar-actions {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px 0;
+  }
+
+  .navbar-organization-switcher {
+    width: 100%;
+  }
+
+  .navbar-logout {
+    width: 100%;
+  }
+}

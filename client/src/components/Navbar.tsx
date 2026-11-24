@@ -1,9 +1,12 @@
 
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+
 import Button from 'react-bootstrap/Button';
+import Badge from 'react-bootstrap/Badge';
 import Container from 'react-bootstrap/Container';
 import Navbar from 'react-bootstrap/Navbar';
 import Nav from 'react-bootstrap/Nav';
+import NavDropdown from 'react-bootstrap/NavDropdown';
 
 import { useAuth } from '../auth/AuthContext';
 import { useState, useEffect } from 'react';
@@ -21,6 +24,8 @@ export default function AppNavbar() {
     logout,
     isPlatformAdmin,
     isOrganizationAdmin,
+    enabledModules,
+    selectedOrganizationId
   } = useAuth();
 
   const [expanded, setExpanded] = useState(false);
@@ -49,30 +54,38 @@ export default function AppNavbar() {
     {
       label: 'Rabies Clinics',
       path: '/clinic-list',
-      moduleKey: 'rabies_clinics'
+      moduleKey: 'rabies_clinics',
+      icon: 'bi bi-shield-plus'
     },
     {
       label: 'Surrender Forms',
       path: '/surrender-forms',
-      moduleKey: 'surrender_forms'
+      moduleKey: 'surrender_forms',
+      icon: 'bi bi-file-earmark-text'
     },
     {
       label: 'Rescue Applications',
       path: '/rescue-applications',
-      moduleKey: 'rescue_applications'
+      moduleKey: 'rescue_applications',
+      icon: 'bi bi-heart'
     },
     {
       label: 'Lobby Slides',
       path: '/lobby-slides',
-      moduleKey: 'lobby_slides'
-    },
+      moduleKey: 'lobby_slides',
+      icon: 'bi bi-display'
+    }
   ];
 
-  const enabledModules = user?.enabled_modules || [];
+  // Platform admins see all modules when operating within
+  // an organization. Organization users only see enabled modules.
+  const showModuleMenu = isPlatformAdmin
+    ? !!selectedOrganizationId
+    : enabledModules.length > 0;
 
   const visibleNavItems = isPlatformAdmin
     ? navItems
-    : navItems.filter((item) =>
+    : navItems.filter(item =>
         enabledModules.includes(item.moduleKey)
       );
 
@@ -83,7 +96,7 @@ export default function AppNavbar() {
       expand="lg"
       sticky="top"
       expanded={expanded}
-      onToggle={(nextExpanded) => setExpanded(nextExpanded)}
+      onToggle={nextExpanded => setExpanded(nextExpanded)}
       className="shelter-navbar"
     >
       <Container fluid="lg">
@@ -99,7 +112,6 @@ export default function AppNavbar() {
           </span>
         </Navbar.Brand>
 
-        {/* Only show navigation and user controls when logged in */}
         {user && (
           <>
             <Navbar.Toggle aria-controls="shelter-navbar-collapse" />
@@ -108,18 +120,60 @@ export default function AppNavbar() {
 
               {/* Navigation */}
               <Nav className="shelter-nav mx-lg-auto">
-                {visibleNavItems.map((item) => (
-                  <Nav.Link
-                    key={item.path}
-                    as={Link}
-                    to={item.path}
-                    className={`shelter-nav-link ${
-                      isActive(item.path) ? 'active' : ''
-                    }`}
+
+                {/* Modules dropdown */}
+                {showModuleMenu && (
+                  <NavDropdown
+                    title="Modules"
+                    id="shelter-modules-dropdown"
+                    className="shelter-nav-link"
                   >
-                    {item.label}
-                  </Nav.Link>
-                ))}
+                    {visibleNavItems.map(item => {
+                      const isEnabled = enabledModules.includes(
+                        item.moduleKey
+                      );
+
+                      return (
+                        <NavDropdown.Item
+                          key={item.path}
+                          as={Link}
+                          to={item.path}
+                          active={isActive(item.path)}
+                          className={`module-dropdown-item ${
+                            isPlatformAdmin && !isEnabled
+                              ? 'disabled-module'
+                              : ''
+                          }`}
+                        >
+                          <span>
+                            <i className={`${item.icon} me-2`} />
+                            {item.label}
+                          </span>
+
+                          {isPlatformAdmin && (
+                            <Badge
+                              bg={isEnabled ? 'success' : 'warning'}
+                              text={isEnabled ? undefined : 'dark'}
+                              className="ms-3"
+                            >
+                              {isEnabled ? (
+                                <>
+                                  <i className="bi bi-check-circle-fill me-1" />
+                                  Enabled
+                                </>
+                              ) : (
+                                <>
+                                  <i className="bi bi-exclamation-triangle-fill me-1" />
+                                  Not enabled
+                                </>
+                              )}
+                            </Badge>
+                          )}
+                        </NavDropdown.Item>
+                      );
+                    })}
+                  </NavDropdown>
+                )}
 
                 {/* Organization administration */}
                 {isOrganizationAdmin && (
@@ -151,7 +205,6 @@ export default function AppNavbar() {
               {/* User actions */}
               <div className="navbar-actions">
 
-                {/* Organization switcher - platform admins only */}
                 {isPlatformAdmin && (
                   <div className="navbar-organization-switcher">
                     <OrganizationSwitcher />
