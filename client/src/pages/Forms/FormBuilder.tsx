@@ -987,7 +987,7 @@ function FormBuilder() {
           <Button
             variant="outline-secondary"
             className="me-2"
-            onClick={() => navigate('/surrender-forms')}
+            onClick={() => navigate(-1)}
           >
             <FontAwesomeIcon
               icon={faArrowUp}
