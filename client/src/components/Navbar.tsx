@@ -74,6 +74,12 @@ export default function AppNavbar() {
       path: '/lobby-slides',
       moduleKey: 'lobby_slides',
       icon: 'bi bi-display'
+    },
+    {
+      label: 'Cat Trap Rentals',
+      path: '/cat-trap-rentals',
+      moduleKey: 'cat_trap_rentals',
+      icon: 'bi bi-box-seam'
     }
   ];
 

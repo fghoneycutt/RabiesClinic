@@ -25,7 +25,7 @@ function SignatureInput({
   const hasDrawingRef = useRef(false);
 
   const [method, setMethod] = useState<SignatureMethod>(
-    value?.method ?? 'typed'
+    value?.method ?? 'drawn'
   );
 
   const [typedName, setTypedName] = useState(

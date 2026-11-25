@@ -56,6 +56,15 @@ const availableModules: ModuleDefinition[] = [
     path: '/lobby-slides',
     button: 'Open Lobby Slides',
     icon: 'bi bi-display'
+  },
+  {
+    key: 'cat_trap_rentals',
+    title: 'Cat Trap Rentals',
+    description:
+      'Manage cat trap inventory, customer rentals, returns, and rental agreements.',
+    path: '/cat-trap-rentals',
+    button: 'Open Cat Trap Rentals',
+    icon: 'bi bi-box-seam'
   }
 ];
 

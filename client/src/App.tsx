@@ -1,3 +1,4 @@
+
 import {
   BrowserRouter,
   Routes,
@@ -9,7 +10,6 @@ import {
 import Container from 'react-bootstrap/Container';
 
 import './App.css';
-
 
 import AppNavbar from './components/Navbar';
 
@@ -44,27 +44,44 @@ import LobbySlides from './pages/LobbySlides/LobbySlides';
 
 import PlatformAdminPage from './pages/PlatformAdmin/PlatformAdminPage';
 import RoleProtectedRoute from './auth/RoleProtectedRoute';
+
+// Cat Trap Rentals
+import CatTrapRentals from './pages/CatTrapRental/CatTrapRentals';
+import CatTrapRentalSettings from './pages/CatTrapRental/CatTrapRentalSettings';
+
+// Signing Station
+import SigningSessions from './pages/SigningPages/SigningSessions';
+import SigningStation from './pages/SigningPages/SigningStation';
+
 // -----------------------------------
 // APP LAYOUT
 // -----------------------------------
 function AppLayout() {
   const location = useLocation();
 
+  const isSigningStation =
+    location.pathname === '/signing-station';
+
   const hideNavbar =
-  location.pathname === '/register/next-clinic' ||
-  /^\/clinics\/[^/]+\/register$/.test(location.pathname) ||
-  location.pathname.startsWith('/surrender/') ||
-  location.pathname.startsWith('/rescue/');
+    isSigningStation ||
+    location.pathname === '/register/next-clinic' ||
+    /^\/clinics\/[^/]+\/register$/.test(location.pathname) ||
+    location.pathname.startsWith('/surrender/') ||
+    location.pathname.startsWith('/rescue/');
 
   return (
     <>
       {!hideNavbar && <AppNavbar />}
 
-      <Container className="py-4">
+      <Container
+        fluid={isSigningStation}
+        className={isSigningStation ? 'p-0' : 'py-4'}
+      >
         <Routes>
           {/* -------------------- */}
           {/* PUBLIC ROUTES */}
           {/* -------------------- */}
+
           <Route
             path="/login"
             element={<LoginPage />}
@@ -84,9 +101,16 @@ function AppLayout() {
             path="/surrender/:slug"
             element={<PublicSurrenderForm />}
           />
+
           <Route
             path="/rescue/:slug"
             element={<PublicRescueApplication />}
+          />
+
+          {/* Dedicated iPad signing station */}
+          <Route
+            path="/signing-station"
+            element={<SigningStation />}
           />
 
           {/* -------------------- */}
@@ -98,38 +122,49 @@ function AppLayout() {
               path="/"
               element={<Home />}
             />
+
+            {/* Rabies Clinics */}
             <Route
               path="/clinic-list"
               element={<ClinicList />}
             />
+
             <Route
               path="/clinics/new"
               element={<CreateClinic />}
             />
+
             <Route
               path="/clinics/:id/edit"
               element={<EditClinic />}
             />
+
             <Route
               path="/clinics/:id"
               element={<ClinicPage />}
             />
+
             <Route
               path="/clinics/:id/intake"
               element={<WalkinIntake />}
             />
+
             <Route
               path="/clinics/:clinicId/owners/:ownerId"
               element={<OwnerProfilePage />}
             />
+
+            {/* User Administration */}
             <Route
               path="/admin/create-users"
               element={<AdminCreateUserPage />}
             />
+
             <Route
               path="/admin/users"
               element={<AdminUserListPage />}
             />
+
             {/* Surrender Forms */}
             <Route
               path="/surrender-forms"
@@ -138,7 +173,7 @@ function AppLayout() {
 
             <Route
               path="/forms/:id/edit"
-              element={<FormBuilder/>}
+              element={<FormBuilder />}
             />
 
             <Route
@@ -146,20 +181,41 @@ function AppLayout() {
               element={<FormSubmissionReview />}
             />
 
+            {/* Rescue Group Applications */}
+            <Route
+              path="/rescue-applications"
+              element={<RescueApplications />}
+            />
+
             <Route
               path="/rescue-submissions/:id"
               element={<FormSubmissionReview />}
             />
-            {/* Rescue Group Applications */}
-            <Route
-              path="/rescue-applications"
-              element={<RescueApplications/>}
-            />
 
+            {/* Lobby Slides */}
             <Route
               path="/lobby-slides"
               element={<LobbySlides />}
             />
+
+            {/* Cat Trap Rentals */}
+            <Route
+              path="/cat-trap-rentals"
+              element={<CatTrapRentals />}
+            />
+
+            <Route
+              path="/cat-trap-rentals/settings"
+              element={<CatTrapRentalSettings />}
+            />
+
+            {/* Signing Session Management */}
+            <Route
+              path="/signing-sessions"
+              element={<SigningSessions />}
+            />
+
+            {/* Platform Administration */}
             <Route element={<RoleProtectedRoute requirePlatformAdmin />}>
               <Route
                 path="/platform-admin"
@@ -172,7 +228,6 @@ function AppLayout() {
               path="*"
               element={<NotFoundPage />}
             />
-
           </Route>
 
           {/* Unauthenticated users get redirected to login */}
@@ -180,13 +235,15 @@ function AppLayout() {
             path="*"
             element={<Navigate to="/login" replace />}
           />
-
         </Routes>
       </Container>
     </>
   );
 }
 
+// -----------------------------------
+// APP
+// -----------------------------------
 export default function App() {
   return (
     <BrowserRouter>

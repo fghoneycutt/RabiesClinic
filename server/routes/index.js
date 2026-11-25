@@ -9,6 +9,9 @@ const usersRoutes = require('./users.routes');
 const formsRoutes = require('./forms.routes.js');
 const slideRoutes = require('./lobbySlides.routes.js');
 const adminRoutes = require('./admin.routes.js');
+const catTrapRentalsRoutes = require('./catTrapRentals.routes');
+const signingStationsRoutes = require('./signingStations.routes');
+const signingSessionsRoutes = require('./signingSessions.routes');
 
 module.exports = (app) => {
   app.use('/api/auth', authRoutes);
@@ -25,4 +28,8 @@ module.exports = (app) => {
 
   app.use('/api/forms', formsRoutes);
   app.use('/api/slides', slideRoutes);
+
+  app.use('/api/cat-trap-rentals', catTrapRentalsRoutes);
+  app.use('/api/signing-stations', signingStationsRoutes);
+  app.use('/api/signing-sessions', signingSessionsRoutes);
 };
