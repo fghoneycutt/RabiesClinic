@@ -216,24 +216,6 @@ async function pairStation(pairingCode) {
       throw createError('Unable to complete station pairing.', 500);
     }
 
-    await client.query(
-      `
-        INSERT INTO signing_session_events (
-          organization_id,
-          event_type,
-          actor_type,
-          station_id,
-          details
-        )
-        VALUES ($1, 'station_paired', 'station', $2, $3)
-      `,
-      [
-        station.organization_id,
-        station.id,
-        JSON.stringify({ stationName: station.name })
-      ]
-    );
-
     await client.query('COMMIT');
 
     return {
