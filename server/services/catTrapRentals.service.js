@@ -805,7 +805,9 @@ exports.completeRentalReturn = async (
     ? validateDate(metadata.returnDate, 'Return date')
     : getToday();
 
-  const rentalDate = String(rental.rental_date).slice(0, 10);
+  const rentalDate = rental.rental_date instanceof Date
+    ? rental.rental_date.toISOString().slice(0, 10)
+    : String(rental.rental_date).slice(0, 10);
 
   if (returnDate < rentalDate) {
     throw createError(
