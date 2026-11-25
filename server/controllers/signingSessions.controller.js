@@ -41,7 +41,8 @@ exports.createSigningSession = async (req, res) => {
       sourceRecordId,
       expiresAt,
       documents,
-      signers
+      signers,
+      metadata
     } = req.body;
 
     const result =
@@ -55,7 +56,8 @@ exports.createSigningSession = async (req, res) => {
         sourceRecordId,
         expiresAt,
         documents,
-        signers
+        signers,
+        metadata
       });
 
     return res.status(201).json({

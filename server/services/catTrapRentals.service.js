@@ -713,6 +713,170 @@ exports.completeRentalSigning = async (
   return updateResult.rows[0];
 };
 
+exports.completeRentalReturn = async (
+  client,
+  organizationId,
+  rentalId,
+  signingSessionId,
+  returnedBy
+) => {
+  // Lock the rental so another operation cannot return it simultaneously.
+  const rentalResult = await client.query(
+    `SELECT *
+     FROM cat_trap_rentals
+     WHERE organization_id = $1
+       AND id = $2
+     FOR UPDATE`,
+    [organizationId, rentalId]
+  );
+
+  const rental = rentalResult.rows[0];
+
+  if (!rental) {
+    throw createError('The cat trap rental associated with this return was not found.', 404);
+  }
+
+  // Make the callback safe to repeat.
+  if (rental.status === 'returned') {
+    return rental;
+  }
+
+  if (rental.status !== 'active') {
+    throw createError(
+      'This rental is no longer active and cannot be returned.',
+      409
+    );
+  }
+
+  // Retrieve the signed document and its signature.
+  const signatureResult = await client.query(
+    `SELECT
+       sig.signature_method,
+       sig.signature_text,
+       sig.signature_storage_path,
+       doc.content_text
+     FROM signing_session_signatures sig
+     INNER JOIN signing_session_documents doc
+       ON doc.id = sig.document_id
+      AND doc.session_id = sig.session_id
+      AND doc.organization_id = sig.organization_id
+     WHERE sig.session_id = $1
+       AND sig.organization_id = $2
+       AND doc.requires_signature = TRUE
+     ORDER BY doc.sort_order ASC, sig.signed_at ASC
+     LIMIT 1`,
+    [signingSessionId, organizationId]
+  );
+
+  const signature = signatureResult.rows[0];
+
+  if (!signature) {
+    throw createError(
+      'The completed return session does not contain a return signature.',
+      409
+    );
+  }
+
+  // Retrieve the metadata saved when the signing session was created.
+  const eventResult = await client.query(
+    `SELECT details
+     FROM signing_session_events
+     WHERE session_id = $1
+       AND organization_id = $2
+       AND event_type = 'session_created'
+     ORDER BY created_at ASC
+     LIMIT 1`,
+    [signingSessionId, organizationId]
+  );
+
+  let eventDetails = eventResult.rows[0]?.details || {};
+
+  if (typeof eventDetails === 'string') {
+    try {
+      eventDetails = JSON.parse(eventDetails);
+    } catch {
+      eventDetails = {};
+    }
+  }
+
+  const metadata = eventDetails.metadata || {};
+
+  const returnDate = metadata.returnDate
+    ? validateDate(metadata.returnDate, 'Return date')
+    : getToday();
+
+  const rentalDate = String(rental.rental_date).slice(0, 10);
+
+  if (returnDate < rentalDate) {
+    throw createError(
+      'Return date cannot be before the rental date.'
+    );
+  }
+
+  const depositReturned = metadata.depositReturned !== undefined
+    ? parseBoolean(metadata.depositReturned, 'Deposit returned')
+    : false;
+
+  const returnNotes = String(metadata.notes || '').trim();
+
+  if (returnNotes.length > 5000) {
+    throw createError('Return notes cannot exceed 5,000 characters.');
+  }
+
+  let updatedNotes = rental.notes;
+
+  if (returnNotes) {
+    updatedNotes = updatedNotes
+      ? `${updatedNotes}\n\nReturn notes: ${returnNotes}`
+      : `Return notes: ${returnNotes}`;
+  }
+
+  // Finalize the rental only after its required signature exists.
+  const updateResult = await client.query(
+    `UPDATE cat_trap_rentals
+     SET
+       return_date = $3,
+       return_contract_snapshot = $4,
+       return_signature_path = $5,
+       return_signature_method = $6,
+       return_signature_text = $7,
+       deposit_returned = $8,
+       deposit_returned_at = CASE
+         WHEN $8 = TRUE THEN NOW()
+         ELSE NULL
+       END,
+       status = 'returned',
+       notes = $9,
+       returned_by = $10,
+       updated_at = NOW()
+     WHERE organization_id = $1
+       AND id = $2
+       AND status = 'active'
+     RETURNING *`,
+    [
+      organizationId,
+      rentalId,
+      returnDate,
+      signature.content_text || null,
+      signature.signature_storage_path,
+      signature.signature_method,
+      signature.signature_text,
+      depositReturned,
+      updatedNotes,
+      returnedBy || null
+    ]
+  );
+
+  if (!updateResult.rows[0]) {
+    throw createError(
+      'The rental could not be marked as returned.',
+      409
+    );
+  }
+
+  return updateResult.rows[0];
+};
+
 exports.cancelPendingRentalSigning = async (
   client,
   organizationId,
@@ -732,6 +896,85 @@ exports.cancelPendingRentalSigning = async (
 
   return result.rows[0] || null;
 };
+
+// ==========================================
+// EXTEND RENTAL DUE DATE
+// ==========================================
+
+exports.extendRentalDueDate = async(
+  organizationId,
+  rentalId,
+  expectedReturnDate
+) => {
+  if (
+    typeof expectedReturnDate !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(expectedReturnDate)
+  ) {
+    throw createError('A valid expected return date is required.');
+  }
+
+  const parsedDate = new Date(`${expectedReturnDate}T00:00:00.000Z`);
+
+  if (
+    Number.isNaN(parsedDate.getTime()) ||
+    parsedDate.toISOString().slice(0, 10) !== expectedReturnDate
+  ) {
+    throw createError('A valid expected return date is required.');
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const rentalResult = await client.query(
+      `
+        SELECT
+          id,
+          status,
+          expected_return_date
+        FROM cat_trap_rentals
+        WHERE id = $1
+          AND organization_id = $2
+        FOR UPDATE
+      `,
+      [rentalId, organizationId]
+    );
+
+    if (rentalResult.rows.length === 0) {
+      throw createError('Rental not found.', 404);
+    }
+
+    const rental = rentalResult.rows[0];
+
+    if (rental.status !== 'active') {
+      throw createError(
+        'Only active rentals can have their due date extended.'
+      );
+    }
+
+    await client.query(
+      `
+        UPDATE cat_trap_rentals
+        SET
+          expected_return_date = $1,
+          updated_at = NOW()
+        WHERE id = $2
+          AND organization_id = $3
+      `,
+      [expectedReturnDate, rentalId, organizationId]
+    );
+
+    await client.query('COMMIT');
+
+    return await exports.getRentalById(organizationId, rentalId);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 // ==========================================
 // RETURN RENTAL

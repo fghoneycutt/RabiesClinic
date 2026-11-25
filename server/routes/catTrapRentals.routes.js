@@ -49,6 +49,10 @@ router.get('/dashboard', catTrapRentalsController.getDashboard);
 
 // RENTALS
 router.get('/rentals', catTrapRentalsController.getRentals);
+router.patch(
+  '/rentals/:id/extend',
+  catTrapRentalsController.extendRentalDueDate
+);
 router.get('/rentals/:id', catTrapRentalsController.getRentalById);
 
 router.post(

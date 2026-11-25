@@ -147,6 +147,54 @@ exports.getRentalById = async (req, res) => {
 };
 
 // ==========================================
+// EXTEND RENTAL DUE DATE
+// PATCH /api/cat-trap-rentals/rentals/:id/extend
+// ==========================================
+
+exports.extendRentalDueDate = async (req, res) => {
+  const rentalId = getRentalId(req);
+
+  if (!rentalId) {
+    return res.status(400).json({
+      message: 'Invalid rental ID.'
+    });
+  }
+
+  const { expectedReturnDate } = req.body;
+
+  if (
+    typeof expectedReturnDate !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(expectedReturnDate) ||
+    Number.isNaN(Date.parse(`${expectedReturnDate}T00:00:00`))
+  ) {
+    return res.status(400).json({
+      message: 'A valid expected return date is required.'
+    });
+  }
+
+  try {
+    const rental = await catTrapRentalsService.extendRentalDueDate(
+      req.organizationId,
+      rentalId,
+      expectedReturnDate
+    );
+
+    return res.json({
+      message: 'Cat trap rental due date extended successfully.',
+      rental
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        message: error.message
+      });
+    }
+
+    return sendServerError(res, error);
+  }
+};
+
+// ==========================================
 // CREATE PENDING RENTAL
 // POST /api/cat-trap-rentals/rentals
 // ==========================================

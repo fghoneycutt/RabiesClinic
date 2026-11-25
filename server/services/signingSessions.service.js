@@ -88,28 +88,36 @@ async function handleSourceSessionExpiration(client, session) {
 }
 
 async function handleSourceSessionCompletion(client, session) {
-  if (
-    session.source_module !== 'cat_trap_rentals' ||
-    session.source_record_type !== 'rental'
-  ) {
+  if (session.source_module !== 'cat_trap_rentals') {
     return;
   }
 
   const rentalId = Number(session.source_record_id);
 
   if (!Number.isInteger(rentalId) || rentalId <= 0) {
-    throw createError(
-      'The signing session has an invalid cat trap rental reference.',
-      409
-    );
+    throw createError('Invalid cat trap rental ID.', 400);
   }
 
-  await catTrapRentalsService.completeRentalSigning(
-    client,
-    session.organization_id,
-    rentalId,
-    session.id
-  );
+  if (session.source_record_type === 'rental') {
+    await catTrapRentalsService.completeRentalSigning(
+      client,
+      session.organization_id,
+      rentalId,
+      session.id
+    );
+
+    return;
+  }
+
+  if (session.source_record_type === 'rental_return') {
+    await catTrapRentalsService.completeRentalReturn(
+      client,
+      session.organization_id,
+      rentalId,
+      session.id,
+      session.created_by
+    );
+  }
 }
 
 // ==========================================
@@ -126,7 +134,8 @@ async function createSigningSession({
   sourceRecordId,
   expiresAt,
   documents,
-  signers
+  signers,
+  metadata
 }) {
   if (!isValidUuid(organizationId)) {
     throw createError('A valid organization is required.');
@@ -418,7 +427,8 @@ async function createSigningSession({
         JSON.stringify({
           documentCount: createdDocuments.length,
           signerCount: createdSigners.length,
-          sessionType
+          sessionType,
+          metadata: metadata || null
         })
       ]
     );

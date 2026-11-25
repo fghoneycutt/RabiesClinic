@@ -35,7 +35,8 @@ import {
   type CatTrapRentalStatus
 } from '../../api/catTrapRentals.api';
 
-import  NewCatTrapRentalModal from "./NewCatTrapRentalModal"
+import NewCatTrapRentalModal from './NewCatTrapRentalModal';
+import ManageCatTrapRentalModal from './ManageCatTrapRentalModal';
 
 // ==========================================
 // HELPERS
@@ -156,6 +157,8 @@ const CatTrapRentals = () => {
   >('all');
 
   const [showNewRentalModal, setShowNewRentalModal] = useState(false);
+  const [selectedRental, setSelectedRental] =
+    useState<CatTrapRental | null>(null);
 
   // ==========================================
   // LOAD DATA
@@ -535,9 +538,7 @@ const CatTrapRentals = () => {
                         <Button
                           size="sm"
                           variant="outline-primary"
-                          onClick={() =>
-                            navigate(`/cat-trap-rentals/${rental.id}`)
-                          }
+                          onClick={() => setSelectedRental(rental)}
                         >
                           {rental.status === 'active' ? (
                             <>
@@ -570,6 +571,16 @@ const CatTrapRentals = () => {
         onHide={() => setShowNewRentalModal(false)}
         onCreated={async () => {
           setShowNewRentalModal(false);
+          await loadData(true);
+        }}
+      />
+
+      {/* MANAGE / VIEW RENTAL MODAL */}
+      <ManageCatTrapRentalModal
+        show={!!selectedRental}
+        rental={selectedRental}
+        onHide={() => setSelectedRental(null)}
+        onUpdated={async () => {
           await loadData(true);
         }}
       />
