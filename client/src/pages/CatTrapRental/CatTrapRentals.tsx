@@ -154,7 +154,7 @@ const CatTrapRentals = () => {
 
   const [statusFilter, setStatusFilter] = useState<
     'all' | CatTrapRentalStatus
-  >('all');
+  >('active');
 
   const [showNewRentalModal, setShowNewRentalModal] = useState(false);
   const [selectedRental, setSelectedRental] =

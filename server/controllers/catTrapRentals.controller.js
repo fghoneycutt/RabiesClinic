@@ -259,3 +259,77 @@ exports.returnRental = async (req, res) => {
     return sendServerError(res, error);
   }
 };
+
+// ==========================================
+// GET RENTAL PRINT DATA
+// GET /api/cat-trap-rentals/rentals/:id/print
+// ==========================================
+
+exports.getRentalPrintData = async (req, res) => {
+  const rentalId = getRentalId(req);
+
+  if (!rentalId) {
+    return res.status(400).json({
+      message: 'Invalid rental ID.'
+    });
+  }
+
+  try {
+    const data = await catTrapRentalsService.getRentalPrintData(
+      req.organizationId,
+      rentalId
+    );
+
+    if (!data) {
+      return res.status(404).json({
+        message: 'Rental not found.'
+      });
+    }
+
+    return res.json(data);
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        message: error.message
+      });
+    }
+
+    return sendServerError(res, error);
+  }
+};
+
+// ==========================================
+// UPDATE COMPLETED RETURN DETAILS
+// PATCH /api/cat-trap-rentals/rentals/:id/return-details
+// ==========================================
+
+exports.updateRentalReturnDetails = async (req, res) => {
+  const rentalId = getRentalId(req);
+
+  if (!rentalId) {
+    return res.status(400).json({
+      message: 'Invalid rental ID.'
+    });
+  }
+
+  try {
+    const rental = await catTrapRentalsService.updateRentalReturnDetails(
+      req.organizationId,
+      rentalId,
+      req.body
+    );
+
+    return res.json({
+      message: 'Return details updated successfully.',
+      rental
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        message: error.message
+      });
+    }
+
+    return sendServerError(res, error);
+  }
+};

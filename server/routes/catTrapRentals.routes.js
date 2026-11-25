@@ -67,4 +67,14 @@ router.post(
   catTrapRentalsController.returnRental
 );
 
+router.get(
+  '/rentals/:id/print',
+  catTrapRentalsController.getRentalPrintData
+);
+
+router.patch(
+  '/rentals/:id/return-details',
+  catTrapRentalsController.updateRentalReturnDetails
+);
+
 module.exports = router;

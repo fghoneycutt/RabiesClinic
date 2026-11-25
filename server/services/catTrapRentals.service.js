@@ -501,6 +501,49 @@ exports.getRentalById = async (organizationId, rentalId) => {
 };
 
 // ==========================================
+// PRINT DATA
+// ==========================================
+
+exports.getRentalPrintData = async (organizationId, rentalId) => {
+  const rental = await exports.getRentalById(
+    organizationId,
+    rentalId
+  );
+
+  if (!rental) {
+    return null;
+  }
+
+  const getSignatureUrl = async (path) => {
+    if (!path) return null;
+
+    const { data, error } = await supabase.storage
+      .from('signing-signatures')
+      .createSignedUrl(path, 600);
+
+    if (error) {
+      console.error('Unable to create signature URL:', error);
+      throw new Error('Unable to retrieve a contract signature.');
+    }
+
+    return data.signedUrl;
+  };
+
+  const [rentalSignatureUrl, returnSignatureUrl] = await Promise.all([
+    getSignatureUrl(rental.rental_signature_path),
+    getSignatureUrl(rental.return_signature_path)
+  ]);
+
+  return {
+    rental,
+    signatures: {
+      rental: rentalSignatureUrl,
+      returned: returnSignatureUrl
+    }
+  };
+};
+
+// ==========================================
 // CREATE PENDING RENTAL
 // ==========================================
 
@@ -977,6 +1020,105 @@ exports.extendRentalDueDate = async(
     client.release();
   }
 }
+
+// ==========================================
+// EDIT COMPLETED RETURN DETAILS
+// ==========================================
+
+exports.updateRentalReturnDetails = async (
+  organizationId,
+  rentalId,
+  body = {}
+) => {
+  const returnDate = validateDate(
+    body.returnDate,
+    'Return date'
+  );
+
+  const depositReturned = parseBoolean(
+    body.depositReturned,
+    'Deposit returned'
+  );
+
+  const returnNotes = String(body.returnNotes || '').trim();
+
+  if (returnNotes.length > 5000) {
+    throw createError(
+      'Return notes cannot exceed 5,000 characters.'
+    );
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const rentalResult = await client.query(
+      `SELECT
+         id,
+         status,
+         rental_date::TEXT AS rental_date,
+         deposit_returned,
+         deposit_returned_at
+       FROM cat_trap_rentals
+       WHERE organization_id = $1
+         AND id = $2
+       FOR UPDATE`,
+      [organizationId, rentalId]
+    );
+
+    const rental = rentalResult.rows[0];
+
+    if (!rental) {
+      throw createError('Rental not found.', 404);
+    }
+
+    if (rental.status !== 'returned') {
+      throw createError(
+        'Only completed returns can be edited.'
+      );
+    }
+
+    if (returnDate < rental.rental_date) {
+      throw createError(
+        'Return date cannot be before the rental date.'
+      );
+    }
+
+    const result = await client.query(
+      `UPDATE cat_trap_rentals
+       SET
+         return_date = $3,
+         deposit_returned = $4,
+         deposit_returned_at = CASE
+           WHEN $4 = TRUE THEN
+             COALESCE(deposit_returned_at, NOW())
+           ELSE NULL
+         END,
+         return_notes = $5,
+         updated_at = NOW()
+       WHERE organization_id = $1
+         AND id = $2
+       RETURNING *`,
+      [
+        organizationId,
+        rentalId,
+        returnDate,
+        depositReturned,
+        returnNotes || null
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
 
 // ==========================================
 // RETURN RENTAL

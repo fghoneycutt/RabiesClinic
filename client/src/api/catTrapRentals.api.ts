@@ -64,6 +64,7 @@ export interface CatTrapRental {
   returned_by: string | null;
   created_at: string;
   updated_at: string;
+  return_notes: string | null;
 }
 
 export interface CatTrapRentalDashboard {
@@ -141,8 +142,21 @@ export interface CreateSigningSessionData {
     signerRole: string;
     email?: string;
     }[];
+  metadata?: {
+    returnDate?: string;
+    depositReturned?: boolean;
+    notes?: string | null;
+    [key: string]: unknown;
+  };
 }
 
+export interface CatTrapRentalPrintData {
+  rental: CatTrapRental;
+  signatures: {
+    rental: string | null;
+    returned: string | null;
+  };
+}
 // ==========================================
 // SETTINGS
 // ==========================================
@@ -273,6 +287,35 @@ export const returnCatTrapRental = async (
   const res = await api.post(
     `/cat-trap-rentals/rentals/${id}/return`,
     formData
+  );
+
+  return res.data;
+};
+
+export const getCatTrapRentalPrintData = async (
+  id: number
+): Promise<CatTrapRentalPrintData> => {
+  const res = await api.get(
+    `/cat-trap-rentals/rentals/${id}/print`
+  );
+
+  return res.data;
+};
+
+export const updateCatTrapRentalReturnDetails = async (
+  id: number,
+  data: {
+    returnDate: string;
+    depositReturned: boolean;
+    returnNotes: string;
+  }
+): Promise<{
+  message: string;
+  rental: CatTrapRental;
+}> => {
+  const res = await api.patch(
+    `/cat-trap-rentals/rentals/${id}/return-details`,
+    data
   );
 
   return res.data;

@@ -10,11 +10,14 @@ import {
   Row,
   Spinner
 } from 'react-bootstrap';
+
 import {
   FaCalendarAlt,
   FaCheckCircle,
+  FaEdit,
   FaFileSignature,
   FaHistory,
+  FaPrint,
   FaUndo
 } from 'react-icons/fa';
 
@@ -22,6 +25,8 @@ import {
   createSigningSession,
   getCatTrapRentalSettings,
   getSigningStations,
+  getCatTrapRentalPrintData,
+  updateCatTrapRentalReturnDetails,
   type CatTrapRental,
   type SigningStation
 } from '../../api/catTrapRentals.api';
@@ -96,6 +101,15 @@ const getStatus = (rental: CatTrapRental) => {
   return <Badge bg="primary">Active</Badge>;
 };
 
+const escapeHtml = (value: string) => {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 // ==========================================
 // COMPONENT
 // ==========================================
@@ -121,6 +135,16 @@ const ManageCatTrapRentalModal = ({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Completed return editing
+  const [editingReturn, setEditingReturn] = useState(false);
+  const [editReturnDate, setEditReturnDate] = useState('');
+  const [editDepositReturned, setEditDepositReturned] = useState(false);
+  const [editReturnNotes, setEditReturnNotes] = useState('');
+  const [savingReturnDetails, setSavingReturnDetails] = useState(false);
+
+  // Contract printing
+  const [printingContract, setPrintingContract] = useState(false);
+
   // ==========================================
   // LOAD STATIONS AND DEFAULT VALUES
   // ==========================================
@@ -130,11 +154,20 @@ const ManageCatTrapRentalModal = ({
 
     setError('');
     setSuccess('');
-    setExpectedReturnDate(rental.expected_return_date?.slice(0, 10) || '');
+
+    setExpectedReturnDate(
+      rental.expected_return_date?.slice(0, 10) || ''
+    );
+
     setReturnDate(today());
     setStationId('');
     setDepositReturned(false);
     setReturnNotes('');
+
+    setEditingReturn(false);
+    setEditReturnDate(rental.return_date?.slice(0, 10) || today());
+    setEditDepositReturned(Boolean(rental.deposit_returned));
+    setEditReturnNotes(rental.return_notes || '');
 
     let cancelled = false;
 
@@ -183,45 +216,50 @@ const ManageCatTrapRentalModal = ({
   }
 
   const isActive = rental.status === 'active';
+  const isReturned = rental.status === 'returned';
 
   // ==========================================
   // EXTEND DUE DATE
   // ==========================================
 
   const handleExtendDueDate = async (newDate: string) => {
-    if (!newDate || newDate === rental.expected_return_date.slice(0, 10)) {
-        return;
+    if (
+      !newDate ||
+      newDate === rental.expected_return_date.slice(0, 10)
+    ) {
+      return;
     }
 
     try {
-        setSavingDueDate(true);
-        setError('');
-        setSuccess('');
+      setSavingDueDate(true);
+      setError('');
+      setSuccess('');
 
-        await api.patch(
+      await api.patch(
         `/cat-trap-rentals/rentals/${rental.id}/extend`,
         {
-            expectedReturnDate: newDate
+          expectedReturnDate: newDate
         }
-        );
+      );
 
-        setSuccess('Due date saved successfully.');
+      setSuccess('Due date saved successfully.');
 
-        await onUpdated();
+      await onUpdated();
     } catch (err: any) {
-        console.error('Unable to update rental due date:', err);
+      console.error('Unable to update rental due date:', err);
 
-        setError(
+      setError(
         err?.response?.data?.message ||
         'Unable to save the new due date.'
-        );
+      );
 
-        // Restore the original date if saving fails.
-        setExpectedReturnDate(rental.expected_return_date.slice(0, 10));
+      setExpectedReturnDate(
+        rental.expected_return_date.slice(0, 10)
+      );
     } finally {
-        setSavingDueDate(false);
+      setSavingDueDate(false);
     }
-    };
+  };
 
   // ==========================================
   // SEND RETURN CONTRACT TO SIGNING STATION
@@ -261,10 +299,11 @@ const ManageCatTrapRentalModal = ({
 
       const renterName = getRenterName(rental);
 
-      const contractText = settings.return_contract_enabled &&
+      const contractText =
+        settings.return_contract_enabled &&
         settings.return_contract?.trim()
-        ? settings.return_contract.trim()
-        : `CAT TRAP RETURN ACKNOWLEDGMENT
+          ? settings.return_contract.trim()
+          : `CAT TRAP RETURN ACKNOWLEDGMENT
 
 Renter: ${renterName}
 Rental ID: ${rental.id}
@@ -287,12 +326,6 @@ ${returnNotes.trim() ? `Return notes: ${returnNotes.trim()}` : ''}`;
         Date.now() + 30 * 60 * 1000
       ).toISOString();
 
-      /*
-       * The metadata field is intended for the backend return-session
-       * callback. The current signing-session controller does not yet
-       * forward it, so the backend must be updated for the return
-       * details to be saved when signing is completed.
-       */
       const sessionData = {
         stationId,
         sessionType: 'cat_trap_rental_return',
@@ -348,6 +381,261 @@ ${returnNotes.trim() ? `Return notes: ${returnNotes.trim()}` : ''}`;
     } finally {
       setSendingReturn(false);
     }
+  };
+
+  // ==========================================
+  // PRINT SIGNED CONTRACT
+  // ==========================================
+
+  const handlePrintContract = async (
+    contractType: 'rental' | 'returned'
+  ) => {
+    const printWindow = window.open('', '_blank');
+
+    if (!printWindow) {
+      setError(
+        'Your browser blocked the print window. Please allow pop-ups for this site and try again.'
+      );
+      return;
+    }
+
+    try {
+      setPrintingContract(true);
+      setError('');
+      setSuccess('');
+
+      const printData = await getCatTrapRentalPrintData(rental.id);
+
+      const contract =
+        contractType === 'rental'
+          ? printData.rental.rental_contract_snapshot
+          : printData.rental.return_contract_snapshot;
+
+      const signaturePath =
+        contractType === 'rental'
+          ? printData.signatures.rental
+          : printData.signatures.returned;
+
+      const signatureText =
+        contractType === 'rental'
+          ? printData.rental.rental_signature_text
+          : printData.rental.return_signature_text;
+
+      const signatureMethod =
+        contractType === 'rental'
+          ? printData.rental.rental_signature_method
+          : printData.rental.return_signature_method;
+
+      if (!contract?.trim()) {
+        printWindow.close();
+        setError(
+          `No saved ${contractType === 'rental' ? 'rental' : 'return'} contract was found for this rental.`
+        );
+        return;
+      }
+
+      const title =
+        contractType === 'rental'
+          ? `Cat Trap Rental Agreement #${rental.id}`
+          : `Cat Trap Return Agreement #${rental.id}`;
+
+      let signatureMarkup = '';
+
+      if (signaturePath) {
+        signatureMarkup = `
+          <div class="signature">
+            <img src="${escapeHtml(signaturePath)}" alt="Customer signature" />
+          </div>
+        `;
+      } else if (signatureText) {
+        signatureMarkup = `
+          <div class="typed-signature">
+            ${escapeHtml(signatureText)}
+          </div>
+        `;
+      } else {
+        signatureMarkup = `
+          <p class="signature-missing">Signature image unavailable.</p>
+        `;
+      }
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${escapeHtml(title)}</title>
+            <meta charset="UTF-8" />
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                color: #222;
+                margin: 0;
+                padding: 40px;
+                font-size: 12pt;
+              }
+
+              h1 {
+                font-size: 18pt;
+                margin-bottom: 24px;
+              }
+
+              .contract {
+                white-space: pre-wrap;
+                line-height: 1.5;
+                overflow-wrap: anywhere;
+              }
+
+              .signature-section {
+                margin-top: 40px;
+                page-break-inside: avoid;
+              }
+
+              .signature-section h2 {
+                font-size: 12pt;
+                margin-bottom: 12px;
+              }
+
+              .signature {
+                margin-top: 12px;
+              }
+
+              .signature img {
+                max-width: 300px;
+                max-height: 120px;
+                object-fit: contain;
+              }
+
+              .typed-signature {
+                font-family: cursive;
+                font-size: 24pt;
+                margin-top: 12px;
+              }
+
+              .signature-missing {
+                color: #777;
+                font-style: italic;
+              }
+
+              @media print {
+                body {
+                  padding: 0;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <h1>${escapeHtml(title)}</h1>
+
+            <div class="contract">${escapeHtml(contract)}</div>
+
+            <div class="signature-section">
+              <h2>Customer Signature</h2>
+              ${signatureMarkup}
+              <p>
+                Signature method:
+                ${escapeHtml(signatureMethod || 'Unavailable')}
+              </p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+      };
+
+      // Fallback in case the browser does not fire the load event
+      // after document.write().
+      window.setTimeout(() => {
+        if (!printWindow.closed) {
+          printWindow.focus();
+          printWindow.print();
+        }
+      }, 750);
+
+      setSuccess(
+        `${contractType === 'rental' ? 'Rental' : 'Return'} contract opened for printing.`
+      );
+    } catch (err: any) {
+      console.error('Unable to print rental contract:', err);
+
+      if (!printWindow.closed) {
+        printWindow.close();
+      }
+
+      setError(
+        err?.response?.data?.message ||
+        'Unable to retrieve the signed contract for printing.'
+      );
+    } finally {
+      setPrintingContract(false);
+    }
+  };
+
+  // ==========================================
+  // EDIT COMPLETED RETURN DETAILS
+  // ==========================================
+
+  const handleSaveReturnDetails = async () => {
+    if (!editReturnDate) {
+      setError('Please select the actual return date.');
+      return;
+    }
+
+    if (editReturnDate > today()) {
+      setError('The return date cannot be in the future.');
+      return;
+    }
+
+    if (editReturnDate < rental.rental_date.slice(0, 10)) {
+      setError('The return date cannot be before the original rental date.');
+      return;
+    }
+
+    if (editReturnNotes.length > 5000) {
+      setError('Return notes cannot exceed 5,000 characters.');
+      return;
+    }
+
+    try {
+      setSavingReturnDetails(true);
+      setError('');
+      setSuccess('');
+
+      await updateCatTrapRentalReturnDetails(rental.id, {
+        returnDate: editReturnDate,
+        depositReturned: editDepositReturned,
+        returnNotes: editReturnNotes.trim()
+      });
+
+      setEditingReturn(false);
+
+      setSuccess('Return details updated successfully.');
+
+      await onUpdated();
+    } catch (err: any) {
+      console.error('Unable to update return details:', err);
+
+      setError(
+        err?.response?.data?.message ||
+        'Unable to update the return details.'
+      );
+    } finally {
+      setSavingReturnDetails(false);
+    }
+  };
+
+  const handleCancelReturnEdit = () => {
+    setEditReturnDate(rental.return_date?.slice(0, 10) || today());
+    setEditDepositReturned(Boolean(rental.deposit_returned));
+    setEditReturnNotes(rental.return_notes || '');
+    setEditingReturn(false);
+    setError('');
   };
 
   // ==========================================
@@ -438,19 +726,19 @@ ${returnNotes.trim() ? `Return notes: ${returnNotes.trim()}` : ''}`;
             <Col md={6}>
               <div className="text-muted small">Deposit Refunded</div>
               <div>
-                {rental.status === 'returned'
-                  ? rental.deposit_returned
+                {isReturned
+                  ? editDepositReturned
                     ? <Badge bg="success">Yes</Badge>
                     : <Badge bg="secondary">No</Badge>
                   : 'Not yet recorded'}
               </div>
             </Col>
 
-            {rental.status === 'returned' && (
+            {isReturned && (
               <>
                 <Col md={6}>
                   <div className="text-muted small">Actual Return Date</div>
-                  <div>{formatDate(rental.return_date)}</div>
+                  <div>{formatDate(editReturnDate)}</div>
                 </Col>
 
                 <Col md={6}>
@@ -471,6 +759,43 @@ ${returnNotes.trim() ? `Return notes: ${returnNotes.trim()}` : ''}`;
               <div>{rental.notes}</div>
             </div>
           )}
+
+          {/* PRINT CONTRACTS */}
+          {(isActive || isReturned) && (
+            <div className="mt-3 pt-3 border-top">
+              <div className="d-flex flex-wrap gap-2">
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={() => handlePrintContract('rental')}
+                  disabled={printingContract}
+                >
+                  {printingContract ? (
+                    <Spinner size="sm" className="me-2" />
+                  ) : (
+                    <FaPrint className="me-2" />
+                  )}
+                  Print Rental Contract
+                </Button>
+
+                {isReturned && (
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={() => handlePrintContract('returned')}
+                    disabled={printingContract}
+                  >
+                    {printingContract ? (
+                      <Spinner size="sm" className="me-2" />
+                    ) : (
+                      <FaPrint className="me-2" />
+                    )}
+                    Print Return Contract
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* EXTEND DUE DATE */}
@@ -483,44 +808,47 @@ ${returnNotes.trim() ? `Return notes: ${returnNotes.trim()}` : ''}`;
 
             <div className="border rounded p-3 mb-4">
               <p className="text-muted small mb-3">
-                Current due date: <strong>{formatDate(rental.expected_return_date)}</strong>
+                Current due date:{' '}
+                <strong>
+                  {formatDate(rental.expected_return_date)}
+                </strong>
               </p>
 
               <Row className="align-items-end g-2">
                 <Col sm={8}>
-                    <Form.Group>
+                  <Form.Group>
                     <Form.Label>Expected Return Date</Form.Label>
                     <Form.Control
-                        type="date"
-                        value={expectedReturnDate}
-                        disabled={savingDueDate}
-                        onChange={(e) => {
+                      type="date"
+                      value={expectedReturnDate}
+                      disabled={savingDueDate}
+                      onChange={(e) => {
                         const newDate = e.target.value;
                         setExpectedReturnDate(newDate);
                         handleExtendDueDate(newDate);
-                        }}
+                      }}
                     />
-                    </Form.Group>
+                  </Form.Group>
                 </Col>
 
                 <Col sm={4}>
-                    {savingDueDate ? (
+                  {savingDueDate ? (
                     <div className="text-primary small pb-2">
-                        <Spinner size="sm" className="me-2" />
-                        Saving date...
+                      <Spinner size="sm" className="me-2" />
+                      Saving date...
                     </div>
-                    ) : success ? (
+                  ) : success ? (
                     <div className="text-success small pb-2">
-                        <FaCheckCircle className="me-2" />
-                        Saved
+                      <FaCheckCircle className="me-2" />
+                      Saved
                     </div>
-                    ) : (
+                  ) : (
                     <div className="text-muted small pb-2">
-                        Changes save automatically
+                      Changes save automatically
                     </div>
-                    )}
+                  )}
                 </Col>
-                </Row>
+              </Row>
             </div>
 
             {/* PROCESS RETURN */}
@@ -636,12 +964,142 @@ ${returnNotes.trim() ? `Return notes: ${returnNotes.trim()}` : ''}`;
         )}
 
         {/* RETURNED */}
-        {rental.status === 'returned' && (
-          <Alert variant="success" className="mb-0">
-            <FaCheckCircle className="me-2" />
-            This rental has been returned and its return signing process
-            is complete.
-          </Alert>
+        {isReturned && (
+          <>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="fw-bold mb-0">Return Details</h5>
+
+              {!editingReturn && (
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={() => {
+                    setEditingReturn(true);
+                    setError('');
+                    setSuccess('');
+                  }}
+                >
+                  <FaEdit className="me-2" />
+                  Edit Return Details
+                </Button>
+              )}
+            </div>
+
+            <div className="border rounded p-3 mb-3">
+              {editingReturn ? (
+                <>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Actual Return Date</Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={editReturnDate}
+                      min={rental.rental_date.slice(0, 10)}
+                      max={today()}
+                      disabled={savingReturnDetails}
+                      onChange={(e) => setEditReturnDate(e.target.value)}
+                    />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Check
+                      type="checkbox"
+                      label="Deposit has been refunded to the renter"
+                      checked={editDepositReturned}
+                      disabled={savingReturnDetails}
+                      onChange={(e) =>
+                        setEditDepositReturned(e.target.checked)
+                      }
+                    />
+                    <Form.Text className="text-muted">
+                      This only updates the refund record. It does not
+                      process a payment.
+                    </Form.Text>
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>Return Notes</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={3}
+                      maxLength={5000}
+                      value={editReturnNotes}
+                      disabled={savingReturnDetails}
+                      onChange={(e) => setEditReturnNotes(e.target.value)}
+                      placeholder="Notes about the returned traps..."
+                    />
+                    <Form.Text className="text-muted">
+                      {editReturnNotes.length}/5000 characters
+                    </Form.Text>
+                  </Form.Group>
+
+                  <div className="d-flex justify-content-end gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={handleCancelReturnEdit}
+                      disabled={savingReturnDetails}
+                    >
+                      Cancel
+                    </Button>
+
+                    <Button
+                      variant="primary"
+                      onClick={handleSaveReturnDetails}
+                      disabled={savingReturnDetails}
+                    >
+                      {savingReturnDetails ? (
+                        <>
+                          <Spinner size="sm" className="me-2" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <FaCheckCircle className="me-2" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Row className="g-3">
+                    <Col md={6}>
+                      <div className="text-muted small">Actual Return Date</div>
+                      <div className="fw-semibold">
+                        {formatDate(editReturnDate)}
+                      </div>
+                    </Col>
+
+                    <Col md={6}>
+                      <div className="text-muted small">Deposit Refunded</div>
+                      <div>
+                        {editDepositReturned
+                          ? <Badge bg="success">Yes</Badge>
+                          : <Badge bg="secondary">No</Badge>}
+                      </div>
+                    </Col>
+                  </Row>
+
+                  {editReturnNotes && (
+                    <div className="mt-3 pt-3 border-top">
+                      <div className="text-muted small">Return Notes</div>
+                      <div style={{ whiteSpace: 'pre-wrap' }}>
+                        {editReturnNotes}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {!editingReturn && (
+              <Alert variant="success" className="mb-0">
+                <FaCheckCircle className="me-2" />
+                This rental has been returned and its return signing process
+                is complete.
+              </Alert>
+            )}
+          </>
         )}
 
         {/* CANCELLED */}
