@@ -6,7 +6,6 @@ import {
   Form,
   Table
 } from 'react-bootstrap';
-import { FaSearch } from 'react-icons/fa';
 
 import type { ShelterAnimal } from '../shelterOperations.types';
 
