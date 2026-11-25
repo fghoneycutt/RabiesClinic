@@ -25,6 +25,14 @@ type ModuleDefinition = {
 
 const availableModules: ModuleDefinition[] = [
   {
+    key: 'shelter_operations',
+    title: 'Shelter Operations',
+    description: 'Manage animal intake, animal records, people, shelter housing, and daily shelter operations.',
+    path: '/shelter-operations',
+    button: 'Open Shelter Operations',
+    icon: 'bi bi-hospital'
+  },
+  {
     key: 'rabies_clinics',
     title: 'Rabies Clinics',
     description: 'Manage rabies clinics, vaccinations, and certificates.',

@@ -1,6 +1,7 @@
 
 const pool = require('../db');
 
+
 // -----------------------------
 // CREATE ANIMAL (LEGACY / MODAL FLOW)
 // -----------------------------
@@ -32,13 +33,14 @@ exports.createAnimal = async (req, res) => {
       approximate_weight,
       microchip_number,
       microchip_issuer,
-      rabies_tag_number
+      rabies_tag_number,
+      location
     } = req.body;
 
     // Verify that the owner belongs to this organization.
     const ownerResult = await pool.query(
       `
-        SELECT id
+        SELECT id, first_name, last_name
         FROM owners
         WHERE id = $1
           AND organization_id = $2
@@ -52,6 +54,15 @@ exports.createAnimal = async (req, res) => {
         message: 'Owner not found.'
       });
     }
+
+    const owner = ownerResult.rows[0];
+
+    // Use supplied location or default to the owner's name.
+    const animalLocation =
+      location?.trim() ||
+      `Caretaker: ${[owner.first_name, owner.last_name]
+        .filter(Boolean)
+        .join(' ') || 'Unknown'}`;
 
     // Verify clinic belongs to this organization, if supplied.
     if (clinic_id) {
@@ -93,11 +104,12 @@ exports.createAnimal = async (req, res) => {
           approximate_weight,
           microchip_number,
           microchip_issuer,
-          rabies_tag_number
+          rabies_tag_number,
+          location
         )
         VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,$9,
-          $10,$11,$12,$13,$14,$15,$16,$17,$18
+          $10,$11,$12,$13,$14,$15,$16,$17,$18,$19
         )
         RETURNING *
       `,
@@ -119,7 +131,8 @@ exports.createAnimal = async (req, res) => {
         approximate_weight ?? null,
         microchip_number || null,
         microchip_issuer || null,
-        rabies_tag_number || null
+        rabies_tag_number || null,
+        animalLocation
       ]
     );
 
@@ -139,7 +152,7 @@ exports.createAnimal = async (req, res) => {
 };
 
 // -----------------------------
-// GET ANIMALS BY OWNER
+// GET ANIMALS (ALL OR BY OWNER)
 // -----------------------------
 exports.getAnimalsByOwner = async (req, res) => {
   try {
@@ -153,40 +166,54 @@ exports.getAnimalsByOwner = async (req, res) => {
       });
     }
 
-    if (!owner_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Owner ID is required.'
+    // If an owner_id was supplied, preserve the existing
+    // owner-specific behavior.
+    if (owner_id) {
+      const ownerResult = await pool.query(
+        `
+          SELECT id
+          FROM owners
+          WHERE id = $1
+            AND organization_id = $2
+        `,
+        [owner_id, organizationId]
+      );
+
+      if (ownerResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Owner not found.'
+        });
+      }
+
+      const result = await pool.query(
+        `
+          SELECT *
+          FROM animals
+          WHERE owner_id = $1
+            AND organization_id = $2
+          ORDER BY created_at DESC
+        `,
+        [owner_id, organizationId]
+      );
+
+      return res.json({
+        success: true,
+        animals: result.rows
       });
     }
 
-    // Verify owner belongs to the active organization.
-    const ownerResult = await pool.query(
-      `
-        SELECT id
-        FROM owners
-        WHERE id = $1
-          AND organization_id = $2
-      `,
-      [owner_id, organizationId]
-    );
-
-    if (ownerResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Owner not found.'
-      });
-    }
-
+    // No owner_id: return every animal belonging to
+    // the active organization, including animals with
+    // no associated owner.
     const result = await pool.query(
       `
         SELECT *
         FROM animals
-        WHERE owner_id = $1
-          AND organization_id = $2
+        WHERE organization_id = $1
         ORDER BY created_at DESC
       `,
-      [owner_id, organizationId]
+      [organizationId]
     );
 
     return res.json({
@@ -195,7 +222,7 @@ exports.getAnimalsByOwner = async (req, res) => {
     });
 
   } catch (err) {
-    console.error('GET ANIMALS BY OWNER ERROR:', err);
+    console.error('GET ANIMALS ERROR:', err);
 
     return res.status(500).json({
       success: false,

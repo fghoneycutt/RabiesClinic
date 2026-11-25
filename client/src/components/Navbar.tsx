@@ -52,6 +52,12 @@ export default function AppNavbar() {
 
   const navItems = [
     {
+      label: 'Shelter Operations',
+      path: '/shelter-operations',
+      moduleKey: 'shelter_operations',
+      icon: 'bi bi-hospital'
+    },
+    {
       label: 'Rabies Clinics',
       path: '/clinic-list',
       moduleKey: 'rabies_clinics',

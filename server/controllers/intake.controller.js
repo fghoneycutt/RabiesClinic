@@ -1,6 +1,10 @@
 
 const pool = require('../db');
 
+
+// -----------------------------
+// CREATE INTAKE
+// -----------------------------
 exports.createIntake = async (req, res) => {
   const organizationId = req.organizationId;
 
@@ -63,6 +67,7 @@ exports.createIntake = async (req, res) => {
     }
 
     let finalOwnerId = owner_id || null;
+    let finalOwner = null;
 
     // ------------------------
     // VERIFY EXISTING OWNER
@@ -70,7 +75,7 @@ exports.createIntake = async (req, res) => {
     if (finalOwnerId) {
       const ownerResult = await client.query(
         `
-          SELECT id
+          SELECT id, first_name, last_name
           FROM owners
           WHERE id = $1
             AND organization_id = $2
@@ -87,6 +92,8 @@ exports.createIntake = async (req, res) => {
           message: 'Owner not found.'
         });
       }
+
+      finalOwner = ownerResult.rows[0];
     }
 
     // ------------------------
@@ -135,7 +142,7 @@ exports.createIntake = async (req, res) => {
       if (conditions.length > 0) {
         existingOwner = await client.query(
           `
-            SELECT id
+            SELECT id, first_name, last_name
             FROM owners
             WHERE organization_id = $3
               AND LOWER(first_name) = LOWER($1)
@@ -150,7 +157,8 @@ exports.createIntake = async (req, res) => {
       }
 
       if (existingOwner.rows.length > 0) {
-        finalOwnerId = existingOwner.rows[0].id;
+        finalOwner = existingOwner.rows[0];
+        finalOwnerId = finalOwner.id;
       } else {
         const ownerResult = await client.query(
           `
@@ -171,7 +179,7 @@ exports.createIntake = async (req, res) => {
               $1,$2,$3,$4,$5,$6,
               $7,$8,$9,$10,$11
             )
-            RETURNING id
+            RETURNING id, first_name, last_name
           `,
           [
             organizationId,
@@ -188,9 +196,20 @@ exports.createIntake = async (req, res) => {
           ]
         );
 
-        finalOwnerId = ownerResult.rows[0].id;
+        finalOwner = ownerResult.rows[0];
+        finalOwnerId = finalOwner.id;
       }
     }
+
+    // ------------------------
+    // DETERMINE DEFAULT LOCATION
+    // ------------------------
+    const caretakerName = [
+      finalOwner.first_name,
+      finalOwner.last_name
+    ].filter(Boolean).join(' ') || 'Unknown';
+
+    const defaultLocation = `Caretaker: ${caretakerName}`;
 
     // ------------------------------------------------------------
     // FETCH ALL HISTORICAL ANIMALS FOR THIS OWNER
@@ -228,6 +247,7 @@ exports.createIntake = async (req, res) => {
       if (matchedAnimal) {
         // ------------------------
         // UPDATE EXISTING ANIMAL
+        // Preserve its existing status and location.
         // ------------------------
         await client.query(
           `
@@ -312,12 +332,16 @@ exports.createIntake = async (req, res) => {
               pattern,
 
               microchip_number,
-              microchip_issuer
+              microchip_issuer,
+
+              status,
+              location
             )
             VALUES (
               $1,$2,$3,$4,$5,$6,
               $7,$8,$9,$10,$11,$12,
-              $13,$14,$15,$16,$17
+              $13,$14,$15,$16,$17,
+              $18,$19
             )
           `,
           [
@@ -344,7 +368,10 @@ exports.createIntake = async (req, res) => {
             clean(animal.pattern),
 
             clean(animal.microchip_number),
-            clean(animal.microchip_issuer)
+            clean(animal.microchip_issuer),
+
+            'Healthy in Home',
+            defaultLocation
           ]
         );
       }

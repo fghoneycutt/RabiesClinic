@@ -53,6 +53,9 @@ import CatTrapRentalSettings from './pages/CatTrapRental/CatTrapRentalSettings';
 import SigningSessions from './pages/SigningPages/SigningSessions';
 import SigningStation from './pages/SigningPages/SigningStation';
 
+
+import ShelterOperationsHome from './pages/ShelterOperations/ShelterOperationsHome';
+
 // -----------------------------------
 // APP LAYOUT
 // -----------------------------------
@@ -196,6 +199,12 @@ function AppLayout() {
             <Route
               path="/lobby-slides"
               element={<LobbySlides />}
+            />
+
+            {/* Shelter Management System*/}
+            <Route
+              path="/shelter-operations"
+              element={<ShelterOperationsHome />}
             />
 
             {/* Cat Trap Rentals */}

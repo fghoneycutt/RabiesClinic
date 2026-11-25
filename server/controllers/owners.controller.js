@@ -271,6 +271,7 @@ exports.getOwnerById = async (req, res) => {
   }
 };
 
+
 // -----------------------------
 // SEARCH OWNERS + ANIMALS
 // -----------------------------
@@ -286,13 +287,49 @@ exports.searchOwners = async (req, res) => {
       });
     }
 
+    // ==========================================
+    // ORGANIZATION-WIDE PEOPLE DIRECTORY
+    // ==========================================
+    // Used by Shelter Operations when no clinicId
+    // is supplied. Includes people without animals.
     if (!clinicId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required clinicId context.'
+      const search = q?.trim()
+        ? `%${q.trim()}%`
+        : null;
+
+      const result = await pool.query(
+        `
+          SELECT *
+          FROM owners
+          WHERE organization_id = $1
+            AND (
+              $2::text IS NULL
+              OR first_name ILIKE $2
+              OR last_name ILIKE $2
+              OR CONCAT(first_name, ' ', last_name) ILIKE $2
+              OR email ILIKE $2
+              OR phone ILIKE $2
+              OR address ILIKE $2
+              OR secondary_address ILIKE $2
+              OR city ILIKE $2
+              OR county ILIKE $2
+              OR state ILIKE $2
+              OR zip_code ILIKE $2
+            )
+          ORDER BY last_name ASC, first_name ASC
+        `,
+        [organizationId, search]
+      );
+
+      return res.json({
+        success: true,
+        owners: result.rows
       });
     }
 
+    // ==========================================
+    // EXISTING RABIES CLINIC SEARCH
+    // ==========================================
     const search = `%${q || ''}%`;
 
     const result = await pool.query(
@@ -431,6 +468,7 @@ exports.searchOwners = async (req, res) => {
     });
   }
 };
+
 
 // -----------------------------
 // DELETE OWNER
