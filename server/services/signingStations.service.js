@@ -100,7 +100,7 @@ async function createStation(organizationId, userId, name) {
         updated_at,
         FALSE AS is_paired
     `,
-    [organizationId, userId || null, stationName]
+    [organizationId, stationName, userId || null]
   );
 
   return result.rows[0];

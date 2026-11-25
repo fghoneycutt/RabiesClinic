@@ -85,7 +85,6 @@ const formatStatus = (status: string) =>
 
 const formatDate = (value: string | null) => {
   if (!value) return '—';
-
   return new Date(value).toLocaleString();
 };
 
@@ -111,6 +110,7 @@ const SigningSessions = () => {
   // Pairing code modal
   const [pairingCode, setPairingCode] = useState('');
   const [pairingStationName, setPairingStationName] = useState('');
+  const [pairingExpiresAt, setPairingExpiresAt] = useState<string | null>(null);
   const [showPairingModal, setShowPairingModal] = useState(false);
 
   // Create session modal
@@ -137,7 +137,14 @@ const SigningSessions = () => {
         })
       ]);
 
-      setStations(stationResponse.data.stations || []);
+      // GET /signing-stations returns the station array directly.
+      setStations(
+        Array.isArray(stationResponse.data)
+          ? stationResponse.data
+          : []
+      );
+
+      // Signing sessions endpoint returns { sessions: [...] }.
       setSessions(sessionResponse.data.sessions || []);
     } catch (err: any) {
       console.error('Unable to load signing data:', err);
@@ -167,28 +174,30 @@ const SigningSessions = () => {
     try {
       setSaving(true);
       setError('');
+      setSuccess('');
 
       const response = await api.post('/signing-stations', {
         name: stationName.trim()
       });
 
+      // POST /signing-stations returns the station directly.
+      const newStation: SigningStation = response.data;
+
       setStations(previous => [
-        response.data.station,
-        ...previous
+        newStation,
+        ...previous.filter(station => station.id !== newStation.id)
       ]);
 
       setStationName('');
       setShowStationModal(false);
 
-      if (response.data.pairingCode) {
-        setPairingCode(response.data.pairingCode);
-        setPairingStationName(stationName.trim());
-        setShowPairingModal(true);
-      }
+      setSuccess(
+        'Signing station created. Generate a pairing code to connect the iPad.'
+      );
 
-      setSuccess('Signing station created successfully.');
       await loadData();
     } catch (err: any) {
+      console.error('Unable to create signing station:', err);
       setError(
         err.response?.data?.message ||
         'Unable to create signing station.'
@@ -205,6 +214,7 @@ const SigningSessions = () => {
   const generatePairingCode = async (station: SigningStation) => {
     try {
       setError('');
+      setSuccess('');
       setSaving(true);
 
       const response = await api.post(
@@ -213,10 +223,12 @@ const SigningSessions = () => {
 
       setPairingCode(response.data.pairingCode);
       setPairingStationName(station.name);
+      setPairingExpiresAt(response.data.expiresAt || null);
       setShowPairingModal(true);
 
       await loadData();
     } catch (err: any) {
+      console.error('Unable to generate pairing code:', err);
       setError(
         err.response?.data?.message ||
         'Unable to generate a pairing code.'
@@ -279,6 +291,7 @@ const SigningSessions = () => {
       setSuccess('Signing session sent to the selected iPad.');
       await loadData();
     } catch (err: any) {
+      console.error('Unable to create signing session:', err);
       setError(
         err.response?.data?.message ||
         'Unable to create signing session.'
@@ -312,9 +325,7 @@ const SigningSessions = () => {
       setError('');
       setSaving(true);
 
-      await api.patch(
-        `/signing-sessions/${session.id}/cancel`
-      );
+      await api.patch(`/signing-sessions/${session.id}/cancel`);
 
       setSuccess('Signing session cancelled.');
       await loadData();
@@ -334,6 +345,10 @@ const SigningSessions = () => {
 
   const activeStations = stations.filter(
     station => station.is_active
+  );
+
+  const pairedStations = activeStations.filter(
+    station => station.is_paired
   );
 
   const activeSessions = sessions.filter(session =>
@@ -369,7 +384,7 @@ const SigningSessions = () => {
           <Button
             variant="primary"
             onClick={() => setShowSessionModal(true)}
-            disabled={activeStations.length === 0}
+            disabled={pairedStations.length === 0}
           >
             <FaPlus className="me-2" />
             New Signing Session
@@ -647,6 +662,7 @@ const SigningSessions = () => {
           <Button
             variant="secondary"
             onClick={() => setShowStationModal(false)}
+            disabled={saving}
           >
             Cancel
           </Button>
@@ -684,8 +700,14 @@ const SigningSessions = () => {
             {pairingStationName}
           </div>
 
+          {pairingExpiresAt && (
+            <p className="small text-muted">
+              Expires: {formatDate(pairingExpiresAt)}
+            </p>
+          )}
+
           <Alert variant="warning">
-            This code is temporary and can only be used once.
+            This code expires after 10 minutes and can only be used once.
             Keep it private.
           </Alert>
 
@@ -726,13 +748,11 @@ const SigningSessions = () => {
                 onChange={event => setStationId(event.target.value)}
               >
                 <option value="">Select an iPad</option>
-                {activeStations
-                  .filter(station => station.is_paired)
-                  .map(station => (
-                    <option key={station.id} value={station.id}>
-                      {station.name}
-                    </option>
-                  ))}
+                {pairedStations.map(station => (
+                  <option key={station.id} value={station.id}>
+                    {station.name}
+                  </option>
+                ))}
               </Form.Select>
             </Form.Group>
 
@@ -811,6 +831,7 @@ const SigningSessions = () => {
               setShowSessionModal(false);
               resetSessionForm();
             }}
+            disabled={saving}
           >
             Cancel
           </Button>
